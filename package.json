@@ -7,7 +7,9 @@
     "build": "turbo run build",
     "db:generate": "turbo run db:generate",
     "db:migrate": "turbo run db:migrate",
+    "db:start": "powershell -ExecutionPolicy Bypass -File ./scripts/start-db.ps1",
     "db:seed": "turbo run db:seed",
+    "demo:reset": "powershell -Command \"Invoke-RestMethod -Uri http://localhost:4000/api/v1/demo/reset -Method Post | ConvertTo-Json -Depth 4\"",
     "db:studio": "turbo run db:studio",
     "docker:up": "docker compose up -d",
     "docker:down": "docker compose down",
@@ -15,11 +17,15 @@
     "typecheck": "turbo run typecheck"
   },
   "devDependencies": {
+    "prisma": "^5.20.0",
     "turbo": "^2.0.0",
     "typescript": "^5.4.0"
   },
   "packageManager": "pnpm@9.0.0",
   "engines": {
     "node": ">=20.0.0"
+  },
+  "dependencies": {
+    "socket.io": "^4.8.4"
   }
 }

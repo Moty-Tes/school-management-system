@@ -1,0 +1,1 @@
+export const getTransport = (req, res) => res.json({ message: "Transport API working" });
