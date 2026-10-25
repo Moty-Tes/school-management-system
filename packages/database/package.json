@@ -20,12 +20,12 @@
     "seed": "tsx prisma/seed.ts"
   },
   "dependencies": {
-    "@prisma/client": "^5.20.0",
+    "@prisma/client": "8.0.0-rc.20",
     "bcryptjs": "^2.4.3"
   },
   "devDependencies": {
     "@types/bcryptjs": "^2.4.6",
-    "prisma": "^5.20.0",
+    "prisma": "8.0.0-rc.20",
     "tsx": "^4.19.0",
     "typescript": "^5.4.0"
   }
