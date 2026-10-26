@@ -13,10 +13,9 @@
     "noUncheckedIndexedAccess": true,
     "noImplicitOverride": true,
     "useUnknownInCatchVariables": true,
-    "declaration": true,
-    "declarationMap": true,
-    "sourceMap": true,
-    "allowImportingTsExtensions": true
+    "declaration": false,
+    "declarationMap": false,
+    "sourceMap": true
   },
   "exclude": ["node_modules", "dist", "build", ".next", ".turbo"]
 }
