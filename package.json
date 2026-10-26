@@ -17,7 +17,7 @@
     "typecheck": "turbo run typecheck"
   },
   "devDependencies": {
-    "prisma": "8.0.0-rc.20",
+    "prisma": "^5.20.0",
     "turbo": "^2.0.0",
     "typescript": "^5.4.0"
   },

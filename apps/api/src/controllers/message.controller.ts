@@ -1,3 +1,4 @@
+import { prisma } from '../lib/prisma.js';
 import { Request, Response, NextFunction } from 'express';
 import * as messageService from '../services/message.service.js';
 import { z } from 'zod';
