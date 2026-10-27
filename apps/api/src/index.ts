@@ -129,6 +129,7 @@ app.use(errorHandler);
 // Start Server
 startAutomations();
 
-httpServer.listen(env.API_PORT, () => {
-  console.log(`🚀 API & WebSockets running on http://localhost:${env.API_PORT}`);
+const PORT = process.env.PORT || env.API_PORT;
+httpServer.listen(PORT, () => {
+  console.log(`🚀 API & WebSockets running on port ${PORT}`);
 });
