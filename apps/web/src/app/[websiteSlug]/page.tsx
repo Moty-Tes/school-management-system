@@ -87,7 +87,7 @@ export default function PublicSchoolWebsite() {
       {/* Contact Section */}
       <section id="contact" className="py-24 px-6">
         <div className="max-w-4xl mx-auto text-center">
-          <h2 className="text-3xl font-bold text-slate-900 mb-10">Get in Touch</div>
+          <h2 className="text-3xl font-bold text-slate-900 mb-10">Get in Touch</h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             <div className="bg-white p-6 rounded-2xl border shadow-sm">
               <p className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-2">Email</p>

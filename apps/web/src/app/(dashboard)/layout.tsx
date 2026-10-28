@@ -167,7 +167,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 {hasModule('fundraising') && (isAdmin || isTeacher) && <NavLink href="/fundraising" current={pathname}>Fundraising</NavLink>}
                {hasModule('analytics') && (isAdmin || isTeacher) && <NavLink href="/analytics" current={pathname}>Analytics</NavLink>}
                 {hasModule('diary') && (isAdmin || isTeacher) && <NavLink href="/diary" current={pathname}>Diary</NavLink>}
-                {hasModule('exam') && (isAdmin) && <NavLink href="/exams" current={pathname}>Exams</NavLink>
+                {hasModule('exam') && (isAdmin) && <NavLink href="/exams" current={pathname}>Exams</NavLink>}
                 {(isAdmin || isTeacher) && <NavLink href="/forms" current={pathname}>Form Builder</NavLink>}
                 {isParent && <NavLink href="/parent-forms" current={pathname}>Action Required</NavLink>}
                 {hasModule('certificates') && (isAdmin || isTeacher) && <NavLink href="/certificates" current={pathname}>Certificates</NavLink>}
