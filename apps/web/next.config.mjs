@@ -1,4 +1,6 @@
 /** @type {import('next').NextConfig} */
+const path = require('path');
+/** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
   typescript: {
@@ -12,6 +14,10 @@ const nextConfig = {
         destination: `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'}/api/:path*`,
       },
     ];
+  },
+  webpack: (config) => {
+    config.resolve.alias['@'] = path.resolve(__dirname, './src');
+    return config;
   },
 };
 
