@@ -11,12 +11,15 @@
   "dependencies": {
     "@babel/core": "^7.29.7",
     "@babel/runtime": "^7.29.10",
+    "framer-motion": "^14.8.0",
+    "lucide-react": "^1.65.0",
     "next": "^14.2.15",
     "papaparse": "^5.7.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "recharts": "^3.10.1",
-    "socket.io-client": "^4.8.4"
+    "socket.io-client": "^4.8.4",
+    "sonner": "^2.0.8"
   },
   "devDependencies": {
     "@types/node": "^20.14.0",
