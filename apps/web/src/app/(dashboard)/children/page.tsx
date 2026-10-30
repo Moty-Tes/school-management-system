@@ -152,9 +152,8 @@ export default function ParentPortal() {
             <Loader2 className="w-12 h-12 mx-auto mb-4 opacity-50 animate-spin" />
             <p className="text-slate-500 text-lg">No students linked to your account.</p>
           </motion.div>
-        )}
-
-        {children.length > 0 && (
+        ) : (
+          children.length > 0 && (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
             {/* LEFT COLUMN: Profile, Wallet, Invoices */}

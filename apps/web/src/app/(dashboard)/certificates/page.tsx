@@ -8,7 +8,7 @@ import { useToast } from '@/components/ui/use-toast';
 
 export default function CertificatesPage() {
   const [classes, setClasses] = useState<any[]>([]);
-  const [selectedClass, setSelectedClass] = useState<'');
+  const [selectedClass, setSelectedClass] = useState<''>('');
   const [certTitle, setCertTitle] = useState('Certificate of Completion');
   const [certDesc, setCertDesc] = useState('For successfully completing the academic term.');
   const [isGenerating, setIsGenerating] = useState(false);

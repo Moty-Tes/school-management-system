@@ -555,7 +555,7 @@ export default function CBTPage() {
                         </div>
                       ))}
                     </div>
-                  </div>
+                  </motion.div>
                 ))}
 
                 <motion.div className="flex justify-end gap-3 pt-6 border-t">

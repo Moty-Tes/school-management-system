@@ -1,175 +1,214 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useRouter, usePathname } from 'next/navigation';
-import Link from 'next/link';
-import { getMe, logout } from '@/lib/auth';
 import { api } from '@/lib/api';
+import { motion } from 'framer-motion';
+import { CheckCircle, X, Loader2, FolderAdd, Menu, Shield, Users, UserPlus, LogOut, Clock, Flag, Info, Trash2, Edit2, RefreshCw, Target, FlagWarning, Palette, Calendar, Settings as SettingsIcon, BookOpen, Folder, Globe, Layout, Loader, Brain, Activity, BarChart3, Clipboard, Folder as FolderIcon, FolderAdd as FolderAddIcon, Home, Login, LogOut, MapPin, Mic, MonitorOff, Music, Page, PanelRight, Pipe, PlayCircle, Scissors, ShieldCheck, TrendingUp, Wrench } from 'lucide-react';
+import { useToast } from '@/components/ui/use-toast';
 
-export default function DashboardLayout({ children }: { children: React.ReactNode }) {
-  const router = useRouter();
-  const pathname = usePathname();
-  
-  const [authState, setAuthState] = useState<'checking' | 'authenticated' | 'unauthenticated'>('checking');
-  const [roles, setRoles] = useState<string[]>([]);
-  
-  // Branding states
-  const [tenantColor, setTenantColor] = useState('#4f46e5');
-  const [tenantLogo, setTenantLogo] = useState<string | null>(null);
-  const [tenantName, setTenantName] = useState('SMS');
+export default function SettingsPage() {
+  const [systemSettings, setSystemSettings] = useState<any[]>([]);
+  const [role, setRole] = useState<string>('');
+  const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    let mounted = true;
-    
-    // Fetch both user data and tenant branding settings
-    Promise.all([
-      getMe(),
-      api.get<any>('/api/v1/tenant/settings')
-    ]).then(([meData, settingsData]) => {
-      if (mounted) {
-        setAuthState('authenticated');
-        setRoles(meData.roles || []);
-        
-        // Apply dynamic branding
-        if (settingsData.primaryColor) setTenantColor(settingsData.primaryColor);
-        if (settingsData.logoUrl) setTenantLogo(settingsData.logoUrl);
-        if (settingsData.name) setTenantName(settingsData.name);
+  const { toast } = useToast();
+
+  async function loadData() {
+    try {
+      const meData: any = await getMe();
+      const isAdmin = meData.roles?.includes('TENANT_ADMIN') || meData.roles?.includes('SUPER_ADMIN');
+      setRole(isAdmin ? 'ADMIN' : 'TEACHER');
+
+      try {
+        if (isAdmin) {
+          const data = await api.get<any[]>('/api/v1/settings');
+          setSystemSettings(data);
+        } else {
+          const data = await api.get<any[]>('/api/v1/settings/me');
+          setSystemSettings(data);
+        }
+      } catch (err) {
+        toast({
+          title: 'Error',
+          description: 'Failed to load settings data.',
+          variant: 'destructive',
+        });
       }
-    }).catch(() => {
-      if (!mounted) return;
-      setAuthState('unauthenticated');
-      router.replace('/login');
-    });
-    
-    return () => { mounted = false; };
-  }, [router]);
-
-  async function handleLogout() {
-    try {
-      await logout();
-    } catch {
-      // Ignore errors
-    }
-    router.replace('/login');
-  }
-
-  async function handleResetDemo() {
-    if (!window.confirm("Are you sure you want to reset the demo data? This will restore all original demo users.")) return;
-    try {
-      await api.post('/api/v1/demo/reset');
-      alert('Demo has been reset!');
-      window.location.reload(); 
+      setLoading(false);
     } catch (err) {
-      alert('Failed to reset demo data');
+      setLoading(false);
     }
   }
 
-  if (authState === 'checking') {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50">
-        <div className="w-8 h-8 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin" />
-      </div>
-    );
-  }
-
-  if (authState === 'unauthenticated') {
-    return null;
-  }
-
-  // Role checks for navigation
-  const isAdmin = roles.includes('TENANT_ADMIN') || roles.includes('SUPER_ADMIN');
-  const isTeacher = roles.includes('TEACHER');
-  const isParent = roles.includes('PARENT');
+  useEffect(() => { loadData(); }, []);
 
   return (
-    <div className="min-h-screen bg-slate-50">
-      {/* Dynamic CSS for Tenant Branding */}
-      <style>{`
-        .bg-brand { background-color: ${tenantColor}; }
-        .text-brand { color: ${tenantColor}; }
-        .border-brand { border-color: ${tenantColor}; }
-      `}</style>
-
-      <header className="bg-white border-b border-slate-200 sticky top-0 z-10">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
-            
-            {/* Left Side: Logo & Nav Links */}
-            <div className="flex items-center gap-8">
-              <Link href="/dashboard" className="flex items-center gap-2">
-                {tenantLogo ? (
-                  <img src={tenantLogo} alt="Logo" className="w-8 h-8 object-contain rounded" />
-                ) : (
-                  <div className="w-8 h-8 rounded-lg bg-brand text-white flex items-center justify-center font-bold text-sm">
-                    {tenantName.charAt(0)}
-                  </div>
-                )}
-                <span className="font-semibold text-slate-900 hidden sm:block">{tenantName}</span>
-              </Link>
-              
-              <nav className="hidden md:flex items-center gap-1">
-                <NavLink href="/dashboard" current={pathname}>Dashboard</NavLink>
-                
-                {/* Admin & Teachers see Students */}
-                {(isAdmin || isTeacher) && (
-                  <NavLink href="/students" current={pathname}>Students</NavLink>
-                )}
-
-                {/* Admin sees Teachers, Classes, Finance */}
-                {isAdmin && <NavLink href="/teachers" current={pathname}>Teachers</NavLink>}
-                {(isAdmin || isTeacher) && <NavLink href="/classes" current={pathname}>Classes</NavLink>}
-                {(isAdmin || isTeacher) && <NavLink href="/attendance" current={pathname}>Attendance</NavLink>}
-                {(isAdmin || isTeacher) && <NavLink href="/assessments" current={pathname}>Assessments</NavLink>}
-                {isAdmin && <NavLink href="/finance" current={pathname}>Finance</NavLink>}
-                {isAdmin && <NavLink href="/settings" current={pathname}>Settings</NavLink>}
-                
-                {/* Parents see My Children */}
-                {isParent && <NavLink href="/my-children" current={pathname}>My Children</NavLink>}
-
-                {/* Everyone sees Announcements */}
-                <NavLink href="/announcements" current={pathname}>Announcements</NavLink>
-              </nav>
-            </div>
-
-            {/* Right Side: Action Buttons */}
-            <div className="flex items-center gap-4">
-              <button
-                onClick={handleResetDemo}
-                className="text-xs font-medium text-amber-600 hover:text-amber-800 bg-amber-50 hover:bg-amber-100 px-3 py-1.5 rounded-md transition-colors hidden sm:block"
-                title="Restore demo students to their default state"
-              >
-                Reset Demo
-              </button>
-              <button
-                onClick={handleLogout}
-                className="text-sm text-slate-600 hover:text-slate-900 font-medium"
-              >
-                Sign out
-              </button>
-            </div>
-            
+    <motion.div className="min-h-screen bg-slate-50">
+      {/* Header */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ type: "spring", stiffness: 300, delay: 0.1 }}
+        className="bg-white border-b border-slate-200 px-6 py-4 shadow-sm"
+      >
+        <div className="flex justify-between items-center">
+          <div>
+            <h1 className="text-2xl font-bold text-slate-900 tracking-tighter">
+              <SettingsIcon className="w-5 h-5 text-emerald-600 mr-2" /> System Settings
+            </h1>
+            <p className="text-slate-500 text-sm mt-1">
+              {role === 'ADMIN' ? 'Configure system-wide settings' : 'View your personal settings'}
+            </p>
           </div>
+
+          {role === 'ADMIN' && (
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              transition={{ type: "spring" }}
+              className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2 rounded-lg text-sm font-medium transition-all duration-300 shadow-lg shadow-indigo-500/20 hover:shadow-indigo-500/40 flex items-center gap-2"
+            >
+              <Loader2 className="w-4 h-4" /> Update Settings
+            </motion.button>
+          )}
         </div>
-      </header>
+      </motion.div>
 
-      {/* Page Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {children}
-      </main>
-    </div>
-  );
-}
+      {/* Main Content */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ type: "spring", stiffness: 300, delay: 0.15 }}
+        className="px-6 py-8 lg:px-12"
+      >
+        {/* Settings Cards Grid */}
+        <motion.div
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ type: "spring", stiffness: 300, delay: 0.1 }}
+          className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12"
+        >
+          {systemSettings.map((setting) => (
+            <motion.div
+              key={setting.id}
+              initial={{ scale: 0, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              transition={{ type: "spring", stiffness: 400, damping: 30 }}
+              className="bg-white rounded-3xl border border-slate-200 p-6 shadow-3xl shadow-slate-50/30 transform transition-all duration-500 hover:shadow-4xl hover:shadow-slate-50/40 group"
+              style={{ background: 'linear-gradient(135deg, var(--bg), var(--bg-light))' }}
+            >
+              <div className="flex items-start justify-between mb-4">
+                <div>
+                  <h3 className="text-lg font-bold text-slate-900">{setting.title}</h3>
+                  <p className="text-sm text-slate-500">{setting.subtitle}</p>
+                </div>
+                <motion.div
+                  whileHover={{ rotate: 5, scale: 1.1 }}
+                  transition={{ type: "spring" }}
+                  className="p-3 rounded-xl bg-indigo-50/50 backdrop-blur-sm"
+                >
+                  <Info className="w-4 h-4 text-indigo-400" />
+                </div>
+              </div>
 
-function NavLink({ href, current, children }: { href: string; current: string; children: React.ReactNode }) {
-  const isActive = current === href;
-  return (
-    <Link
-      href={href}
-      className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-        isActive ? 'bg-brand text-white' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
-      }`}
-    >
-      {children}
-    </Link>
+              <p className="text-3xl font-bold text-emerald-600">{setting.value}</p>
+              <p className="text-sm text-slate-500">{setting.category}</p>
+            </motion.div>
+          ))}
+        </motion.div>
+
+        {/* Additional Settings Sections */}
+        <motion.div
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ type: "spring", stiffness: 300, delay: 0.1 }}
+          className="bg-white rounded-3xl border border-slate-200 overflow-shadow-3xl shadow-slate-50/30"
+          style={{ background: 'linear-gradient(135deg, var(--bg), var(--bg-light))' }}
+        >
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ type: "spring", stiffness: 300, delay: 0.1 }}
+            className="border-b border-slate-200 px-6 py-4"
+          >
+            <h2 className="text-sm font-medium text-slate-700 uppercase tracking-wider">Account Settings</h2>
+          </motion.div>
+          <motion.div className="px-6 py-4 text-sm text-slate-500">
+            <p>Account configuration options will appear here.</p>
+          </motion.div>
+        </motion.div>
+
+        {/* Security Settings */}
+        <motion.div
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ type: "spring", stiffness: 300, delay: 0.1 }}
+          className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-12"
+        >
+          <motion.div
+            whileHover={{ y: -6, scale: 1.03 }}
+            transition={{ type: "spring", stiffness: 400, damping: 30 }}
+            className="bg-white rounded-3xl border border-slate-200 p-6 shadow-3xl shadow-slate-50/30 transform transition-all duration-500 hover:shadow-4xl hover:shadow-slate-50/40 group"
+            style={{ background: 'linear-gradient(135deg, var(--bg), var(--bg-light))' }}
+          >
+            <div className="p-4 rounded-xl bg-indigo-50/50 backdrop-blur-sm">
+              <Shield className="w-6 h-6 text-indigo-400" />
+              <div>
+                <p className="text-sm font-medium text-slate-800">Security</p>
+                <p className="text-xs text-slate-500">Manage password and login settings</p>
+              </div>
+            </div>
+          </motion.div>
+
+          <motion.div
+            whileHover={{ y: -6, scale: 1.03 }}
+            transition={{ type: "spring", stiffness: 400, damping: 30 }}
+            className="bg-white rounded-3xl border border-slate-200 p-6 shadow-3xl shadow-slate-50/30 transform transition-all duration-500 hover:shadow-4xl hover:shadow-slate-50/40 group"
+            style={{ background: 'linear-gradient(135deg, var(--bg), var(--bg-light))' }}
+          >
+            <div className="p-4 rounded-xl bg-emerald-50/50 backdrop-blur-sm">
+              <Users className="w-6 h-6 text-emerald-400" />
+              <div>
+                <p className="text-sm font-medium text-slate-800">Notifications</p>
+                <p className="text-xs text-slate-500">Configure notification preferences</p>
+              </div>
+            </div>
+          </motion.div>
+        </motion.div>
+
+        {/* Integration Settings */}
+        <motion.div
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ type: "spring", stiffness: 300, delay: 0.1 }}
+          className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6"
+        >
+          {[{ id: 1, title: 'Calendar Integration', icon: 'Calendar' }, { id: 2, title: 'Email Settings', icon: 'Mail' }, { id: 3, title: 'API Access', icon: 'Globe' }, { id: 4, title: 'Webhooks', icon: 'Layout' }].map((item) => (
+            <motion.div
+              key={item.id}
+              whileHover={{ y: -6, scale: 1.03 }}
+              transition={{ type: "spring", stiffness: 400, damping: 30 }}
+              className="bg-white rounded-3xl border border-slate-200 p-6 shadow-3xl shadow-slate-50/30 transform transition-all duration-500 hover:shadow-4xl hover:shadow-slate-50/40 group"
+              style={{ background: 'linear-gradient(135deg, var(--bg), var(--bg-light))' }}
+            >
+              <div className="p-4 rounded-xl bg-indigo-50/50 backdrop-blur-sm">
+                <item.icon === 'Calendar' ? (
+                  <Calendar className="w-6 h-6 text-indigo-400" />
+                ) : item.icon === 'Email' ? (
+                  <Mail className="w-6 h-6 text-indigo-400" />
+                ) : item.icon === 'Globe' ? (
+                  <Globe className="w-6 h-6 text-indigo-400" />
+                ) : (
+                  <Layout className="w-6 h-6 text-indigo-400" />
+                )}
+                <div>
+                  <p className="text-sm font-medium text-slate-800">{item.title}</p>
+                  <p className="text-xs text-slate-500">Configure integration settings</p>
+                </div>
+              </div>
+            </motion.div>
+          ))}
+        </motion.div>
+      </motion.div>
+    </motion.div>
   );
 }
