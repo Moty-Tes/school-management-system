@@ -160,7 +160,7 @@ export default function ClubsPage() {
                 <motion.div className="p-3 rounded-xl bg-indigo-50/50 backdrop-blur-sm">
                   <Users className="w-4 h-4 text-indigo-400" />
                   <p className="text-xs text-indigo-600">{c._count.memberships} enrolled</p>
-                </div>
+                </motion.div>
               </div>
             </motion.div>
           ))}
