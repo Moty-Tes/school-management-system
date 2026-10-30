@@ -13,7 +13,7 @@ export default function ClubsPage() {
   const [selectedClub, setSelectedClub] = useState<any | null>(null);
   const [members, setMembers] = useState<any[]>([]);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
-  const [categories, setCategories] = useState<{'ACADEMIC' | 'SPORTS' | 'ARTS' | 'COMMUNITY'}[]>(['ACADEMIC', 'SPORTS', 'ARTS', 'COMMUNITY']);
+  const [categories, setCategories] = useState<string[]>(['ACADEMIC', 'SPORTS', 'ARTS', 'COMMUNITY']);
 
   const { toast } = useToast();
 
