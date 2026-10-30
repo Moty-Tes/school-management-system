@@ -163,7 +163,7 @@ export default function CertificatesPage() {
                   </div>
                 </div>
               </motion.div>
-            })}
+            ))}
           </div>
 
           {/* Certificate Generation Form */}
@@ -203,9 +203,9 @@ export default function CertificatesPage() {
                     className="w-full px-4 py-3 rounded-xl border border-slate-200 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all"
                     placeholder="Certificate of Completion"
                   />
-                </motion.div>
+                </motion-div>
 
-                <motion.div>
+                <motion-div>
                   <label className="block text-sm font-medium text-slate-700 mb-2">Description</label>
                   <input
                     type="text"
@@ -214,7 +214,7 @@ export default function CertificatesPage() {
                     className="w-full px-4 py-3 rounded-xl border border-slate-200 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all"
                     placeholder="For successfully completing the academic term."
                   />
-                </motion.div>
+                </motion-div>
 
                 <div className="bg-amber-50 border border-amber-200 p-4 rounded-xl mb-6">
                   <p className="text-sm text-amber-800 font-medium">
@@ -243,7 +243,7 @@ export default function CertificatesPage() {
                   </motion.button>
                 </motion.div>
               </form>
-            </motion.div>
+            </motion-div>
           )}
         )}
       </motion.div>

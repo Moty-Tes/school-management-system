@@ -445,7 +445,7 @@ export default function ParentPortal() {
                             </motion.p>
                           )}
                         </motion.div>
-                      </div>
+                      </motion.div>
                     ))}
                   </motion.div>
                 )}

@@ -2,6 +2,7 @@
 
 import { useEffect, useState, FormEvent } from 'react';
 import { api } from '@/lib/api';
+import { sonner } from '@/components/sonner';
 
 export default function LibraryPage() {
   const [activeTab, setActiveTab] = useState<'catalog' | 'loans'>('catalog');
@@ -49,10 +50,10 @@ export default function LibraryPage() {
       showSuccessToast('Book issued successfully!');
       setIsIssueModalOpen(false);
       loadData();
-      alert('Book issued successfully!');
+      sonner.success('Book issued successfully!');
     } catch (err: any) {
       showErrorToast(err.message || 'No copies available');
-      alert(err.message || 'No copies available');
+      sonner.error(err.message || 'No copies available');
     }
   }
 
@@ -64,7 +65,7 @@ export default function LibraryPage() {
       loadData();
     } catch (err) {
       showErrorToast('Failed to return book');
-      alert('Failed to return book');
+      sonner.error('Failed to return book');
     }
   }
 
