@@ -166,7 +166,6 @@ export default function CertificatesPage() {
             ))}
           </div>
 
-          {/* Certificate Generation Form */}
           {isClassLoaded && classes.length > 0 && (
             <motion.div
               key="form"

@@ -469,7 +469,7 @@ export default function ParentPortal() {
               </motion.div>
             </div>
           </div>
-        </motion.div>
+        </div>
 
       {/* TOP UP MODAL */}
       {isTopUpOpen && (

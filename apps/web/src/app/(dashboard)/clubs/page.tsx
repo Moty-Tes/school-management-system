@@ -276,9 +276,7 @@ export default function ClubsPage() {
 
                       {m.role !== 'CAPTAIN' && (
                         <motion.button
-                          onClick={() => {
-                            /* promote to captain */
-                          }
+                          onClick={() => {}}
                           whileHover={{ scale: 1.02 }}
                           transition={{ type: "spring" }}
                           className="text-emerald-600 hover:text-emerald-800 text-xs font-bold hover:underline transition-colors"

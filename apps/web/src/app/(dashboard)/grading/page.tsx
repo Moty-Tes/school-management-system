@@ -203,7 +203,7 @@ export default function GradingScalePage() {
 
                     <motion.div className="flex gap-2">
                       <motion.button
-                        onClick={() => /* edit rule */ }
+                        onClick={() => {}}
                         whileHover={{ scale: 1.02 }}
                         transition={{ type: "spring" }}
                         className="text-indigo-600 hover:text-indigo-800 text-sm font-medium hover:underline transition-colors"

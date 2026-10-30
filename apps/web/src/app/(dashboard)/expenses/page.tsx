@@ -173,9 +173,9 @@ export default function ExpensesPage() {
                       transition={{ type: "spring" }}
                     >
                       <CheckCircle className={`w-6 h-6 text-${cat.category === 'UTILITIES' ? 'indigo-500' : cat.category === 'SALARIES' ? 'red-500' : cat.category === 'BOOKS' ? 'emerald-500' : 'amber-500'}`} />
-                    </div>
+                    </motion.div>
                   </div>
-                </motion.key>
+                </motion.div>
               ))}
             </motion.div>
           )}
