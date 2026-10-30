@@ -215,7 +215,7 @@ export default function FinancePage() {
                 return (
                   <motion.tr
                     key={inv.id}
-                    initial {{ opacity: 0, x: -20 }}
+                    initial={{ opacity: 0, x: -20 }}
                     animate={{ opacity: 1, x: 0 }}
                     transition={{ type: "spring", stiffness: 300, delay: Math.random() * 0.1 }}
                     className="hover:bg-slate-50 transition-colors"
