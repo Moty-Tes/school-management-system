@@ -290,7 +290,7 @@ export default function ClubsPage() {
               )}
             </div>
           </motion.div>
-        </div>
+        </motion.div>
 
         {/* REMOVE MEMBER CONFIRMATION */}
         {selectedClub && members.some(m => /* check */) && (

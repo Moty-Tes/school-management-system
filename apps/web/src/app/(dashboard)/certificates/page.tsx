@@ -141,7 +141,7 @@ export default function CertificatesPage() {
           </motion.div>
         )}
 
-        {isClassLoaded && classes.length > 0 && (
+        {isClassLoaded && classes.length > 0 &&
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {classes.map(c => (
               <motion.div
@@ -166,7 +166,7 @@ export default function CertificatesPage() {
             ))}
           </div>
 
-          {isClassLoaded && classes.length > 0 && (
+          {isClassLoaded && classes.length > 0 &&
             <motion.div
               key="form"
               initial={{ opacity: 0, y: 20 }}
