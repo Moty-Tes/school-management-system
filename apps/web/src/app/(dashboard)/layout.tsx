@@ -5,6 +5,7 @@ import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { getMe, logout } from '@/lib/auth';
 import { api } from '@/lib/api';
+import { Toaster } from 'sonner';
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -15,7 +16,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const [enabledModules, setEnabledModules] = useState<string[]>([]);
 
   // Branding states - tenant's primary color with Tailwind built-in color support
-  const [tenantColor, setTenantColor] = useState('#4f46e5');
+  const [tenantColor, setTenantColor] = useState('#1a1a2e');
   const [tenantLogo, setTenantLogo] = useState<string | null>(null);
   const [tenantName, setTenantName] = useState('SMS');
 
@@ -27,16 +28,20 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     try {
       const data = await api.get<any[]>('/api/v1/notifications');
       setNotifications(data);
-    } catch {}
+    } catch (err) {
+      console.error('Failed to load notifications:', err);
+    }
   }
 
   async function handleMarkRead(id: string, link?: string) {
     try {
       await api.patch(`/api/v1/notifications/${id}/read`);
-      loadNotifications();
+      await loadNotifications();
       if (link) router.push(link);
       setShowNotifs(false);
-    } catch {}
+    } catch (err) {
+      console.error('Failed to mark notification read:', err);
+    }
   }
 
   useEffect(() => {
@@ -49,11 +54,15 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       if (mounted) {
         setAuthState('authenticated');
         setRoles(meData.roles || []);
-        setEnabledModules(settingsData.enabledModules || []);
 
-        if (settingsData.primaryColor) setTenantColor(settingsData.primaryColor);
-        if (settingsData.logoUrl) setTenantLogo(settingsData.logoUrl);
-        if (settingsData.name) setTenantName(settingsData.name);
+        if (settingsData) {
+          setEnabledModules(settingsData.enabledModules || []);
+
+          // Use tenant's primary color with fallback
+          if (settingsData.primaryColor) setTenantColor(settingsData.primaryColor);
+          if (settingsData.logoUrl) setTenantLogo(settingsData.logoUrl);
+          if (settingsData.name) setTenantName(settingsData.name);
+        }
 
         loadNotifications();
         const interval = setInterval(loadNotifications, 30000);
@@ -84,8 +93,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   if (authState === 'checking') {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50">
-        <div className="w-8 h-8 border-4 border-emerald-600 border-t-transparent rounded-full animate-spin" />
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="w-8 h-8 border-4 border-primary-500 border-t-transparent rounded-full animate-spin" />
       </div>
     );
   }
@@ -102,7 +111,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const hasModule = (moduleName: string) => enabledModules.includes(moduleName);
 
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col antialiased">
+    <div className="min-h-screen bg-gradient-to-b from-slate-50 to-slate-100 flex flex-col antialiased">
       {/* Premium gradient header */}
       <header className="bg-gradient-to-br from-slate-50 to-slate-100 border-b border-slate-200 sticky top-0 z-50 shadow-2xl shadow-slate-50/30">
         <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8">
@@ -111,16 +120,16 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             <div className="flex items-center gap-6 flex-1 min-w-0">
               <Link href="/dashboard" className="flex items-center gap-2 shrink-0 group">
                 {tenantLogo ? (
-                  <img src={tenantLogo} alt="Logo" className="w-8 h-8 object-contain rounded-lg transition-transform duration-300 group:hover:scale-105" />
+                  <img src={tenantLogo} alt={tenantName} className="w-8 h-8 object-contain rounded-lg transition-transform duration-300 hover:scale-105" />
                 ) : (
-                  <div className="w-8 h-8 rounded-lg bg-primary-600/20 text-primary-400 flex items-center justify-center font-bold text-sm transition-colors group-hover:text-primary-400">
+                  <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary-600 to-primary-500 text-primary-50 flex items-center justify-center font-bold text-sm transition-colors hover:text-primary-400">
                     {tenantName.charAt(0)}
                   </div>
                 )}
                 <span className="font-semibold text-slate-900 hidden lg:block truncate max-w-[120px] transition-colors group-hover:text-primary-600">{tenantName}</span>
               </Link>
 
-              {/* Modern nav */}
+              {/* Modern nav with premium animations */}
               <nav className="hidden md:flex items-center gap-1 overflow-x-auto whitespace-nowrap scrollbar-hide py-2" aria-label="Main navigation">
                 <ul className="flex items-center gap-2 space-x-2 px-2">
                   <li>
@@ -156,10 +165,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               </nav>
             </div>
 
-            {/* Enhanced action buttons */}
+            {/* Enhanced action buttons with premium design */}
             <div className="flex items-center gap-2 sm:gap-4 shrink-0 ml-4">
               <div className="relative">
-                <button onClick={() => setShowNotifs(!showNotifs)} className="p-2 text-slate-500 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 rounded-full transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-slate-50 relative flex items-center justify-center">
+                <button onClick={() => setShowNotifs(!showNotifs)} className="p-2 rounded-full bg-slate-100 hover:bg-slate-200 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-slate-50 relative flex items-center justify-center">
                   <svg className="w-5 h-5 text-slate-600 transition-colors group-hover:text-primary-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" /></svg>
                   {unreadCount > 0 && <span className="absolute top-1 right-1 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white" role="alert">{unreadCount} New</span>}
                 </button>
@@ -196,7 +205,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 )}
 
                 <button onClick={handleResetDemo} className="text-xs font-medium text-amber-600 hover:text-amber-800 bg-amber-50 hover:bg-amber-100 px-3 py-1.5 rounded-md transition-all duration-200 hidden sm:block">Reset Demo</button>
-                <button onClick={handleLogout} className="text-sm text-slate-600 hover:text-slate-900 font-medium transition-colors whitespace-nowrap hover:underline">Sign out</button>
+                <button onClick={handleLogout} className="text-sm font-medium text-slate-600 hover:text-slate-900 font-medium transition-colors whitespace-nowrap hover:underline">Sign out</button>
               </div>
             </div>
           </div>
