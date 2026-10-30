@@ -3,7 +3,7 @@
 import { useEffect, useState, FormEvent } from 'react';
 import { api } from '@/lib/api';
 import { motion } from 'framer-motion';
-import { CheckCircle, X, Loader2, FolderAdd, Menu, Shield, Users, UserPlus, LogOut, Clock, Flag, Info, Trash2, Edit2, RefreshCw } from 'lucide-react';
+import { CheckCircle, X, Loader2, FolderPlus as FolderAdd, Menu, Shield, Users, UserPlus, LogOut, Clock, Flag, Info, Trash2, Edit2, RefreshCw } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 
 export default function FrontDeskPage() {

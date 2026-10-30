@@ -1,8 +1,8 @@
-import * as React from "react";
-import * as sonner from "sonner";
+import { toast } from "sonner";
 
-export { sonner };
+export const sonner = toast;
+export { toast };
 
 export function useSonner() {
-  return sonner;
+  return toast;
 }

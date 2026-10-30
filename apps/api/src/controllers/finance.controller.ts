@@ -1,9 +1,10 @@
 import { Request, Response, NextFunction } from 'express';
-import * as financeService from '../services/finance.service.ts';
+import * as financeService from '../services/finance.service.js';
 import { z } from 'zod';
 
 const createInvoiceSchema = z.object({
   studentId: z.string().min(1),
+  title: z.string().optional().default('Invoice'),
   issueDate: z.string().optional(),
   dueDate: z.string(),
   amount: z.number().positive(),
@@ -37,9 +38,10 @@ export async function createInvoiceHandler(req: Request, res: Response, next: Ne
     const invoice = await financeService.createInvoice(
       req.auth.tenantId,
       {
-        ...input,
-        issueDate: input.issueDate ? new Date(input.issueDate) : undefined,
-        dueDate: new Date(input.dueDate),
+        studentId: input.studentId,
+        title: input.title,
+        amount: input.amount,
+        dueDate: input.dueDate,
       }
     );
 
@@ -59,8 +61,9 @@ export async function recordPaymentHandler(req: Request, res: Response, next: Ne
       req.auth.tenantId,
       invoiceId,
       {
-        ...input,
-        paymentDate: input.paymentDate ? new Date(input.paymentDate) : undefined,
+        amount: input.amount,
+        method: input.method,
+        reference: input.reference,
       }
     );
 
@@ -80,7 +83,7 @@ export async function bulkInvoiceHandler(req: Request, res: Response, next: Next
   try {
     if (!req.auth?.tenantId) throw new Error("No tenant context");
     const input = bulkInvoiceSchema.parse(req.body);
-    const result = await financeService.generateBulkInvoices(req.auth.tenantId, input);
+    const result = await financeService.generateBulkInvoices(req.auth.tenantId, input as any);
     res.status(201).json({ success: true, data: result });
   } catch (err) { next(err); }
 }

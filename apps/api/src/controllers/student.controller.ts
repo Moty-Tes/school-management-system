@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
-import * as studentService from '../services/student.service.ts';
+import * as studentService from '../services/student.service.js';
 import { z } from 'zod';
 
 const createStudentSchema = z.object({
@@ -16,7 +16,7 @@ export async function createStudentHandler(req: Request, res: Response, next: Ne
   try {
     if (!req.auth?.tenantId) throw new Error("No tenant context");
     const input = createStudentSchema.parse(req.body);
-    const student = await studentService.createStudent(req.auth.tenantId, input);
+    const student = await studentService.createStudent(req.auth.tenantId, input as any);
     res.status(201).json({ success: true, data: student });
   } catch (err) {
     next(err);
@@ -64,7 +64,7 @@ export async function bulkCreateHandler(req: Request, res: Response, next: NextF
     // Validate that the request body is an array of valid students
     const input = bulkStudentSchema.parse(req.body);
     
-    const result = await studentService.bulkCreateStudents(req.auth.tenantId, input);
+    const result = await studentService.bulkCreateStudents(req.auth.tenantId, input as any);
     
     res.status(201).json({ 
       success: true, 

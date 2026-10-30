@@ -13,7 +13,7 @@ const fonts = {
   }
 };
 
-const printer = new PdfPrinter(fonts);
+const printer = new (PdfPrinter as any)(fonts);
 
 // ============================================================================
 // 1. REPORT CARD (Uses custom grading scale)
@@ -48,7 +48,7 @@ export async function generateReportCard(tenantId: string, studentId: string) {
   let totalScore = 0;
   let totalMax = 0;
   
-  const tableBody = [
+  const tableBody: any[] = [
     [{ text: 'Date', bold: true }, { text: 'Assessment', bold: true }, { text: 'Score', bold: true }, { text: 'Grade', bold: true }]
   ];
 
@@ -199,7 +199,7 @@ export async function generateTranscript(tenantId: string, studentId: string) {
   let totalPoints = 0;
   let totalCredits = 0;
   
-  const tableBody = [
+  const tableBody: any[] = [
     [{ text: 'Date', bold: true }, { text: 'Assessment', bold: true }, { text: 'Score', bold: true }, { text: 'Grade', bold: true }, { text: 'Points', bold: true }]
   ];
 
@@ -243,7 +243,7 @@ export async function generateTranscript(tenantId: string, studentId: string) {
               { text: `Issued on ${new Date().toLocaleDateString()}`, fontSize: 10, color: '#64748b', margin: [0, 5, 0, 0] }
             ]
           },
-          { width: 100, image: qrDataUrl, alignment: 'right', width: 80 }
+          { width: 80, image: qrDataUrl, alignment: 'right' }
         ]
       },
       { canvas: [{ type: 'line', x1: 0, y1: 10, x2: 515, y2: 10, lineWidth: 2, lineColor: '#e2e8f0' }] },

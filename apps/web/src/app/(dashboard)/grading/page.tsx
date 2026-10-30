@@ -3,7 +3,7 @@
 import { useEffect, useState, FormEvent } from 'react';
 import { api } from '@/lib/api';
 import { motion } from 'framer-motion';
-import { CheckCircle, X, Loader2, FolderAdd, Menu, Shield, Users, CreditCard, Banknote, LogOut, Calendar, Mail, Trash2, Edit2, RefreshCw } from 'lucide-react';
+import { CheckCircle, X, Loader2, FolderPlus as FolderAdd, Menu, Shield, Users, CreditCard, Banknote, LogOut, Calendar, Mail, Trash2, Edit2, RefreshCw } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 
 export default function GradingScalePage() {
@@ -221,7 +221,7 @@ export default function GradingScalePage() {
       >
         <Trash2 className="w-4 h-4" />
       </motion.button>
-                    </div>
+                    </motion.div>
                   </motion.div>
                 ))}
               </motion.div>

@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { api } from '@/lib/api';
 import { motion } from 'framer-motion';
-import { CheckCircle, X, Loader2, FolderAdd, Menu, Shield, Users, UserPlus, LogOut, Clock, Flag, Info, Trash2, Edit2, RefreshCw, Target, FlagWarning, Palette, Calendar, Settings as SettingsIcon, BookOpen, Folder, Globe, Layout, Loader, Brain, Activity, BarChart3, Clipboard, Folder as FolderIcon, FolderAdd as FolderAddIcon, Home, Login, LogOut, MapPin, Mic, MonitorOff, Music, Page, PanelRight, Pipe, PlayCircle, Scissors, ShieldCheck, TrendingUp, Wrench } from 'lucide-react';
+import { Settings as SettingsIcon, Loader2, Info, Shield, Users, Calendar, Mail, Globe, Layout } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 
 export default function SettingsPage() {
@@ -107,7 +107,7 @@ export default function SettingsPage() {
                   className="p-3 rounded-xl bg-indigo-50/50 backdrop-blur-sm"
                 >
                   <Info className="w-4 h-4 text-indigo-400" />
-                </div>
+                </motion.div>
               </div>
 
               <p className="text-3xl font-bold text-emerald-600">{setting.value}</p>
@@ -191,9 +191,9 @@ export default function SettingsPage() {
               style={{ background: 'linear-gradient(135deg, var(--bg), var(--bg-light))' }}
             >
               <div className="p-4 rounded-xl bg-indigo-50/50 backdrop-blur-sm">
-                <item.icon === 'Calendar' ? (
+                {item.icon === 'Calendar' ? (
                   <Calendar className="w-6 h-6 text-indigo-400" />
-                ) : item.icon === 'Email' ? (
+                ) : item.icon === 'Mail' ? (
                   <Mail className="w-6 h-6 text-indigo-400" />
                 ) : item.icon === 'Globe' ? (
                   <Globe className="w-6 h-6 text-indigo-400" />

@@ -3,7 +3,7 @@
 import { useEffect, useState, FormEvent } from 'react';
 import { api } from '@/lib/api';
 import { motion } from 'framer-motion';
-import { CheckCircle, X, Loader2, FolderAdd, Menu, GraduationCap, Shield, Clock, Users } from 'lucide-react';
+import { CheckCircle, X, Loader2, FolderPlus as FolderAdd, Menu, GraduationCap, Shield, Clock, Users } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 
 export default function CertificatesPage() {
@@ -141,7 +141,7 @@ export default function CertificatesPage() {
           </motion.div>
         )}
 
-        {isClassLoaded && classes.length > 0 &&
+        {isClassLoaded && classes.length > 0 && (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {classes.map(c => (
               <motion.div
@@ -165,85 +165,85 @@ export default function CertificatesPage() {
               </motion.div>
             ))}
           </div>
+        )}
 
-          {isClassLoaded && classes.length > 0 &&
-            <motion.div
-              key="form"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ type: "spring", stiffness: 300, delay: 0.1 }}
-              className="bg-white rounded-3xl border border-slate-200 p-8 shadow-3xl shadow-slate-50/30 my-8"
-            >
-              <h2 className="text-2xl font-bold text-slate-900 mb-6 flex items-center gap-3">
-                <FolderAdd className="w-5 h-5 text-indigo-500" /> Generate Certificates
-              </h2>
+        {isClassLoaded && classes.length > 0 && isGenerating && (
+          <motion.div
+            key="form"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ type: "spring", stiffness: 300, delay: 0.1 }}
+            className="bg-white rounded-3xl border border-slate-200 p-8 shadow-3xl shadow-slate-50/30 my-8"
+          >
+            <h2 className="text-2xl font-bold text-slate-900 mb-6 flex items-center gap-3">
+              <FolderAdd className="w-5 h-5 text-indigo-500" /> Generate Certificates
+            </h2>
 
-              <form onSubmit={handleBulkGenerate} className="space-y-4">
-                <motion.div>
-                  <label className="block text-sm font-medium text-slate-700 mb-2">Select Class</label>
-                  <select
-                    value={selectedClass}
-                    onChange={(e) => setSelectedClass(e.target.value)}
-                    className="w-full px-4 py-3 rounded-xl border border-slate-200 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 appearance-none bg-white pl-4 pr-12 cursor-pointer"
-                  >
-                    <option value="" disabled>Select a class</option>
-                    {classes.map(c => (
-                      <option key={c.id} value={c.id}>{c.name} - {c.section}</option>
-                    ))}
-                  </select>
-                </motion.div>
+            <form onSubmit={handleBulkGenerate} className="space-y-4">
+              <motion.div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">Select Class</label>
+                <select
+                  value={selectedClass}
+                  onChange={(e) => setSelectedClass(e.target.value)}
+                  className="w-full px-4 py-3 rounded-xl border border-slate-200 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 appearance-none bg-white pl-4 pr-12 cursor-pointer"
+                >
+                  <option value="" disabled>Select a class</option>
+                  {classes.map(c => (
+                    <option key={c.id} value={c.id}>{c.name} - {c.section}</option>
+                  ))}
+                </select>
+              </motion.div>
 
-                <motion.div>
-                  <label className="block text-sm font-medium text-slate-700 mb-2">Award Title</label>
-                  <input
-                    type="text"
-                    value={certTitle}
-                    onChange={(e) => setCertTitle(e.target.value)}
-                    className="w-full px-4 py-3 rounded-xl border border-slate-200 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all"
-                    placeholder="Certificate of Completion"
-                  />
-                </motion-div>
+              <motion.div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">Award Title</label>
+                <input
+                  type="text"
+                  value={certTitle}
+                  onChange={(e) => setCertTitle(e.target.value)}
+                  className="w-full px-4 py-3 rounded-xl border border-slate-200 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all"
+                  placeholder="Certificate of Completion"
+                />
+              </motion.div>
 
-                <motion-div>
-                  <label className="block text-sm font-medium text-slate-700 mb-2">Description</label>
-                  <input
-                    type="text"
-                    value={certDesc}
-                    onChange={(e) => setCertDesc(e.target.value)}
-                    className="w-full px-4 py-3 rounded-xl border border-slate-200 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all"
-                    placeholder="For successfully completing the academic term."
-                  />
-                </motion-div>
+              <motion.div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">Description</label>
+                <input
+                  type="text"
+                  value={certDesc}
+                  onChange={(e) => setCertDesc(e.target.value)}
+                  className="w-full px-4 py-3 rounded-xl border border-slate-200 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all"
+                  placeholder="For successfully completing the academic term."
+                />
+              </motion.div>
 
-                <div className="bg-amber-50 border border-amber-200 p-4 rounded-xl mb-6">
-                  <p className="text-sm text-amber-800 font-medium">
-                    🏆 <strong>Note:</strong> This will generate certificates for <strong>{students.length || 0} students</strong>. Please allow multiple file downloads in your browser.
-                  </p>
-                </div>
+              <div className="bg-amber-50 border border-amber-200 p-4 rounded-xl mb-6">
+                <p className="text-sm text-amber-800 font-medium">
+                  🏆 <strong>Note:</strong> This will generate certificates for <strong>{students.length || 0} students</strong>. Please allow multiple file downloads in your browser.
+                </p>
+              </div>
 
-                <motion.div className="flex justify-end gap-3 pt-6 border-t">
-                  <motion.button
-                    type="button"
-                    onClick={() => setIsGenerating(false)}
-                    whileHover={{ scale: 1.02 }}
-                    transition={{ type: "spring" }}
-                    className="px-5 py-3 text-sm font-medium text-slate-600 hover:text-slate-900 transition-all duration-300"
-                  >
-                    Cancel
-                  </motion.button>
-                  <motion.button
-                    type="submit"
-                    disabled={isGenerating || students.length === 0}
-                    whileHover={{ scale: 1.02 }}
-                    transition={{ type: "spring" }}
-                    className="px-5 py-3 text-sm font-medium bg-emerald-600 text-white rounded-xl transition-all disabled:opacity-50"
-                  >
-                    {isGenerating ? 'Generating...' : `Generate ${students.length} Certificates`}
-                  </motion.button>
-                </motion.div>
-              </form>
-            </motion-div>
-          )}
+              <motion.div className="flex justify-end gap-3 pt-6 border-t">
+                <motion.button
+                  type="button"
+                  onClick={() => setIsGenerating(false)}
+                  whileHover={{ scale: 1.02 }}
+                  transition={{ type: "spring" }}
+                  className="px-5 py-3 text-sm font-medium text-slate-600 hover:text-slate-900 transition-all duration-300"
+                >
+                  Cancel
+                </motion.button>
+                <motion.button
+                  type="submit"
+                  disabled={isGenerating || students.length === 0}
+                  whileHover={{ scale: 1.02 }}
+                  transition={{ type: "spring" }}
+                  className="px-5 py-3 text-sm font-medium bg-emerald-600 text-white rounded-xl transition-all disabled:opacity-50"
+                >
+                  {isGenerating ? 'Generating...' : `Generate ${students.length} Certificates`}
+                </motion.button>
+              </motion.div>
+            </form>
+          </motion.div>
         )}
       </motion.div>
     </motion.div>

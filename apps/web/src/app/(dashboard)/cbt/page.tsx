@@ -4,7 +4,7 @@ import { useEffect, useState, useRef, FormEvent } from 'react';
 import { api } from '@/lib/api';
 import { getMe } from '@/lib/auth';
 import { motion } from 'framer-motion';
-import { CheckCircle, X, AlertCircle, Clock, Loader2, FolderAdd, Menu, GraduationCap, BarChart2, Shield, RefreshCw } from 'lucide-react';
+import { CheckCircle, X, AlertCircle, Clock, Loader2, FolderPlus as FolderAdd, Menu, GraduationCap, BarChart2, Shield, RefreshCw } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 
 export default function CBTPage() {

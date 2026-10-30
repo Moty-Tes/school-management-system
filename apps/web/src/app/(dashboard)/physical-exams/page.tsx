@@ -4,7 +4,7 @@ import { useEffect, useState, FormEvent } from 'react';
 import { api } from '@/lib/api';
 import { getMe } from '@/lib/auth';
 import { motion } from 'framer-motion';
-import { CheckCircle, X, Loader2, FolderAdd, Menu, Shield, Users, UserPlus, LogOut, Clock, Flag, Info, Trash2, Edit2, RefreshCw, Target, FlagWarning, Palette, Calendar, Settings, BookOpen, Folder, Globe, Layout, Loader } from 'lucide-react';
+import { AlertTriangle as FlagWarning, Loader2, CheckCircle, X } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
@@ -258,7 +258,7 @@ export default function PhysicalExamsPage() {
                         </motion.td>
                       )}
                     </motion.tr>
-                  ))}
+                  ))
                 )}
               </tbody>
             </table>

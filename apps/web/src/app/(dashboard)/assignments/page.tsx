@@ -4,7 +4,7 @@ import { useEffect, useState, FormEvent } from 'react';
 import { api } from '@/lib/api';
 import { getMe } from '@/lib/auth';
 import { motion } from 'framer-motion';
-import { Users, Calendar, Loader2, X, CheckCircle, AlertCircle, FileText, FolderAdd, Menu } from 'lucide-react';
+import { Users, Calendar, Loader2, X, CheckCircle, AlertCircle, FileText, FolderPlus as FolderAdd, Menu } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 
 export default function AssignmentsPage() {

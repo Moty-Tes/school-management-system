@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { motion } from 'framer-motion';
 import { api, ApiError } from '@/lib/api';
 
 interface ClassItem {

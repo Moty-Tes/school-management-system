@@ -4,7 +4,7 @@ import { useEffect, useState, FormEvent } from 'react';
 import { api } from '@/lib/api';
 import { getMe } from '@/lib/auth';
 import { motion } from 'framer-motion';
-import { CheckCircle, X, Loader2, FolderAdd, Menu, Shield, Users, UserPlus, LogOut, Clock, Flag, Info, Trash2, Edit2, RefreshCw, Monitor, Settings, Palette, Calendar, Globe, Layout, Loader, Brain, Activity, BarChart3, Clipboard, Folder, FolderAdd as FolderAddIcon, Home, Login, LogOut as LogOutIcon, MapPin, Mic, MonitorOff, Music, Page, PanelRight, Pipe, PlayCircle, Scissors, ShieldCheck, TrendingUp, Wrench } from 'lucide-react';
+import { Monitor as Screen, Loader2, Info, Users } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
@@ -110,7 +110,7 @@ export default function PlatformPage() {
                   className="p-3 rounded-xl bg-indigo-50/50 backdrop-blur-sm"
                 >
                   <Info className="w-4 h-4 text-indigo-400" />
-                </div>
+                </motion.div>
               </div>
 
               <p className="text-3xl font-bold text-emerald-600">{stat.value}</p>

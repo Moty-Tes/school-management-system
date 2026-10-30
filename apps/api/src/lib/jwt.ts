@@ -5,6 +5,7 @@ export interface AccessTokenPayload {
   sub: string;
   sessionId: string;
   tenantId: string;
+  roles?: string[];
   type: 'access';
 }
 

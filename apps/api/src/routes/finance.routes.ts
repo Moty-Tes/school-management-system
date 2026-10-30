@@ -1,6 +1,6 @@
 import { Router } from 'express';
-import * as financeController from '../controllers/finance.controller.ts';
-import { authenticate } from '../middleware/auth.middleware.ts';
+import * as financeController from '../controllers/finance.controller.js';
+import { authenticate } from '../middleware/auth.middleware.js';
 
 const router = Router();
 

@@ -5,7 +5,7 @@ import { api } from '@/lib/api';
 import { getMe } from '@/lib/auth';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
-import { Users, CreditCard, BookOpen, Clock, Grid, ChartBar, Pie, Settings, LogOut } from 'lucide-react';
+import { Users, CreditCard, BookOpen, Clock, Grid, ChartBar, PieChart as Pie, Settings, LogOut } from 'lucide-react';
 
 const COLORS = [
   '#1a1a2e',

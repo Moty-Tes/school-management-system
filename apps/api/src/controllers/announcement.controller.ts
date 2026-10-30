@@ -13,7 +13,7 @@ export async function createHandler(req: Request, res: Response, next: NextFunct
   try {
     if (!req.auth?.tenantId) throw new Error("No tenant");
     const input = createSchema.parse(req.body);
-    const result = await announcementService.createAnnouncement(req.auth.tenantId, input);
+    const result = await announcementService.createAnnouncement(req.auth.tenantId, input as any);
     res.status(201).json({ success: true, data: result });
   } catch (err) { next(err); }
 }

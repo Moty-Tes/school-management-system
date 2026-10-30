@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, FormEvent } from 'react';
+import { motion } from 'framer-motion';
 import { api } from '@/lib/api';
 import { sonner } from '@/components/sonner';
 
@@ -200,8 +201,9 @@ export default function LibraryPage() {
             </motion.table>
           </motion.div>
         </motion.div>
+      )}
 
-        {/* LOANS TAB */}
+      {/* LOANS TAB */}
       {activeTab === 'loans' && (
         <motion.div className="bg-white rounded-3xl border border-slate-200 overflow-hidden shadow-lg shadow-slate-50/30">
           <motion.div className="animate-in" style={{ transitionProperty: 'all', transitionDuration: '0.2s' }}>

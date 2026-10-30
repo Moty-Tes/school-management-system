@@ -1,0 +1,49 @@
+services:
+  # -----------------------------------------------------------
+  # Backend API Service
+  # -----------------------------------------------------------
+  - type: web
+    name: sms-backend-api
+    env: node
+    plan: free
+    buildCommand: pnpm install && pnpm run build
+    startCommand: pnpm --filter @sms/api run start
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        fromDatabase:
+          name: sms-postgres-db
+          property: connectionString
+      - key: JWT_ACCESS_SECRET
+        generateValue: true
+      - key: JWT_REFRESH_SECRET
+        generateValue: true
+
+  # -----------------------------------------------------------
+  # Frontend Web Service (Next.js)
+  # -----------------------------------------------------------
+  - type: web
+    name: sms-frontend-web
+    env: node
+    plan: free
+    buildCommand: pnpm install && pnpm --filter @sms/database run build && pnpm --filter @sms/web run build
+    startCommand: pnpm --filter @sms/web run start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: NEXT_PUBLIC_API_URL
+        fromService:
+          type: web
+          name: sms-backend-api
+          property: host
+
+databases:
+  # -----------------------------------------------------------
+  # Managed PostgreSQL Database
+  # -----------------------------------------------------------
+  - name: sms-postgres-db
+    databaseName: sms
+    user: sms
+    plan: free

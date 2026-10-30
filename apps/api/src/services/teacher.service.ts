@@ -69,6 +69,6 @@ export async function listTeachers(tenantId: string) {
   return prisma.teacherProfile.findMany({
     where: { tenantId, deletedAt: null },
     include: { user: { include: { profile: true } } },
-    orderBy: { createdAt: 'desc' },
+    orderBy: { joinDate: 'desc' },
   });
 }

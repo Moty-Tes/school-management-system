@@ -1,24 +1,19 @@
 import { Request, Response, NextFunction } from 'express';
-import * as assessmentService from '../services/assessment.service.ts';
+import * as assessmentService from '../services/assessment.service.js';
 import { z } from 'zod';
 
 const createAssessmentSchema = z.object({
   title: z.string().min(1),
-  description: z.string().optional(),
-  subjectId: z.string().min(1),
-  assessmentType: z.enum(['QUIZ', 'TEST', 'EXAM', 'ASSIGNMENT', 'PROJECT', 'PRACTICAL']),
-  maxScore: z.number().positive(),
-  weight: z.number().positive().default(1),
-  startDate: z.string().optional(),
-  endDate: z.string().optional(),
+  classId: z.string().min(1),
+  maxScore: z.number().positive().default(100),
+  date: z.string().optional().default(() => new Date().toISOString()),
 });
 
 const saveGradesSchema = z.object({
   grades: z.array(
     z.object({
       studentId: z.string().min(1),
-      scoreObtained: z.number(),
-      comments: z.string().optional(),
+      score: z.number(),
     })
   ),
 });
@@ -31,9 +26,10 @@ export async function createHandler(req: Request, res: Response, next: NextFunct
     const assessment = await assessmentService.createAssessment(
       req.auth.tenantId,
       {
-        ...input,
-        startDate: input.startDate ? new Date(input.startDate) : undefined,
-        endDate: input.endDate ? new Date(input.endDate) : undefined,
+        classId: input.classId,
+        title: input.title,
+        maxScore: input.maxScore,
+        date: input.date,
       }
     );
 
@@ -46,11 +42,11 @@ export async function createHandler(req: Request, res: Response, next: NextFunct
 export async function listHandler(req: Request, res: Response, next: NextFunction) {
   try {
     if (!req.auth?.tenantId) throw new Error("No tenant context");
-    const { subjectId } = req.query;
+    const classId = req.query.classId as string | undefined;
 
-    const assessments = await assessmentService.getAssessments(
+    const assessments = await assessmentService.listAssessments(
       req.auth.tenantId,
-      subjectId ? { subjectId } : undefined
+      classId
     );
 
     res.status(200).json({ success: true, data: assessments });
@@ -68,7 +64,7 @@ export async function saveGradesHandler(req: Request, res: Response, next: NextF
     await assessmentService.saveGrades(
       req.auth.tenantId,
       assessmentId,
-      input.grades
+      input.grades as any
     );
 
     res.status(200).json({ success: true, message: 'Grades saved' });

@@ -3,7 +3,7 @@
 import { useEffect, useState, FormEvent } from 'react';
 import { api } from '@/lib/api';
 import { motion } from 'framer-motion';
-import { CheckCircle, X, Loader2, FolderAdd, Menu, Shield, Users, UserPlus, LogOut, Clock, Flag, Info, Trash2, Edit2, RefreshCw } from 'lucide-react';
+import { CheckCircle, X, Loader2, FolderPlus as FolderAdd, Menu, Shield, Users, UserPlus, LogOut, Clock, Flag, Info, Trash2, Edit2, RefreshCw } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 
 export default function HostelPage() {
@@ -157,7 +157,7 @@ export default function HostelPage() {
           className="grid grid-cols-1 lg:grid-cols-3 gap-6 my-8"
         >
           {data.blocks.map(block => (
-            <motion.key
+            <motion.div
               key={block.id}
               whileHover={{ y: -6, scale: 1.03 }}
               transition={{ type: "spring", stiffness: 400, damping: 30 }}
@@ -173,7 +173,7 @@ export default function HostelPage() {
                 <motion.div className="p-3 rounded-xl bg-indigo-50/50 backdrop-blur-sm">
                   <Bed className="w-4 h-4 text-emerald-400" />
                   <p className="text-xs text-emerald-600">Hostel block</p>
-                </div>
+                </motion.div>
               </div>
 
               {/* Rooms Grid */}
@@ -234,10 +234,10 @@ export default function HostelPage() {
                         );
                       })}
                     </motion.div>
-                  </div>
+                  </motion.div>
                 ))}
               </motion.div>
-            </motion.key>
+            </motion.div>
           ))}
         </motion.div>
 

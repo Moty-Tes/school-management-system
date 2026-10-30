@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
-import * as teacherService from '../services/teacher.service.ts';
+import * as teacherService from '../services/teacher.service.js';
 import { z } from 'zod';
 
 const createTeacherSchema = z.object({
@@ -15,7 +15,7 @@ export async function createTeacherHandler(req: Request, res: Response, next: Ne
   try {
     if (!req.auth?.tenantId) throw new Error("No tenant context");
     const input = createTeacherSchema.parse(req.body);
-    const teacher = await teacherService.createTeacher(req.auth.tenantId, input);
+    const teacher = await teacherService.createTeacher(req.auth.tenantId, input as any);
     res.status(201).json({ success: true, data: teacher });
   } catch (err) {
     next(err);

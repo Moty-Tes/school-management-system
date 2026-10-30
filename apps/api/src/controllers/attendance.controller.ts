@@ -18,7 +18,7 @@ export async function saveAttendanceHandler(req: Request, res: Response, next: N
     if (!req.auth?.tenantId) throw new Error("No tenant context");
     const input = saveAttendanceSchema.parse(req.body);
     
-    await attendanceService.saveAttendance(req.auth.tenantId, input.classId, input.date, input.records);
+    await attendanceService.saveAttendance(req.auth.tenantId, input.classId, input.date, input.records as any);
     
     res.status(200).json({ success: true, message: 'Attendance saved' });
   } catch (err) {

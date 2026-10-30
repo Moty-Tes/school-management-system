@@ -19,12 +19,14 @@ export function useToast() {
   return { toast, dismiss, toasts };
 }
 
+export const UseToast = useToast;
+
 export type Toast = {
   id: string;
   title?: string;
   description?: string;
   action?: React.ReactNode;
-  variant?: "default" | "destructive";
+  variant?: "default" | "destructive" | "success";
   createdAt: Date;
 };
 
@@ -32,5 +34,5 @@ export type ToastProps = {
   title?: string;
   description?: string;
   action?: React.ReactNode;
-  variant?: "default" | "destructive";
+  variant?: "default" | "destructive" | "success";
 };

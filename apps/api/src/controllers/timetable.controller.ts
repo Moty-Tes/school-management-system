@@ -16,7 +16,7 @@ export async function createSubjectHandler(req: Request, res: Response, next: Ne
   try {
     if (!req.auth?.tenantId) throw new Error("No tenant");
     const input = subjectSchema.parse(req.body);
-    const result = await timetableService.createSubject(req.auth.tenantId, input);
+    const result = await timetableService.createSubject(req.auth.tenantId, input as any);
     res.status(201).json({ success: true, data: result });
   } catch (err) { next(err); }
 }
@@ -33,7 +33,7 @@ export async function createTimetableHandler(req: Request, res: Response, next: 
   try {
     if (!req.auth?.tenantId) throw new Error("No tenant");
     const input = timetableSchema.parse(req.body);
-    const result = await timetableService.createTimetableEntry(req.auth.tenantId, input);
+    const result = await timetableService.createTimetableEntry(req.auth.tenantId, input as any);
     res.status(201).json({ success: true, data: result });
   } catch (err) { next(err); }
 }

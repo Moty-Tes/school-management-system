@@ -102,7 +102,10 @@ export async function getStudentProfile(tenantId: string, studentId: string) {
     where: { id: studentId, tenantId, deletedAt: null },
     include: {
       class: true,
-      invoices: { orderBy: { createdAt: 'desc' } },
+      invoices: {
+        orderBy: { createdAt: 'desc' },
+        include: { payments: true },
+      },
     },
   });
 

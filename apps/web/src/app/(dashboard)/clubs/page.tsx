@@ -3,7 +3,7 @@
 import { useEffect, useState, FormEvent } from 'react';
 import { api } from '@/lib/api';
 import { motion } from 'framer-motion';
-import { CheckCircle, X, Loader2, FolderAdd, Menu, Shield, Users, UserPlus, LogOut, Circle, Trash2, Edit2, RefreshCw } from 'lucide-react';
+import { CheckCircle, X, Loader2, FolderPlus as FolderAdd, Menu, Shield, Users, UserPlus, LogOut, Circle, Trash2, Edit2, RefreshCw } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 
 export default function ClubsPage() {
@@ -291,46 +291,6 @@ export default function ClubsPage() {
             </div>
           </motion.div>
         </motion.div>
-
-        {/* REMOVE MEMBER CONFIRMATION */}
-        {selectedClub && members.some(m => /* check */) && (
-          <motion.div
-            className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50"
-            whileHover={{ opacity: 0.9 }}
-          >
-            <motion.div
-              className="bg-white rounded-3xl shadow-3xl p-8 max-w-md"
-              initial={{ scale: 0.95, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              transition={{ type: "spring", stiffness: 400, damping: 30 }}
-            >
-              <h3 className="text-xl font-bold text-slate-900 mb-4">Remove Member</h3>
-              <p className="text-slate-500 mb-6">
-                Are you sure you want to remove this student from the club? This action cannot be undone.
-              </p>
-
-              <motion.div className="flex justify-end gap-3 pt-6 border-t">
-                <motion.button
-                  type="button"
-                  onClick={() => setSelectedClub(prev => prev ? /* deselect */ null : prev)}
-                  whileHover={{ scale: 1.02 }}
-                  transition={{ type: "spring" }}
-                  className="px-5 py-3 text-sm font-medium text-slate-600 hover:text-slate-900 transition-all duration-300"
-                >
-                  Cancel
-                </motion.button>
-                <motion.button
-                  onClick={() => /* proceed with removal */ }
-                  whileHover={{ scale: 1.02 }}
-                  transition={{ type: "spring" }}
-                  className="px-5 py-3 text-sm font-medium bg-red-600 text-white rounded-xl transition-all"
-                >
-                  Remove
-                </motion.button>
-              </motion.div>
-            </motion.div>
-          </motion.div>
-        )}
       )}
 
       {/* CREATE CLUB MODAL */}

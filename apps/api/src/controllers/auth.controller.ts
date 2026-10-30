@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
-import * as authService from '../services/auth.service.ts';
-import { registerSchema, loginSchema, refreshSchema } from '../schemas/auth.schema.ts';
+import * as authService from '../services/auth.service.js';
+import { registerSchema, loginSchema, refreshSchema } from '../schemas/auth.schema.js';
 
 const ACCESS_COOKIE_MAX_AGE = 15 * 60 * 1000;
 const REFRESH_COOKIE_MAX_AGE = 30 * 24 * 60 * 60 * 1000;
@@ -12,7 +12,7 @@ export async function registerHandler(req: Request, res: Response, next: NextFun
     const result = await authService.register({
       ...input,
       deviceInfo: { userAgent: req.headers['user-agent'], ip: req.ip },
-    });
+    } as any);
 
     setAuthCookies(res, result.tokens.accessToken, result.tokens.refreshToken);
 
@@ -36,7 +36,7 @@ export async function loginHandler(req: Request, res: Response, next: NextFuncti
     const result = await authService.login({
       ...input,
       deviceInfo: { userAgent: req.headers['user-agent'], ip: req.ip },
-    });
+    } as any);
 
     setAuthCookies(res, result.tokens.accessToken, result.tokens.refreshToken);
 

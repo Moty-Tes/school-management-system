@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
-import { Users, Loader2, Calendar, Shield, X, CheckCircle, AlertCircle, FolderAdd, Menu, MessageCircle } from 'lucide-react';
+import { Users, Loader2, Calendar, Shield, X, CheckCircle, AlertCircle, FolderPlus as FolderAdd, Menu, MessageCircle } from 'lucide-react';
 import { sonner } from '@/components/sonner';
 
 export default function TransportPage() {

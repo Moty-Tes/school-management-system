@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
-import { Loader2, FolderAdd, Menu, CheckCircle, AlertCircle, Shield, Settings as SettingsIcon, FileText, TrendingUp, Wrench, Palette, Globe, Layout, Calendar as CalendarIcon, Mail, PlayCircle } from 'lucide-react';
+import { Loader2, FolderPlus as FolderAdd, Menu, CheckCircle, AlertCircle, Shield, Settings as SettingsIcon, FileText, TrendingUp, Wrench, Palette, Globe, Layout, Calendar as CalendarIcon, Mail, PlayCircle } from 'lucide-react';
 
 export default function WebsiteBuilderPage() {
   const [settings, setSettings] = useState<any>(null);
@@ -37,7 +37,12 @@ export default function WebsiteBuilderPage() {
     }
   }
 
-  if (loading) return <motion.div className="min-h-screen flex items-center justify-center p-8">{'<Loader2 className="w-12 h-12 mx-auto opacity-50 animate-spin" /> <p className="text-slate-500 mt-4">Loading...</p>'}</motion.div>;
+  if (loading) return (
+    <motion.div className="min-h-screen flex flex-col items-center justify-center p-8">
+      <Loader2 className="w-12 h-12 mx-auto opacity-50 animate-spin text-emerald-600" />
+      <p className="text-slate-500 mt-4">Loading...</p>
+    </motion.div>
+  );
 
   return (
     <motion.div className="min-h-screen bg-gradient-to-b from-slate-50 via-slate-100 to-slate-50 p-4">
@@ -63,7 +68,7 @@ export default function WebsiteBuilderPage() {
             >
               <SettingsIcon className="w-4 h-4 mr-2" /> Settings
             </Button>
-          </motion.div>
+          </div>
 
           {/* Live Preview */}
           {settings?.tenant?.slug && settings?.isPublished && (
@@ -74,6 +79,7 @@ export default function WebsiteBuilderPage() {
               </a>
             </motion.div>
           )}
+        </motion.div>
 
           {message && (
             <motion.div
@@ -173,7 +179,6 @@ export default function WebsiteBuilderPage() {
             </div>
           </form>
         </div>
-      </div>
     </motion.div>
   );
 }

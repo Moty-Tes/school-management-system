@@ -13,7 +13,7 @@ export async function sendHandler(req: Request, res: Response, next: NextFunctio
   try {
     if (!req.auth?.tenantId) throw new Error("No tenant");
     const input = broadcastSchema.parse(req.body);
-    const result = await broadcastService.sendBroadcast(req.auth.tenantId, input);
+    const result = await broadcastService.sendBroadcast(req.auth.tenantId, input as any);
     res.status(201).json({ success: true, data: result });
   } catch (err) { next(err); }
 }

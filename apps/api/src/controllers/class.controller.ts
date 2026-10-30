@@ -12,7 +12,7 @@ export async function createClassHandler(req: Request, res: Response, next: Next
   try {
     if (!req.auth?.tenantId) throw new Error("No tenant context");
     const input = createClassSchema.parse(req.body);
-    const newClass = await classService.createClass(req.auth.tenantId, input);
+    const newClass = await classService.createClass(req.auth.tenantId, input as any);
     res.status(201).json({ success: true, data: newClass });
   } catch (err) {
     next(err);

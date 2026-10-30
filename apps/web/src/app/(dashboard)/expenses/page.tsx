@@ -3,7 +3,7 @@
 import { useEffect, useState, FormEvent } from 'react';
 import { api } from '@/lib/api';
 import { motion } from 'framer-motion';
-import { CheckCircle, X, Loader2, FolderAdd, Menu, Shield, Clock, Users, CreditCard, Banknote, LogOut, Calendar, Mail, Trash2, Edit2, RefreshCw } from 'lucide-react';
+import { CheckCircle, X, Loader2, FolderPlus as FolderAdd, Menu, Shield, Clock, Users, CreditCard, Banknote, LogOut, Calendar, Mail, Trash2, Edit2, RefreshCw } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 
 export default function ExpensesPage() {
@@ -154,7 +154,7 @@ export default function ExpensesPage() {
               className="grid grid-cols-2 gap-4"
             >
               {summary.byCategory.map((cat: any) => (
-                <motion.key
+                <motion.div
                   key={cat.category}
                   whileHover={{ y: -4, scale: 1.02 }}
                   transition={{ type: "spring", stiffness: 400, damping: 30 }}

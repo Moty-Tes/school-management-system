@@ -35,14 +35,6 @@ export async function recordPayment(tenantId: string, invoiceId: string, data: {
   } else if (newTotalPaid > 0) {
     newStatus = 'PARTIAL';
   }
-      // Audit Log
-    await auditService.createLog(
-      tenantId, 
-      userId, // We need to pass userId into this function! See note below.
-      'RECORD_PAYMENT', 
-      'Invoice', 
-      `Recorded a payment of ${data.amount} ETB`
-    );
 
   // 4. Transaction: Record payment and update invoice status
   return prisma.$transaction(async (tx) => {

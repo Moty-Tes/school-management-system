@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { api } from '@/lib/api';
 import { motion } from 'framer-motion';
-import { CheckCircle, X, Loader2, FolderAdd, Menu, GraduationCap, Shield, Clock, Users, CreditCard, Banknote, LogOut, Upload, Download } from 'lucide-react';
+import { CheckCircle, X, Loader2, FolderPlus as FolderAdd, Menu, GraduationCap, Shield, Clock, Users, CreditCard, Banknote, LogOut, Upload, Download } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 
 export default function ParentPortal() {
@@ -153,7 +153,6 @@ export default function ParentPortal() {
             <p className="text-slate-500 text-lg">No students linked to your account.</p>
           </motion.div>
         ) : (
-          children.length > 0 && (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
             {/* LEFT COLUMN: Profile, Wallet, Invoices */}
@@ -469,7 +468,8 @@ export default function ParentPortal() {
               </motion.div>
             </div>
           </div>
-        </motion.div>
+        )}
+      </motion.div>
 
       {/* TOP UP MODAL */}
       {isTopUpOpen && (

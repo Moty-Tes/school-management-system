@@ -140,7 +140,7 @@ export default function MessagesPage() {
       )}
 
       {/* Main Chat Interface */}
-      <motion.div className="bg-white rounded-3xl border border-slate-200 overflow-hidden shadow-2xl" style={{ transition: 'all 0.3s ease' }}>
+      <motion.div className="bg-white rounded-3xl border border-slate-200 overflow-hidden shadow-2xl flex h-[650px]" style={{ transition: 'all 0.3s ease' }}>
         {/* LEFT SIDEBAR: Contacts with animated entries */}
         <motion.div
           className="w-1/3 border-r border-slate-200 flex flex-col bg-slate-50"
@@ -200,83 +200,91 @@ export default function MessagesPage() {
           className="flex-1 flex flex-col bg-white"
           whileHover={{ background: 'var(--hover-bg, #f8fafc)' }}
         >
-          {/* Header */}
-          <motion.div
-            className="p-4 border-b border-slate-200 flex items-center gap-3 bg-white"
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ type: "spring", stiffness: 300, delay: 0.15 }}
-          >
-            <div className="w-8 h-8 rounded-full bg-indigo-200/80 text-indigo-600 flex items-center justify-center font-bold text-sm">
-              {selectedContact.profile?.firstName?.[0]}{selectedContact.profile?.lastName?.[0]}
-            </div>
-            <p className="font-bold text-slate-900">{selectedContact.profile?.firstName} {selectedContact.profile?.lastName}</p>
-            <motion.button
-              onClick={() => setSelectedContact(null)}
-              className="ml-auto text-xs text-slate-500 hover:text-slate-700 transition-colors"
-            >
-              <X className="w-4 h-4" />
-            </motion.button>
-          </motion.div>
-
-          {/* Messages Area */}
-          <motion.div
-            className="flex-1 overflow-y-auto p-4 space-y-4 bg-slate-50"
-            style={{ transition: 'all 0.3s ease' }}
-          >
-            {messages.map((msg, i) => {
-              // Check if I am the sender (we'll use 'me' for the temp optimistic message)
-              const isMe = msg.senderId === 'me' || msg.senderId !== selectedContact.id;
-
-              return (
-                <motion.div
-                  key={msg.id || i}
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ type: "spring", stiffness: 300, delay: i * 0.02 }}
-                  className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}
-                >
-                  <div className={`max-w-[70%] p-3 rounded-2xl text-sm transition-all duration-300 ${
-                    isMe
-                      ? 'bg-indigo-600 text-white rounded-br-sm shadow-indigo-500/20'
-                      : 'bg-white border border-slate-200 text-slate-800 rounded-bl-sm shadow-sm'
-                    }`}
-                >
-                  <motion.p className="whitespace-pre-wrap">{msg.content}</motion.p>
-                  <p className="text-xs opacity-70 mt-1">{new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
-                </div>
-              );
-            })}
-            <div ref={messagesEndRef} />
-          </motion.div>
-
-          {/* Input Area */}
-          <motion.div
-            className="p-4 border-t border-slate-200 bg-white"
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ type: "spring", stiffness: 300, delay: 0.2 }}
-          >
-            <form onSubmit={handleSend} className="flex gap-2">
-              <motion.input
-                type="text"
-                value={newMessage}
-                onChange={(e) => setNewMessage(e.target.value)}
-                placeholder="Type a message..."
-                className="flex-1 px-5 py-3 border rounded-full text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all bg-white"
-                style={{ transition: 'all 0.3s ease' }}
-              />
-              <motion.button
-                type="submit"
-                className="bg-indigo-600 text-white p-3 rounded-full hover:bg-indigo-700 transition-colors w-11 h-11 flex items-center justify-center"
-                disabled={!newMessage.trim() || !selectedContact}
+          {selectedContact ? (
+            <>
+              {/* Header */}
+              <motion.div
+                className="p-4 border-b border-slate-200 flex items-center gap-3 bg-white"
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ type: "spring", stiffness: 300, delay: 0.15 }}
               >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"></path>
-                </svg>
-              </motion.button>
-            </form>
-          </motion.div>
+                <div className="w-8 h-8 rounded-full bg-indigo-200/80 text-indigo-600 flex items-center justify-center font-bold text-sm">
+                  {selectedContact.profile?.firstName?.[0]}{selectedContact.profile?.lastName?.[0]}
+                </div>
+                <p className="font-bold text-slate-900">{selectedContact.profile?.firstName} {selectedContact.profile?.lastName}</p>
+                <motion.button
+                  onClick={() => setSelectedContact(null)}
+                  className="ml-auto text-xs text-slate-500 hover:text-slate-700 transition-colors"
+                >
+                  <X className="w-4 h-4" />
+                </motion.button>
+              </motion.div>
+
+              {/* Messages Area */}
+              <motion.div
+                className="flex-1 overflow-y-auto p-4 space-y-4 bg-slate-50"
+                style={{ transition: 'all 0.3s ease' }}
+              >
+                {messages.map((msg, i) => {
+                  const isMe = msg.senderId === 'me' || msg.senderId !== selectedContact.id;
+
+                  return (
+                    <motion.div
+                      key={msg.id || i}
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ type: "spring", stiffness: 300, delay: i * 0.02 }}
+                      className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}
+                    >
+                      <div className={`max-w-[70%] p-3 rounded-2xl text-sm transition-all duration-300 ${
+                        isMe
+                          ? 'bg-indigo-600 text-white rounded-br-sm shadow-indigo-500/20'
+                          : 'bg-white border border-slate-200 text-slate-800 rounded-bl-sm shadow-sm'
+                        }`}
+                      >
+                        <motion.p className="whitespace-pre-wrap">{msg.content}</motion.p>
+                        <p className="text-xs opacity-70 mt-1">{new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
+                      </div>
+                    </motion.div>
+                  );
+                })}
+                <div ref={messagesEndRef} />
+              </motion.div>
+
+              {/* Input Area */}
+              <motion.div
+                className="p-4 border-t border-slate-200 bg-white"
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ type: "spring", stiffness: 300, delay: 0.2 }}
+              >
+                <form onSubmit={handleSend} className="flex gap-2">
+                  <motion.input
+                    type="text"
+                    value={newMessage}
+                    onChange={(e) => setNewMessage(e.target.value)}
+                    placeholder="Type a message..."
+                    className="flex-1 px-5 py-3 border rounded-full text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all bg-white"
+                    style={{ transition: 'all 0.3s ease' }}
+                  />
+                  <motion.button
+                    type="submit"
+                    className="bg-indigo-600 text-white p-3 rounded-full hover:bg-indigo-700 transition-colors w-11 h-11 flex items-center justify-center"
+                    disabled={!newMessage.trim() || !selectedContact}
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"></path>
+                    </svg>
+                  </motion.button>
+                </form>
+              </motion.div>
+            </>
+          ) : (
+            <div className="flex-1 flex items-center justify-center p-8 text-slate-400">
+              Select a contact to view messages
+            </div>
+          )}
         </motion.div>
       </motion.div>
     </motion.div>

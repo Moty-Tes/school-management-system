@@ -27,7 +27,7 @@ export async function getDashboardStats(tenantId: string) {
         id: true,
         firstName: true,
         lastName: true,
-        gradeLevel: true,
+        class: { select: { name: true } },
         createdAt: true,
       },
     }),

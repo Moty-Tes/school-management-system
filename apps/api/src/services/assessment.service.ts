@@ -26,14 +26,7 @@ export async function saveGrades(tenantId: string, assessmentId: string, records
   const assessment = await prisma.assessment.findFirst({
     where: { id: assessmentId, tenantId },
   });
-  if (!assessment) throw new AppError('Assessment not found', 404, 'NOT_FOUND');    
-  await auditService.createLog(
-      tenantId,
-      userId, // Again, update signature to accept userId
-      'SAVE_GRADES',
-      'Assessment',
-      `Entered grades for assessment ID: ${assessmentId}`
-    );
+  if (!assessment) throw new AppError('Assessment not found', 404, 'NOT_FOUND');
   
 
   return prisma.$transaction(async (tx) => {
