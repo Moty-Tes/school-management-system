@@ -190,7 +190,7 @@ export default function MessagesPage() {
                     <p className="text-xs text-slate-500">{contact.tenantLinks?.[0]?.roles?.[0]?.role?.name || 'User'}</p>
                   </div>
                 </div>
-              </div>
+              </motion.div>
             ))}
           </motion.div>
         </motion.div>
@@ -241,11 +241,10 @@ export default function MessagesPage() {
                       ? 'bg-indigo-600 text-white rounded-br-sm shadow-indigo-500/20'
                       : 'bg-white border border-slate-200 text-slate-800 rounded-bl-sm shadow-sm'
                     }`}
-                  >
-                    <motion.p className="whitespace-pre-wrap">{msg.content}</motion.p>
-                    <p className="text-xs opacity-70 mt-1">{new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
-                  </div>
-                </motion.div>
+                >
+                  <motion.p className="whitespace-pre-wrap">{msg.content}</motion.p>
+                  <p className="text-xs opacity-70 mt-1">{new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
+                </div>
               );
             })}
             <div ref={messagesEndRef} />

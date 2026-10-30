@@ -1,242 +1,247 @@
 'use client';
 
-import { useEffect, useState, FormEvent } from 'react';
+import { useEffect, useState } from 'react';
 import { api } from '@/lib/api';
-import { getMe } from '@/lib/auth';
+import { motion } from 'framer-motion';
+import { CheckCircle, X, Loader2, FolderAdd, Menu, Shield, Users, UserPlus, LogOut, Clock, Flag, Info, Trash2, Edit2, RefreshCw, Target, FlagWarning, Palette, Calendar, Settings, BookOpen, Folder, Globe, Layout, Loader, Brain, Activity, BarChart3, Clipboard, Folder as FolderIcon, FolderAdd as FolderAddIcon, Home, Login, LogOut, MapPin, Mic, MonitorOff, Music, Page, PanelRight, Pipe, PlayCircle, Scissors, ShieldCheck, TrendingUp, Wrench } from 'lucide-react';
+import { useToast } from '@/components/ui/use-toast';
+
+const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 
 export default function QuizzesPage() {
   const [quizzes, setQuizzes] = useState<any[]>([]);
-  const [classes, setClasses] = useState<any[]>([]);
   const [role, setRole] = useState<string>('');
-  
-  // Create Quiz Modal
-  const [isCreateOpen, setIsCreateOpen] = useState(false);
-  const [title, setTitle] = useState('');
-  const [classId, setClassId] = useState('');
-  const [duration, setDuration] = useState(15);
-  const [questions, setQuestions] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [term, setTerm] = useState('Term 1');
+  const [year, setYear] = useState(new Date().getFullYear());
 
-  // Take Quiz Mode
-  const [activeQuiz, setActiveQuiz] = useState<any>(null);
-  const [answers, setAnswers] = useState<number[]>([]);
-  const [timeLeft, setTimeLeft] = useState(0);
-  const [quizResult, setQuizResult] = useState<any>(null);
+  const { toast } = useToast();
 
   async function loadData() {
-    const [meData, classesData, quizzesData] = await Promise.all([
-      getMe(),
-      api.get<any[]>('/api/v1/classes'),
-      api.get<any[]>('/api/v1/quizzes')
-    ]);
-    setRole((meData as any).roles?.includes('TEACHER') ? 'TEACHER' : 'STUDENT');
-    setClasses(classesData);
-    setQuizzes(quizzesData);
-    if (classesData.length > 0) setClassId(classesData[0].id);
-  }
-
-  useEffect(() => { loadData(); }, []);
-
-  // Timer Logic
-  useEffect(() => {
-    if (!activeQuiz || timeLeft <= 0) return;
-    const timer = setInterval(() => {
-      setTimeLeft(prev => {
-        if (prev <= 1) {
-          clearInterval(timer);
-          handleAutoSubmit(); // Time is up!
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-    return () => clearInterval(timer);
-  }, [activeQuiz, timeLeft]);
-
-  // --- TEACHER LOGIC ---
-  function addQuestion() {
-    setQuestions([...questions, { text: '', options: ['', '', '', ''], correctIndex: 0 }]);
-  }
-
-  function updateQuestion(qIndex: number, field: string, value: any) {
-    const newQs = [...questions];
-    if (field === 'text') newQs[qIndex].text = value;
-    if (field === 'correctIndex') newQs[qIndex].correctIndex = Number(value);
-    setQuestions(newQs);
-  }
-
-  function updateOption(qIndex: number, oIndex: number, value: string) {
-    const newQs = [...questions];
-    newQs[qIndex].options[oIndex] = value;
-    setQuestions(newQs);
-  }
-
-  async function handleCreate(e: FormEvent) {
-    e.preventDefault();
-    await api.post('/api/v1/quizzes', { title, classId, duration, questions });
-    setIsCreateOpen(false);
-    setQuestions([]);
-    loadData();
-  }
-
-  // --- STUDENT LOGIC ---
-  async function startQuiz(quiz: any) {
     try {
-      const fullQuiz = await api.get<any>(`/api/v1/quizzes/${quiz.id}/take`);
-      setActiveQuiz(fullQuiz);
-      setAnswers(new Array(fullQuiz.questions.length).fill(-1));
-      setTimeLeft(fullQuiz.duration * 60);
-      setQuizResult(null);
-    } catch (err: any) {
-      alert(err.message); // "Already taken" error
+      const meData: any = await getMe();
+      const isAdmin = meData.roles?.includes('TENANT_ADMIN') || meData.roles?.includes('SUPER_ADMIN');
+      setRole(isAdmin ? 'ADMIN' : 'TEACHER');
+
+      try {
+        if (isAdmin) {
+          const data = await api.get<any[]>(`/api/v1/quizzes/list?term=${term}&year=${year}`);
+          setQuizzes(data);
+        } else {
+          const data = await api.get<any[]>('/api/v1/quizzes/me');
+          setQuizzes(data);
+        }
+      } catch (err) {
+        toast({
+          title: 'Error',
+          description: 'Failed to load quiz data.',
+          variant: 'destructive',
+        });
+      }
+      setLoading(false);
+    } catch (err) {
+      setLoading(false);
     }
   }
 
-  async function handleAutoSubmit() {
-    if (!activeQuiz) return;
-    const res = await api.post<any>(`/api/v1/quizzes/${activeQuiz.id}/submit`, { answers });
-    setQuizResult(res);
-    setActiveQuiz(null);
-    loadData();
-  }
+  useEffect(() => { loadData(); }, [term, year]);
 
-  // --- RENDER: EXAM MODE ---
-  if (activeQuiz) {
-    return (
-      <div className="max-w-3xl mx-auto space-y-6">
-        <div className="bg-white p-6 rounded-xl border shadow-sm flex justify-between items-center sticky top-20 z-10">
-          <h1 className="text-xl font-bold text-slate-900">{activeQuiz.title}</h1>
-          <div className="text-2xl font-mono font-bold text-red-600 bg-red-50 px-4 py-2 rounded-lg">
-            {Math.floor(timeLeft / 60)}:{String(timeLeft % 60).padStart(2, '0')}
-          </div>
-        </div>
-
-        {activeQuiz.questions.map((q: any, qIndex: number) => (
-          <div key={qIndex} className="bg-white p-6 rounded-xl border shadow-sm">
-            <h3 className="font-bold text-slate-900 mb-4">Question {qIndex + 1}: {q.text}</h3>
-            <div className="space-y-2">
-              {q.options.map((opt: string, oIndex: number) => (
-                <label key={oIndex} className={`flex items-center p-3 border rounded-lg cursor-pointer transition-colors ${answers[qIndex] === oIndex ? 'bg-indigo-50 border-indigo-600' : 'hover:bg-slate-50'}`}>
-                  <input 
-                    type="radio" 
-                    name={`q-${qIndex}`} 
-                    checked={answers[qIndex] === oIndex}
-                    onChange={() => {
-                      const newAns = [...answers];
-                      newAns[qIndex] = oIndex;
-                      setAnswers(newAns);
-                    }}
-                    className="w-4 h-4 text-indigo-600"
-                  />
-                  <span className="ml-3 font-medium text-slate-700">{opt}</span>
-                </label>
-              ))}
-            </div>
-          </div>
-        ))}
-
-        <button onClick={handleAutoSubmit} className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-4 rounded-xl shadow-lg transition-colors">
-          Submit Quiz
-        </button>
-      </div>
-    );
-  }
-
-  // --- RENDER: MAIN PAGE ---
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900">Online Quizzes</h1>
-          <p className="text-slate-500 text-sm mt-1">Computer-based testing</p>
+    <motion.div className="min-h-screen bg-slate-50">
+      {/* Header */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ type: "spring", stiffness: 300, delay: 0.1 }}
+        className="bg-white border-b border-slate-200 px-6 py-4 shadow-sm"
+      >
+        <div className="flex justify-between items-center">
+          <div>
+            <h1 className="text-2xl font-bold text-slate-900 tracking-tighter">
+              <BarChart3 className="w-5 h-5 text-emerald-600 mr-2" /> Quizzes
+            </h1>
+            <p className="text-slate-500 text-sm mt-1">
+              {role === 'ADMIN' ? 'Create and manage quizzes' : 'View your quizzes'}
+            </p>
+          </div>
+
+          {role === 'ADMIN' && (
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              transition={{ type: "spring" }}
+              className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2 rounded-lg text-sm font-medium transition-all duration-300 shadow-lg shadow-indigo-500/20 hover:shadow-indigo-500/40 flex items-center gap-2"
+            >
+              <Loader2 className="w-4 h-4" /> Create Quiz
+            </motion.button>
+          )}
         </div>
-        {role === 'TEACHER' && (
-          <button onClick={() => setIsCreateOpen(true)} className="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-medium">
-            + Create Quiz
-          </button>
+      </motion.div>
+
+      {/* Main Content */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ type: "spring", stiffness: 300, delay: 0.15 }}
+        className="px-6 py-8 lg:px-12"
+      >
+        {/* Admin Filters */}
+        {role === 'ADMIN' && (
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ type: "spring", stiffness: 300, delay: 0.1 }}
+            className="bg-white rounded-3xl border border-slate-200 p-6 shadow-3xl shadow-slate-50/30 mb-8"
+            style={{ background: 'linear-gradient(135deg, var(--bg), var(--bg-light))' }}
+          >
+            <h2 className="text-sm font-medium text-slate-700 uppercase tracking-wider mb-4">Quiz Period</h2>
+
+            <motion.div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <motion.div>
+                <label className="block text-xs font-medium text-slate-700 mb-1">Term</label>
+                <select
+                  value={term}
+                  onChange={(e) => setTerm(e.target.value)}
+                  className="w-full px-4 py-3 rounded-xl border border-slate-200 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 appearance-none bg-white pl-3 pr-12 cursor-pointer"
+                >
+                  <option value="Term 1">Term 1</option>
+                  <option value="Term 2">Term 2</option>
+                  <option value="Term 3">Term 3</option>
+                </select>
+              </motion.div>
+
+              <motion.div>
+                <label className="block text-xs font-medium text-slate-700 mb-1">Year</label>
+                <input
+                  type="number"
+                  value={year}
+                  onChange={(e) => setYear(Number(e.target.value))}
+                  className="w-full px-4 py-3 rounded-xl border border-slate-200 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all"
+                />
+              </motion.div>
+
+              <motion.div>
+                <motion.button
+                  whileHover={{ scale: 1.05 }}
+                  transition={{ type: "spring" }}
+                  className="px-6 py-3 text-sm font-medium bg-indigo-600 text-white rounded-xl transition-all"
+                >
+                  Manage Quizzes
+                </motion.button>
+              </motion.div>
+            </motion.div>
+          </motion.div>
         )}
-      </div>
 
-      {quizResult && (
-        <div className="bg-emerald-50 border border-emerald-200 p-6 rounded-xl text-center">
-          <h2 className="text-2xl font-bold text-emerald-800">Quiz Completed!</h2>
-          <p className="text-emerald-600 mt-2 text-lg">Your Score: <span className="font-bold text-2xl">{quizResult.score}</span></p>
-        </div>
-      )}
+        {/* Quizzes Table */}
+        <motion.div
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ type: "spring", stiffness: 300, delay: 0.1 }}
+          className="bg-white rounded-3xl border border-slate-200 overflow-hidden shadow-3xl shadow-slate-50/30"
+          style={{ background: 'linear-gradient(135deg, var(--bg), var(--bg-light))' }}
+        >
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ type: "spring", stiffness: 300, delay: 0.1 }}
+            className="border-b border-slate-200"
+          >
+            <table className="w-full text-left">
+              <thead className="bg-slate-50 border-b text-xs font-semibold text-slate-500 uppercase">
+                <tr>
+                  {role === 'ADMIN' && (
+                    <th className="py-4 px-6">Teacher Name</th>
+                  )}
+                  <th className="py-4 px-4">Class</th>
+                  <th className="py-4 px-4">Subject</th>
+                  <th className="py-4 px-4">Topic</th>
+                  <th className="py-4 px-4 font-bold text-slate-900">Date</th>
+                  <th className="py-4 px-4">Total Questions</th>
+                  {role === 'ADMIN' && (
+                    <th className="py-4 px-4 text-right">Actions</th>
+                  )}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 text-sm">
+                {loading ? (
+                  <motion.tr>
+                    <motion.td colSpan={role === 'ADMIN' ? 7 : 5} className="py-8 text-center text-slate-400">
+                      Loading quiz data...
+                    </motion.td>
+                  </motion.tr>
+                ) : quizzes.length === 0 ? (
+                  <motion.tr>
+                    <motion.td colSpan={role === 'ADMIN' ? 7 : 5} className="py-8 text-center text-slate-500">
+                      No quizzes found for this period.
+                    </motion.td>
+                  </motion.tr>
+                ) : (
+                  quizzes.map((q) => (
+                    <motion.tr
+                      key={q.id}
+                      initial={{ opacity: 0, y: -10, x: -20 }}
+                      animate={{ opacity: 1, y: 0, x: 0 }}
+                      transition={{ type: "spring", stiffness: 300, delay: Math.random() * 0.1 }}
+                      className="hover:bg-slate-50 transition-colors"
+                    >
+                      {role === 'ADMIN' && (
+                        <motion.td className="py-4 px-4 font-medium text-slate-900">
+                          {q.teacher.user.profile?.firstName} {q.teacher.user.profile?.lastName}
+                        </motion.td>
+                      )}
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {quizzes.map(q => (
-          <div key={q.id} className="bg-white p-6 rounded-xl border shadow-sm flex flex-col">
-            <h3 className="text-lg font-bold text-slate-900">{q.title}</h3>
-            <p className="text-sm text-slate-500 mb-4">{q.class.name} - {q.class.section}</p>
-            <div className="flex justify-between text-xs text-slate-500 mb-4 bg-slate-50 p-2 rounded">
-              <span>⏱ {q.duration} mins</span>
-              <span>🏆 {q.totalMarks} marks</span>
-            </div>
-            <div className="mt-auto">
-              {role === 'TEACHER' ? (
-                <p className="text-sm font-semibold text-indigo-600">{q._count.attempts} Students submitted</p>
-              ) : (
-                <button onClick={() => startQuiz(q)} className="w-full bg-slate-900 text-white py-2 rounded-lg text-sm hover:bg-slate-800">
-                  Start Quiz
-                </button>
-              )}
-            </div>
-          </div>
-        ))}
-      </div>
+                      <motion.td className="py-4 px-4">
+                        {q.className}
+                      </motion.td>
 
-      {/* CREATE QUIZ MODAL */}
-      {isCreateOpen && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50 overflow-y-auto">
-          <div className="bg-white rounded-xl w-full max-w-2xl p-6 my-8">
-            <h2 className="text-xl font-bold mb-4">Create Online Quiz</h2>
-            <form onSubmit={handleCreate} className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-medium mb-1">Title</label>
-                  <input required type="text" value={title} onChange={e => setTitle(e.target.value)} className="w-full px-3 py-2 border rounded-lg text-sm" />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium mb-1">Class</label>
-                  <select value={classId} onChange={e => setClassId(e.target.value)} className="w-full px-3 py-2 border rounded-lg text-sm">
-                    {classes.map(c => <option key={c.id} value={c.id}>{c.name} - {c.section}</option>)}
-                  </select>
-                </div>
-              </div>
-              <div>
-                <label className="block text-xs font-medium mb-1">Duration (Minutes)</label>
-                <input required type="number" value={duration} onChange={e => setDuration(Number(e.target.value))} className="w-full px-3 py-2 border rounded-lg text-sm" />
-              </div>
+                      <motion.td className="py-4 px-4">
+                        {q.subject}
+                      </motion.td>
 
-              <div className="border-t pt-4 mt-4">
-                <div className="flex justify-between items-center mb-4">
-                  <h3 className="font-bold text-slate-900">Questions</h3>
-                  <button type="button" onClick={addQuestion} className="text-sm bg-indigo-50 text-indigo-600 px-3 py-1 rounded">+ Add Question</button>
-                </div>
-                
-                {questions.map((q, qIndex) => (
-                  <div key={qIndex} className="bg-slate-50 p-4 rounded-lg mb-4 border border-slate-200">
-                    <input required type="text" placeholder={`Question ${qIndex + 1}`} value={q.text} onChange={e => updateQuestion(qIndex, 'text', e.target.value)} className="w-full px-3 py-2 border rounded-lg text-sm mb-3" />
-                    <div className="grid grid-cols-2 gap-2">
-                      {q.options.map((opt: string, oIndex: number) => (
-                        <div key={oIndex} className="flex items-center gap-2">
-                          <input type="radio" checked={q.correctIndex === oIndex} onChange={() => updateQuestion(qIndex, 'correctIndex', oIndex)} required />
-                          <input required type="text" placeholder={`Option ${oIndex + 1}`} value={opt} onChange={e => updateOption(qIndex, oIndex, e.target.value)} className="w-full px-2 py-1 border rounded text-sm" />
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                ))}
-              </div>
+                      <motion.td className="py-4 px-4">
+                        {q.topic}
+                      </motion.td>
 
-              <div className="flex justify-end gap-3 pt-4 border-t">
-                <button type="button" onClick={() => setIsCreateOpen(false)} className="px-4 py-2 text-sm">Cancel</button>
-                <button type="submit" className="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm">Publish Quiz</button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-    </div>
+                      <motion.td className="py-4 px-4">
+        {new Date(q.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+      </motion.td>
+
+                      <motion.td className="py-4 px-4">
+                        {q.totalQuestions}
+                      </motion.td>
+
+                      {role === 'ADMIN' && (
+                        <motion.td className="py-4 px-4 text-right">
+                          <motion.button
+                            whileHover={{ scale: 1.02 }}
+                            transition={{ type: "spring" }}
+                            className="text-indigo-600 font-semibold text-xs hover:underline transition-colors"
+                          >
+                            View
+                          </motion.button>
+                        </motion.td>
+                      )}
+                    </motion.tr>
+                  ))}
+                )}
+              </tbody>
+            </table>
+          </motion.div>
+        </motion.div>
+
+        {/* No quizzes state */}
+        {role === 'ADMIN' && loading && (
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ type: "spring", stiffness: 300 }}
+            className="p-8 text-center text-slate-500"
+          >
+            <Loader2 className="w-12 h-12 mx-auto mb-4 opacity-50 animate-spin" />
+            <p>Loading quiz data...</p>
+          </motion.div>
+        )}
+      </motion.div>
+    </motion.div>
   );
 }

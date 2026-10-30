@@ -201,7 +201,7 @@ export default function LibraryPage() {
         </motion.div>
 
         {/* LOANS TAB */}
-      )}{activeTab === 'loans' && (
+      {activeTab === 'loans' && (
         <motion.div className="bg-white rounded-3xl border border-slate-200 overflow-hidden shadow-lg shadow-slate-50/30">
           <motion.div className="animate-in" style={{ transitionProperty: 'all', transitionDuration: '0.2s' }}>
             <motion.table className="w-full text-left">

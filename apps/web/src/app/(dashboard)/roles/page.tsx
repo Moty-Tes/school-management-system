@@ -1,138 +1,191 @@
 'use client';
 
-import { useEffect, useState, FormEvent } from 'react';
+import { useEffect, useState } from 'react';
 import { api } from '@/lib/api';
+import { motion } from 'framer-motion';
+import { CheckCircle, X, Loader2, FolderAdd, Menu, Shield, Users, UserPlus, LogOut, Clock, Flag, Info, Trash2, Edit2, RefreshCw, Target, FlagWarning, Palette, Calendar, Settings, BookOpen, Folder, Globe, Layout, Loader, Brain, Activity, BarChart3, Clipboard, Folder as FolderIcon, FolderAdd as FolderAddIcon, Home, Login, LogOut, MapPin, Mic, MonitorOff, Music, Page, PanelRight, Pipe, PlayCircle, Scissors, ShieldCheck, TrendingUp, Wrench } from 'lucide-react';
+import { useToast } from '@/components/ui/use-toast';
 
 export default function RolesPage() {
-  const [roles, setRoles] = useState<any[]>([]);
-  const [permissions, setPermissions] = useState<any[]>([]);
+  const [users, setUsers] = useState<any[]>([]);
+  const [role, setRole] = useState<string>('');
   const [loading, setLoading] = useState(true);
-  const [isModalOpen, setIsModalOpen] = useState(false);
 
-  // Form State
-  const [roleName, setRoleName] = useState('');
-  const [roleDesc, setRoleDesc] = useState('');
-  const [selectedPerms, setSelectedPerms] = useState<string[]>([]);
+  const { toast } = useToast();
 
   async function loadData() {
-    const [rolesData, permsData] = await Promise.all([
-      api.get<any[]>('/api/v1/roles'),
-      api.get<any[]>('/api/v1/roles/permissions')
-    ]);
-    setRoles(rolesData);
-    setPermissions(permsData);
-    setLoading(false);
+    try {
+      const meData: any = await getMe();
+      const isAdmin = meData.roles?.includes('TENANT_ADMIN') || meData.roles?.includes('SUPER_ADMIN');
+      setRole(isAdmin ? 'ADMIN' : 'TEACHER');
+
+      try {
+        if (isAdmin) {
+          const data = await api.get<any[]>('/api/v1/roles/all');
+          setUsers(data);
+        } else {
+          const data = await api.get<any[]>('/api/v1/roles/me');
+          setUsers(data);
+        }
+      } catch (err) {
+        toast({
+          title: 'Error',
+          description: 'Failed to load roles data.',
+          variant: 'destructive',
+        });
+      }
+      setLoading(false);
+    } catch (err) {
+      setLoading(false);
+    }
   }
 
   useEffect(() => { loadData(); }, []);
 
-  function togglePermission(id: string) {
-    setSelectedPerms(prev => 
-      prev.includes(id) ? prev.filter(p => p !== id) : [...prev, id]
-    );
-  }
-
-  async function handleCreateRole(e: FormEvent) {
-    e.preventDefault();
-    if (selectedPerms.length === 0) return alert("Select at least one permission");
-    
-    await api.post('/api/v1/roles', {
-      name: roleName,
-      description: roleDesc,
-      permissionIds: selectedPerms
-    });
-    
-    setIsModalOpen(false);
-    setRoleName('');
-    setRoleDesc('');
-    setSelectedPerms([]);
-    loadData();
-  }
-
-  // Group permissions by category for the UI
-  const groupedPermissions = permissions.reduce((acc, perm) => {
-    if (!acc[perm.category]) acc[perm.category] = [];
-    acc[perm.category].push(perm);
-    return acc;
-  }, {} as Record<string, any[]>);
-
-  if (loading) return <div className="p-10 text-center">Loading roles...</div>;
-
   return (
-    <div className="space-y-6 max-w-5xl mx-auto">
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900">Roles & Permissions</h1>
-          <p className="text-slate-500 text-sm mt-1">Create custom roles for your staff</p>
-        </div>
-        <button onClick={() => setIsModalOpen(true)} className="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-medium">
-          + Create Custom Role
-        </button>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {roles.map(r => (
-          <div key={r.id} className="bg-white p-6 rounded-xl border shadow-sm">
-            <div className="flex justify-between items-start mb-2">
-              <h3 className="text-lg font-bold text-slate-900">{r.name}</h3>
-              {r.isSystem && <span className="text-[10px] bg-slate-100 text-slate-500 px-2 py-1 rounded">SYSTEM</span>}
-            </div>
-            <p className="text-sm text-slate-500 mb-4">{r.description || 'No description'}</p>
-            <div className="flex justify-between text-xs font-semibold text-slate-400 border-t pt-4">
-              <span>{r.permissions?.length || 0} Permissions</span>
-              <span>{r._count?.userTenantRoles || 0} Users</span>
-            </div>
+    <motion.div className="min-h-screen bg-slate-50">
+      {/* Header */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ type: "spring", stiffness: 300, delay: 0.1 }}
+        className="bg-white border-b border-slate-200 px-6 py-4 shadow-sm"
+      >
+        <div className="flex justify-between items-center">
+          <div>
+            <h1 className="text-2xl font-bold text-slate-900 tracking-tighter">
+              <ShieldCheck className="w-5 h-5 text-emerald-600 mr-2" /> Roles & Permissions
+            </h1>
+            <p className="text-slate-500 text-sm mt-1">
+              {role === 'ADMIN' ? 'Manage user roles and permissions' : 'View your role and permissions'}
+            </p>
           </div>
-        ))}
-      </div>
 
-      {/* CREATE ROLE MODAL */}
-      {isModalOpen && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50 overflow-y-auto">
-          <div className="bg-white rounded-xl w-full max-w-2xl p-6 my-8">
-            <h2 className="text-xl font-bold mb-4">Create Custom Role</h2>
-            <form onSubmit={handleCreateRole} className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-medium mb-1">Role Name</label>
-                  <input required type="text" value={roleName} onChange={e => setRoleName(e.target.value)} className="w-full px-3 py-2 border rounded-lg text-sm" placeholder="e.g. Librarian" />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium mb-1">Description</label>
-                  <input type="text" value={roleDesc} onChange={e => setRoleDesc(e.target.value)} className="w-full px-3 py-2 border rounded-lg text-sm" placeholder="Manage books only" />
-                </div>
-              </div>
+          {role === 'ADMIN' && (
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              transition={{ type: "spring" }}
+              className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2 rounded-lg text-sm font-medium transition-all duration-300 shadow-lg shadow-indigo-500/20 hover:shadow-indigo-500/40 flex items-center gap-2"
+            >
+              <Loader2 className="w-4 h-4" /> Manage Roles
+            </motion.button>
+          )}
+        </div>
+      </motion.div>
 
-              <div className="border-t pt-4">
-                <h3 className="font-bold text-slate-900 mb-2">Select Permissions</h3>
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-6 max-h-80 overflow-y-auto p-2">
-                  {Object.keys(groupedPermissions).map(category => (
-                    <div key={category} className="space-y-2">
-                      <h4 className="text-xs font-bold text-indigo-600 uppercase tracking-wider">{category}</h4>
-                      {groupedPermissions[category].map(perm => (
-                        <label key={perm.id} className="flex items-start gap-2 cursor-pointer">
-                          <input 
-                            type="checkbox" 
-                            checked={selectedPerms.includes(perm.id)} 
-                            onChange={() => togglePermission(perm.id)}
-                            className="mt-0.5"
-                          />
-                          <span className="text-xs text-slate-600 leading-tight">{perm.description}</span>
-                        </label>
-                      ))}
-                    </div>
+      {/* Main Content */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ type: "spring", stiffness: 300, delay: 0.15 }}
+        className="px-6 py-8 lg:px-12"
+      >
+        {/* Users Table */}
+        <motion.div
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ type: "spring", stiffness: 300, delay: 0.1 }}
+          className="bg-white rounded-3xl border border-slate-200 overflow-hidden shadow-3xl shadow-slate-50/30"
+          style={{ background: 'linear-gradient(135deg, var(--bg), var(--bg-light))' }}
+        >
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ type: "spring", stiffness: 300, delay: 0.1 }}
+            className="border-b border-slate-200"
+          >
+            <table className="w-full text-left">
+              <thead className="bg-slate-50 border-b text-xs font-semibold text-slate-500 uppercase">
+                <tr>
+                  {role === 'ADMIN' && (
+                    <th className="py-4 px-6">Username</th>
+                  )}
+                  <th className="py-4 px-4">Full Name</th>
+                  <th className="py-4 px-4">Email</th>
+                  <th className="py-4 px-4">Role</th>
+                  <th className="py-4 px-4">Status</th>
+                  {role === 'ADMIN' && (
+                    <th className="py-4 px-4 text-right">Actions</th>
+                  )}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 text-sm">
+                {loading ? (
+                  <motion.tr>
+                    <motion.td colSpan={role === 'ADMIN' ? 6 : 4} className="py-8 text-center text-slate-400">
+                      Loading roles data...
+                    </motion.td>
+                  </motion.tr>
+                ) : users.length === 0 ? (
+                  <motion.tr>
+                    <motion.td colSpan={role === 'ADMIN' ? 6 : 4} className="py-8 text-center text-slate-500">
+                      No users found.
+                    </motion.td>
+                  </motion.tr>
+                ) : (
+                  users.map((u) => (
+                    <motion.tr
+                      key={u.id}
+                      initial={{ opacity: 0, y: -10, x: -20 }}
+                      animate={{ opacity: 1, y: 0, x: 0 }}
+                      transition={{ type: "spring", stiffness: 300, delay: Math.random() * 0.1 }}
+                      className="hover:bg-slate-50 transition-colors"
+                    >
+                      {role === 'ADMIN' && (
+                        <motion.td className="py-4 px-4 font-medium text-slate-900">
+                          {u.username}
+                        </motion.td>
+                      )}
+
+                      <motion.td className="py-4 px-4 font-medium text-slate-900">
+                        {u.profile?.firstName} {u.profile?.lastName}
+                      </motion.td>
+
+                      <motion.td className="py-4 px-4">
+                        {u.email}
+                      </motion.td>
+
+                      <motion.td className="py-4 px-4">
+                        <span className={`
+                          px-2 py-1 rounded text-xs font-bold
+                          ${u.role === 'ADMIN' ? 'bg-red-100 text-red-800' : 'bg-indigo-100 text-indigo-800'}
+                        `}>
+                          {u.role}
+                        </span>
+                      </motion.td>
+
+                      {role === 'ADMIN' && (
+                        <motion.td className="py-4 px-4 text-right">
+                          <motion.button
+                            whileHover={{ scale: 1.02 }}
+                            transition={{ type: "spring" }}
+                            className="text-indigo-600 font-semibold text-xs hover:underline transition-colors"
+                          >
+                            Edit
+                          </motion.button>
+                        </motion.td>
+                      )}
+                    </motion.tr>
                   ))}
-                </div>
-              </div>
+                )}
+              </tbody>
+            </table>
+          </motion.div>
+        </motion.div>
 
-              <div className="flex justify-end gap-3 pt-4 border-t">
-                <button type="button" onClick={() => setIsModalOpen(false)} className="px-4 py-2 text-sm">Cancel</button>
-                <button type="submit" className="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm">Create Role</button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-    </div>
+        {/* No users state */}
+        {role === 'ADMIN' && loading && (
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ type: "spring", stiffness: 300 }}
+            className="p-8 text-center text-slate-500"
+          >
+            <Loader2 className="w-12 h-12 mx-auto mb-4 opacity-50 animate-spin" />
+            <p>Loading roles data...</p>
+          </motion.div>
+        )}
+      </motion.div>
+    </motion.div>
   );
 }

@@ -2,242 +2,282 @@
 
 import { useEffect, useState, FormEvent } from 'react';
 import { api } from '@/lib/api';
+import { getMe } from '@/lib/auth';
+import { motion } from 'framer-motion';
+import { CheckCircle, X, Loader2, FolderAdd, Menu, Shield, Users, UserPlus, LogOut, Clock, Flag, Info, Trash2, Edit2, RefreshCw, Target, FlagWarning, Palette, Calendar, Settings, BookOpen, Folder, Globe, Layout, Loader } from 'lucide-react';
+import { useToast } from '@/components/ui/use-toast';
+
+const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 
 export default function PhysicalExamsPage() {
   const [exams, setExams] = useState<any[]>([]);
-  const [rooms, setRooms] = useState<any[]>([]);
-  const [classes, setClasses] = useState<any[]>([]);
+  const [role, setRole] = useState<string>('');
   const [loading, setLoading] = useState(true);
+  const [term, setTerm] = useState('Term 1');
+  const [year, setYear] = useState(new Date().getFullYear());
+  const [isCreating, setIsCreating] = useState(false);
 
-  // Modals
-  const [isRoomOpen, setIsRoomOpen] = useState(false);
-  const [isExamOpen, setIsExamOpen] = useState(false);
-  const [seatingPlan, setSeatingPlan] = useState<any>(null);
-
-  // Forms
-  const [roomForm, setRoomForm] = useState({ name: '', capacity: 40 });
-  const [examForm, setExamForm] = useState({ title: '', date: '', startTime: '09:00', endTime: '11:00', classIds: [] as string[] });
+  const { toast } = useToast();
 
   async function loadData() {
-    const [examsData, roomsData, classesData] = await Promise.all([
-      api.get<any[]>('/api/v1/exams/schedules'),
-      api.get<any[]>('/api/v1/exams/rooms'),
-      api.get<any[]>('/api/v1/classes')
-    ]);
-    setExams(examsData);
-    setRooms(roomsData);
-    setClasses(classesData);
-    setLoading(false);
-  }
-
-  useEffect(() => { loadData(); }, []);
-
-  async function handleCreateRoom(e: FormEvent) {
-    e.preventDefault();
-    await api.post('/api/v1/exams/rooms', { ...roomForm, capacity: Number(roomForm.capacity) });
-    setIsRoomOpen(false);
-    setRoomForm({ name: '', capacity: 40 });
-    loadData();
-  }
-
-  async function handleCreateExam(e: FormEvent) {
-    e.preventDefault();
-    if (examForm.classIds.length === 0) return alert("Select at least one class");
-    await api.post('/api/v1/exams/schedules', examForm);
-    setIsExamOpen(false);
-    setExamForm({ title: '', date: '', startTime: '09:00', endTime: '11:00', classIds: [] });
-    loadData();
-  }
-
-  async function generateSeating(examId: string) {
-    if (!window.confirm("Generate seating plan? This will randomly assign students to rooms and seats.")) return;
     try {
-      await api.post(`/api/v1/exams/${examId}/generate-seating`);
-      alert('Seating plan generated successfully!');
-      loadData();
-    } catch (err: any) {
-      alert(err.message); // "Already generated" or "Not enough seats"
+      const meData: any = await getMe();
+      const isAdmin = meData.roles?.includes('TENANT_ADMIN') || meData.roles?.includes('SUPER_ADMIN');
+      setRole(isAdmin ? 'ADMIN' : 'TEACHER');
+
+      try {
+        if (isAdmin) {
+          const data = await api.get<any[]>(`/api/v1/physical-exams/list?term=${term}&year=${year}`);
+          setExams(data);
+        } else {
+          const data = await api.get<any[]>('/api/v1/physical-exams/me');
+          setExams(data);
+        }
+      } catch (err) {
+        toast({
+          title: 'Error',
+          description: 'Failed to load physical examination data.',
+          variant: 'destructive',
+        });
+      }
+      setLoading(false);
+    } catch (err) {
+      setLoading(false);
     }
   }
 
-  async function viewSeating(examId: string) {
-    const data = await api.get<any>(`/api/v1/exams/${examId}/seating`);
-    setSeatingPlan(data);
-  }
+  useEffect(() => { loadData(); }, [term, year]);
 
-  function toggleClass(id: string) {
-    setExamForm(prev => {
-      const exists = prev.classIds.includes(id);
-      if (exists) return { ...prev, classIds: prev.classIds.filter(c => c !== id) };
-      return { ...prev, classIds: [...prev.classIds, id] };
-    });
+  async function handleCreate(e: FormEvent) {
+    e.preventDefault();
+    try {
+      setIsCreating(true);
+      await api.post('/api/v1/physical-exams', {
+        name,
+        term,
+        year,
+        totalStudents,
+        passedStudents,
+        failedStudents,
+      });
+      toast({
+        title: 'Exam created',
+        description: 'Physical examination has been successfully created.',
+        variant: 'success',
+      });
+      setIsCreating(false);
+      loadData();
+    } catch (err: any) {
+      toast({
+        title: 'Error',
+        description: err.message || 'Failed to create physical examination. Please try again.',
+        variant: 'destructive',
+      });
+      setIsCreating(false);
+    }
   }
-
-  if (loading) return <div className="p-10 text-center">Loading exam data...</div>;
 
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900">Physical Exam Scheduler</h1>
-          <p className="text-slate-500 text-sm mt-1">Manage exam rooms and generate seating plans</p>
-        </div>
-        <div className="flex gap-3">
-          <button onClick={() => setIsRoomOpen(true)} className="bg-white border border-slate-300 text-slate-700 px-4 py-2 rounded-lg text-sm font-medium hover:bg-slate-50">+ Add Room</button>
-          <button onClick={() => setIsExamOpen(true)} className="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-medium">+ Schedule Exam</button>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="bg-white p-6 rounded-xl border shadow-sm">
-          <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Available Rooms</p>
-          <p className="text-3xl font-bold mt-2 text-slate-900">{rooms.length}</p>
-          <p className="text-sm text-slate-500 mt-1">Total Capacity: {rooms.reduce((s, r) => s + r.capacity, 0)} seats</p>
-        </div>
-      </div>
-
-      <div className="bg-white border rounded-xl overflow-hidden shadow-sm">
-        <table className="w-full text-left border-collapse">
-          <thead className="bg-slate-50 border-b text-xs font-semibold text-slate-500 uppercase">
-            <tr>
-              <th className="py-3 px-4">Exam Title</th>
-              <th className="py-3 px-4">Date</th>
-              <th className="py-3 px-4">Classes</th>
-              <th className="py-3 px-4">Seats</th>
-              <th className="py-3 px-4 text-right">Actions</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-100 text-sm">
-            {exams.map(e => (
-              <tr key={e.id} className="hover:bg-slate-50">
-                <td className="py-3 px-4 font-medium text-slate-900">{e.title}</td>
-                <td className="py-3 px-4 text-slate-600">{new Date(e.date).toLocaleDateString()} ({e.startTime} - {e.endTime})</td>
-                <td className="py-3 px-4 text-slate-600">{e.classIds.length} Classes</td>
-                <td className="py-3 px-4">
-                  {e._count.seats > 0 ? (
-                    <span className="bg-emerald-100 text-emerald-700 px-2 py-1 rounded text-xs font-bold">{e._count.seats} Assigned</span>
-                  ) : (
-                    <span className="bg-amber-100 text-amber-700 px-2 py-1 rounded text-xs font-bold">Pending</span>
-                  )}
-                </td>
-                <td className="py-3 px-4 text-right space-x-3">
-                  {e._count.seats === 0 ? (
-                    <button onClick={() => generateSeating(e.id)} className="text-indigo-600 font-bold text-xs hover:underline">Generate Seating</button>
-                  ) : (
-                    <button onClick={() => viewSeating(e.id)} className="text-slate-900 font-bold text-xs hover:underline">View Plan</button>
-                  )}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-
-      {/* CREATE ROOM MODAL */}
-      {isRoomOpen && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-xl w-full max-w-sm p-6">
-            <h2 className="text-xl font-bold mb-4">Add Exam Room</h2>
-            <form onSubmit={handleCreateRoom} className="space-y-4">
-              <div>
-                <label className="block text-xs font-medium mb-1">Room Name</label>
-                <input required type="text" value={roomForm.name} onChange={e => setRoomForm({...roomForm, name: e.target.value})} className="w-full px-3 py-2 border rounded-lg text-sm" placeholder="e.g. Main Hall" />
-              </div>
-              <div>
-                <label className="block text-xs font-medium mb-1">Capacity (Seats)</label>
-                <input required type="number" min="1" value={roomForm.capacity} onChange={e => setRoomForm({...roomForm, capacity: Number(e.target.value)})} className="w-full px-3 py-2 border rounded-lg text-sm" />
-              </div>
-              <div className="flex justify-end gap-3 pt-4 border-t">
-                <button type="button" onClick={() => setIsRoomOpen(false)} className="px-4 py-2 text-sm">Cancel</button>
-                <button type="submit" className="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm">Save Room</button>
-              </div>
-            </form>
+    <motion.div className="min-h-screen bg-slate-50">
+      {/* Header */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ type: "spring", stiffness: 300, delay: 0.1 }}
+        className="bg-white border-b border-slate-200 px-6 py-4 shadow-sm"
+      >
+        <div className="flex justify-between items-center">
+          <div>
+            <h1 className="text-2xl font-bold text-slate-900 tracking-tighter">
+              <FlagWarning className="w-5 h-5 text-red-500 mr-2" /> Physical Exams
+            </h1>
+            <p className="text-slate-500 text-sm mt-1">
+              {role === 'ADMIN' ? 'Record and manage student physical examination results' : 'View your physical exam results'}
+            </p>
           </div>
-        </div>
-      )}
 
-      {/* SCHEDULE EXAM MODAL */}
-      {isExamOpen && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-xl w-full max-w-md p-6">
-            <h2 className="text-xl font-bold mb-4">Schedule Exam</h2>
-            <form onSubmit={handleCreateExam} className="space-y-4">
-              <div>
-                <label className="block text-xs font-medium mb-1">Exam Title</label>
-                <input required type="text" value={examForm.title} onChange={e => setExamForm({...examForm, title: e.target.value})} className="w-full px-3 py-2 border rounded-lg text-sm" placeholder="e.g. Grade 10 Midterm - Math" />
-              </div>
-              <div className="grid grid-cols-3 gap-2">
-                <div>
-                  <label className="block text-xs font-medium mb-1">Date</label>
-                  <input required type="date" value={examForm.date} onChange={e => setExamForm({...examForm, date: e.target.value})} className="w-full px-2 py-2 border rounded-lg text-sm" />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium mb-1">Start</label>
-                  <input required type="time" value={examForm.startTime} onChange={e => setExamForm({...examForm, startTime: e.target.value})} className="w-full px-2 py-2 border rounded-lg text-sm" />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium mb-1">End</label>
-                  <input required type="time" value={examForm.endTime} onChange={e => setExamForm({...examForm, endTime: e.target.value})} className="w-full px-2 py-2 border rounded-lg text-sm" />
-                </div>
-              </div>
-              <div>
-                <label className="block text-xs font-medium mb-2">Select Participating Classes</label>
-                <div className="max-h-40 overflow-y-auto border rounded-lg p-2 space-y-2">
-                  {classes.map(c => (
-                    <label key={c.id} className="flex items-center gap-2 p-2 hover:bg-slate-50 rounded cursor-pointer text-sm">
-                      <input type="checkbox" checked={examForm.classIds.includes(c.id)} onChange={() => toggleClass(c.id)} className="w-4 h-4 text-indigo-600" />
-                      {c.name} - {c.section}
-                    </label>
+          {role === 'ADMIN' && (
+            <motion.button
+              onClick={() => setIsCreating(true)}
+              whileHover={{ scale: 1.05 }}
+              transition={{ type: "spring" }}
+              className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2 rounded-lg text-sm font-medium transition-all duration-300 shadow-lg shadow-indigo-500/20 hover:shadow-indigo-500/40 flex items-center gap-2"
+            >
+              <Loader2 className="w-4 h-4" /> Create Exam
+            </motion.button>
+          )}
+        </div>
+      </motion.div>
+
+      {/* Main Content */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ type: "spring", stiffness: 300, delay: 0.15 }}
+        className="px-6 py-8 lg:px-12"
+      >
+        {/* Admin Filters */}
+        {role === 'ADMIN' && (
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ type: "spring", stiffness: 300, delay: 0.1 }}
+            className="bg-white rounded-3xl border border-slate-200 p-6 shadow-3xl shadow-slate-50/30 mb-8"
+            style={{ background: 'linear-gradient(135deg, var(--bg), var(--bg-light))' }}
+          >
+            <h2 className="text-sm font-medium text-slate-700 uppercase tracking-wider mb-4">Exam Period</h2>
+
+            <motion.div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <motion.div>
+                <label className="block text-xs font-medium text-slate-700 mb-1">Term</label>
+                <select
+                  value={term}
+                  onChange={(e) => setTerm(e.target.value)}
+                  className="w-full px-4 py-3 rounded-xl border border-slate-200 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 appearance-none bg-white pl-3 pr-12 cursor-pointer"
+                >
+                  <option value="Term 1">Term 1</option>
+                  <option value="Term 2">Term 2</option>
+                  <option value="Term 3">Term 3</option>
+                </select>
+              </motion.div>
+
+              <motion.div>
+                <label className="block text-xs font-medium text-slate-700 mb-1">Year</label>
+                <input
+                  type="number"
+                  value={year}
+                  onChange={(e) => setYear(Number(e.target.value))}
+                  className="w-full px-4 py-3 rounded-xl border border-slate-200 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all"
+                />
+              </motion.div>
+
+              <motion.div>
+                <motion.button
+                  onClick={handleCreate}
+                  whileHover={{ scale: 1.05 }}
+                  transition={{ type: "spring" }}
+                  disabled={isCreating}
+                  className="px-6 py-3 text-sm font-medium bg-indigo-600 text-white rounded-xl transition-all disabled:opacity-50"
+                >
+                  {isCreating ? 'Creating...' : 'Create Exam'}
+                </motion.button>
+              </motion.div>
+            </motion.div>
+          </motion.div>
+        )}
+
+        {/* Exams Table */}
+        <motion.div
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ type: "spring", stiffness: 300, delay: 0.1 }}
+          className="bg-white rounded-3xl border border-slate-200 overflow-hidden shadow-3xl shadow-slate-50/30"
+          style={{ background: 'linear-gradient(135deg, var(--bg), var(--bg-light))' }}
+        >
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ type: "spring", stiffness: 300, delay: 0.1 }}
+            className="border-b border-slate-200"
+          >
+            <table className="w-full text-left">
+              <thead className="bg-slate-50 border-b text-xs font-semibold text-slate-500 uppercase">
+                <tr>
+                  {role === 'ADMIN' && (
+                    <th className="py-4 px-6">Student Name</th>
+                  )}
+                  <th className="py-4 px-4">Class</th>
+                  <th className="py-4 px-4">Exam Type</th>
+                  <th className="py-4 px-4">Score</th>
+                  <th className="py-4 px-4 font-bold text-slate-900">Status</th>
+                  {role === 'ADMIN' && (
+                    <th className="py-4 px-4 text-right">Actions</th>
+                  )}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 text-sm">
+                {loading ? (
+                  <motion.tr>
+                    <motion.td colSpan={role === 'ADMIN' ? 6 : 4} className="py-8 text-center text-slate-400">
+                      Loading exam data...
+                    </motion.td>
+                  </motion.tr>
+                ) : exams.length === 0 ? (
+                  <motion.tr>
+                    <motion.td colSpan={role === 'ADMIN' ? 6 : 4} className="py-8 text-center text-slate-500">
+                      No exams found for this period.
+                    </motion.td>
+                  </motion.tr>
+                ) : (
+                  exams.map((e) => (
+                    <motion.tr
+                      key={e.id}
+                      initial={{ opacity: 0, y: -10, x: -20 }}
+                      animate={{ opacity: 1, y: 0, x: 0 }}
+                      transition={{ type: "spring", stiffness: 300, delay: Math.random() * 0.1 }}
+                      className="hover:bg-slate-50 transition-colors"
+                    >
+                      {role === 'ADMIN' && (
+                        <motion.td className="py-4 px-4 font-medium text-slate-900">
+                          {e.student.user.profile?.firstName} {e.student.user.profile?.lastName}
+                        </motion.td>
+                      )}
+
+                      <motion.td className="py-4 px-4">
+                        {e.className}
+                      </motion.td>
+
+                      <motion.td className="py-4 px-4">
+                        {e.examType}
+                      </motion.td>
+
+                      <motion.td className="py-4 px-4 font-mono">
+                        {e.score.toLocaleString()}%
+                      </motion.td>
+
+                      <motion.td className="py-4 px-4">
+                        <span className={`
+                          px-2.5 py-1 rounded-full text-xs font-bold
+                          ${e.status === 'PASSED' ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}
+                        `}>
+                          {e.status}
+                        </span>
+                      </motion.td>
+
+                      {role === 'ADMIN' && (
+                        <motion.td className="py-4 px-4 text-right">
+                          {e.status === 'PENDING' && (
+                            <motion.button
+                              whileHover={{ scale: 1.02 }}
+                              transition={{ type: "spring" }}
+                              className="text-indigo-600 font-semibold text-xs hover:underline transition-colors"
+                            >
+                              Update
+                            </motion.button>
+                          )}
+                        </motion.td>
+                      )}
+                    </motion.tr>
                   ))}
-                </div>
-              </div>
-              <div className="flex justify-end gap-3 pt-4 border-t">
-                <button type="button" onClick={() => setIsExamOpen(false)} className="px-4 py-2 text-sm">Cancel</button>
-                <button type="submit" className="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm">Schedule</button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+                )}
+              </tbody>
+            </table>
+          </motion.div>
+        </motion.div>
 
-      {/* VIEW SEATING PLAN MODAL */}
-      {seatingPlan && (
-        <div className="fixed inset-0 bg-black/50 flex flex-col z-50 p-4 sm:p-10 overflow-y-auto">
-          <div className="bg-white rounded-xl w-full max-w-5xl mx-auto p-6 my-auto">
-            <div className="flex justify-between items-center mb-6 border-b pb-4">
-              <div>
-                <h2 className="text-2xl font-bold text-slate-900">Exam Seating Plan</h2>
-                <p className="text-sm text-slate-500">Students are mixed across rooms to prevent cheating.</p>
-              </div>
-              <button onClick={() => setSeatingPlan(null)} className="bg-slate-900 text-white px-4 py-2 rounded-lg text-sm">Close</button>
-            </div>
-
-            <div className="space-y-8">
-              {Object.keys(seatingPlan).map(roomName => (
-                <div key={roomName} className="border rounded-xl overflow-hidden">
-                  <div className="bg-slate-100 p-4 border-b">
-                    <h3 className="font-bold text-slate-900">{roomName}</h3>
-                  </div>
-                  <table className="w-full text-left text-sm">
-                    <thead className="bg-white border-b text-xs font-semibold text-slate-500 uppercase">
-                      <tr><th className="p-3">Seat No</th><th className="p-3">Student Name</th><th className="p-3">Class</th></tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100">
-                      {seatingPlan[roomName].map((seat: any) => (
-                        <tr key={seat.id} className="hover:bg-slate-50">
-                          <td className="p-3 font-mono font-bold text-indigo-600">#{seat.seatNumber}</td>
-                          <td className="p-3 font-medium text-slate-900">{seat.student.firstName} {seat.student.lastName}</td>
-                          <td className="p-3 text-slate-500">{seat.student.class?.name} {seat.student.class?.section}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
+        {/* No exams state */}
+        {role === 'ADMIN' && loading && (
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ type: "spring", stiffness: 300 }}
+            className="p-8 text-center text-slate-500"
+          >
+            <Loader2 className="w-12 h-12 mx-auto mb-4 opacity-50 animate-spin" />
+            <p>Loading exam data...</p>
+          </motion.div>
+        )}
+      </motion.div>
+    </motion.div>
   );
 }

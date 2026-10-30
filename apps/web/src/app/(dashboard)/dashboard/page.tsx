@@ -305,7 +305,7 @@ export default function DashboardPage() {
                         key={`legend-${index}`}
                         fill={COLORS[index % COLORS.length]}
                         x="50%"
-                        dy={1.2em}
+                        dy="1.2em"
                         className="text-xs font-medium"
                       >
                         {entry.name}: {entry.value}
