@@ -5,6 +5,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { api } from '@/lib/api';
 import { getMe } from '@/lib/auth';
 import Link from 'next/link';
+import { sonner } from '@/components/sonner';
 
 export default function StudentProfilePage() {
   const { id } = useParams();
@@ -103,7 +104,7 @@ export default function StudentProfilePage() {
     await api.post(`/api/v1/health/${id}/record`, healthData);
     setIsHealthOpen(false);
     loadData();
-    alert('Health record updated!');
+    sonner.success('Health record updated!');
   }
 
   async function handleLogVisit(e: FormEvent) {
@@ -111,7 +112,7 @@ export default function StudentProfilePage() {
     await api.post(`/api/v1/health/${id}/visit`, visitData);
     setIsVisitOpen(false);
     setVisitData({ symptoms: '', treatment: '', medication: '' });
-    alert('Clinic visit logged and parents notified!');
+    sonner.success('Clinic visit logged and parents notified!');
   }
 
   async function generateComment() {
@@ -120,7 +121,7 @@ export default function StudentProfilePage() {
       const res = await api.get<{ comment: string }>(`/api/v1/ai/comment/${id}`);
       setAiComment(res.comment);
     } catch {
-      alert('Failed to generate comment');
+      sonner.error('Failed to generate comment');
     } finally {
       setIsGeneratingComment(false);
     }
@@ -243,7 +244,7 @@ export default function StudentProfilePage() {
             <div className="bg-white p-4 rounded-xl border border-indigo-100 text-sm text-slate-700 italic relative">
               "{aiComment}"
               <button 
-                onClick={() => { navigator.clipboard.writeText(aiComment); alert('Copied to clipboard!'); }}
+                onClick={() => { navigator.clipboard.writeText(aiComment); sonner.success('Copied to clipboard!'); }}
                 className="absolute top-2 right-2 text-xs font-bold text-indigo-600 hover:underline not-italic"
               >
                 Copy
