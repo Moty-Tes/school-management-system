@@ -163,7 +163,7 @@ export default function CertificatesPage() {
                   </div>
                 </div>
               </motion.div>
-            ))}
+            })}
           </div>
 
           {/* Certificate Generation Form */}
