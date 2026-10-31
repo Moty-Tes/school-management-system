@@ -21,7 +21,7 @@ export default function CBTPage() {
   const [answers, setAnswers] = useState<Record<string, number>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const cheatingLogged = useRef(false);
-  const timerRef = useRef<number | null>(null);
+  const timerRef = useRef<any>(null);
 
   const { toast } = useToast();
 
@@ -230,7 +230,7 @@ export default function CBTPage() {
               <motion.div
                 className="bg-red-50 border border-red-200 rounded-xl p-3"
                 whileHover={{ transform: 'translateY(-2)', boxShadow: '0 4px 20px rgba(239, 68, 68, 0.15)' }}
-                transition={{ type: "spring" }}
+                
               >
                 <Clock className="w-4 h-4 text-red-500" /> <span className="text-red-600 font-medium">{Math.floor(timeLeft / 60)}:{String(timeLeft % 60).padStart(2, '0')}</span>
               </motion.div>
@@ -238,8 +238,8 @@ export default function CBTPage() {
               <button
                 onClick={handleSubmitExam}
                 disabled={isSubmitting}
-                whileHover={{ scale: 1.05 }}
-                transition={{ type: "spring" }}
+                
+                
                 className="px-6 py-3 bg-slate-900 text-white font-bold rounded-xl shadow-lg transition-all duration-300 hover:shadow-slate-500/30"
               >
                 {isSubmitting ? 'Submitting...' : 'Final Submit Exam'}
@@ -273,7 +273,7 @@ export default function CBTPage() {
                       <motion.label
                         key={oIndex}
                         whileHover={{ transform: 'translateY(-2) scale(1.02)', backgroundColor: 'var(--hover-bg)' }}
-                        transition={{ type: "spring" }}
+                        
                         className={`flex items-center p-4 rounded-xl border border-slate-200 cursor-pointer transition-all duration-300 ${
                           answers[q.id] === oIndex
                             ? 'bg-indigo-50 border-indigo-600 text-indigo-600'
@@ -311,8 +311,8 @@ export default function CBTPage() {
           <button
             onClick={handleSubmitExam}
             disabled={isSubmitting}
-            whileHover={{ scale: 1.02 }}
-            transition={{ type: "spring" }}
+            
+            
             className="w-full bg-slate-900 text-white font-bold py-4 rounded-xl shadow-lg disabled:opacity-50 transition-all duration-300"
           >
             {isSubmitting ? 'Submitting...' : 'Final Submit Exam'}
@@ -343,8 +343,8 @@ export default function CBTPage() {
           {role === 'TEACHER' && (
             <motion.button
               onClick={() => setIsCreateOpen(true)}
-              whileHover={{ scale: 1.05 }}
-              transition={{ type: "spring" }}
+              
+              
               className="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-3 rounded-xl text-sm font-medium transition-all duration-300 shadow-lg shadow-indigo-500/20 hover:shadow-indigo-500/40 flex items-center gap-2"
             >
               <FolderAdd className="w-4 h-4" /> Create Exam
@@ -419,8 +419,8 @@ export default function CBTPage() {
                 {role === 'TEACHER' ? (
                   <motion.button
                     onClick={() => viewResults(e.id)}
-                    whileHover={{ scale: 1.02 }}
-                    transition={{ type: "spring" }}
+                    
+                    
                     className="mt-2 w-full bg-slate-900 text-white py-2 rounded-lg text-sm font-medium hover:bg-slate-800 transition-colors"
                   >
                     View Results
@@ -428,8 +428,8 @@ export default function CBTPage() {
                 ) : (
                   <motion.button
                     onClick={() => startExam(e.id)}
-                    whileHover={{ scale: 1.02 }}
-                    transition={{ type: "spring" }}
+                    
+                    
                     className="mt-2 w-full bg-indigo-600 text-white py-2 rounded-lg text-sm font-medium hover:bg-indigo-700 transition-colors"
                   >
                     Start Exam
@@ -567,8 +567,8 @@ export default function CBTPage() {
                   <motion.button
                     type="button"
                     onClick={() => setIsCreateOpen(false)}
-                    whileHover={{ scale: 1.02 }}
-                    transition={{ type: "spring" }}
+                    
+                    
                     className="px-5 py-3 text-sm font-medium text-slate-600 hover:text-slate-900 transition-all duration-300"
                   >
                     Cancel
@@ -647,8 +647,8 @@ export default function CBTPage() {
               <motion.div className="mt-6 flex justify-end gap-3">
                 <motion.button
                   onClick={() => setViewingResults(null)}
-                  whileHover={{ scale: 1.02 }}
-                  transition={{ type: "spring" }}
+                  
+                  
                   className="px-5 py-3 text-sm font-medium text-slate-600 hover:text-slate-900 transition-all duration-300"
                 >
                   Close

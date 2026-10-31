@@ -12,6 +12,7 @@ export default function HRPage() {
   const [role, setRole] = useState<string>('');
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [formData, setFormData] = useState({ type: 'SICK', startDate: '', endDate: '', reason: '' });
 
   const { toast } = useToast();
 

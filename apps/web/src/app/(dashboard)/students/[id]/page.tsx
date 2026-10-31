@@ -41,14 +41,14 @@ export default function StudentProfilePage() {
         getMe()
       ]);
       setData(profileData);
-      setBehaviorLogs(behaviorRes);
+      setBehaviorLogs(behaviorRes as any[]);
       setHealthRecord(healthRes);
       setIsStaff(
         (meData as any).roles?.includes('TEACHER') || 
         (meData as any).roles?.includes('TENANT_ADMIN') || 
         (meData as any).roles?.includes('SUPER_ADMIN')
       );
-      if (healthRes) setHealthData(healthRes);
+      if (healthRes) setHealthData(healthRes as any);
     } catch (err) {
       router.push('/students');
     } finally {

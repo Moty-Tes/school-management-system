@@ -1,119 +1,83 @@
 'use client';
 
 import { useState } from 'react';
-import { motion } from 'framer-motion';
-import { Download, FileSpreadsheet, Users, Receipt, Calendar, GraduationCap, Sparkles } from 'lucide-react';
-import { toast } from 'sonner';
 
 export default function ExportsPage() {
   const [attendanceDate, setAttendanceDate] = useState(new Date().toISOString().split('T')[0]);
 
-  function downloadFile(endpoint: string, label: string) {
-    try {
-      toast.info(`Generating ${label} export...`);
-      window.open(endpoint, '_blank');
-    } catch {
-      toast.error('Failed to initiate download');
-    }
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+
+  function downloadFile(endpoint: string) {
+    // We use window.open because the backend sends a file download stream
+    window.open(`${apiUrl}${endpoint}`, '_blank');
   }
 
   return (
-    <div className="max-w-6xl mx-auto space-y-8 animate-fade-in">
-      {/* Hero Banner */}
-      <div className="relative overflow-hidden rounded-3xl p-8 sm:p-10 shadow-2xl border border-white/20 bg-gradient-to-r from-slate-950 via-[#131130] to-[#1c1236] text-white">
-        <div className="absolute -right-20 -top-20 w-80 h-80 bg-indigo-600/25 rounded-full blur-3xl pointer-events-none" />
-        <div className="relative z-10">
-          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-bold bg-white/10 backdrop-blur-md border border-white/15 text-indigo-200 mb-4 shadow-inner">
-            <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-            <span>Official Reporting & Data Export</span>
-          </div>
-          <h1 className="text-3xl sm:text-4xl font-black tracking-tight text-white">
-            Audit Data & Ledger Exports
-          </h1>
-          <p className="text-slate-300 text-sm mt-1.5 max-w-2xl font-medium">
-            Generate Excel-compatible CSV exports for regulatory compliance, ministry audits, offline accounting, and parent communications.
-          </p>
-        </div>
+    <div className="max-w-5xl mx-auto space-y-6">
+      <div>
+        <h1 className="text-2xl font-bold text-slate-900">Data Export Center</h1>
+        <p className="text-slate-500 text-sm mt-1">Download school data as Excel-compatible CSV files</p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {/* STUDENT ROSTER EXPORT */}
-        <motion.div 
-          whileHover={{ y: -4 }}
-          className="glow-card-indigo rounded-3xl p-6 flex flex-col justify-between shadow-lg"
-        >
+        
+        {/* STUDENT EXPORT */}
+        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between">
           <div>
-            <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-indigo-500 to-violet-500 text-white flex items-center justify-center mb-4 shadow-md shadow-indigo-500/25">
-              <Users className="w-6 h-6" />
+            <div className="w-12 h-12 bg-indigo-50 text-indigo-600 rounded-xl flex items-center justify-center mb-4">
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>
             </div>
-            <h2 className="text-lg font-black text-slate-900 tracking-tight">Student Roster</h2>
-            <p className="text-xs text-slate-500 mt-1 mb-6 leading-relaxed">
-              Export all enrolled student records, class streams, admission numbers, and parent contact information.
-            </p>
+            <h2 className="text-lg font-bold text-slate-900">Student Roster</h2>
+            <p className="text-sm text-slate-500 mt-1 mb-6">Download all active students, their classes, and guardian contact details.</p>
           </div>
           <button 
-            onClick={() => downloadFile('/api/v1/exports/students', 'Student Roster')}
-            className="w-full glass-button-primary font-bold text-xs uppercase tracking-wider py-3 flex items-center justify-center gap-2 shadow-lg shadow-indigo-500/20"
+            onClick={() => downloadFile('/api/v1/exports/students')}
+            className="w-full bg-slate-900 hover:bg-slate-800 text-white font-bold py-2.5 rounded-xl transition-colors"
           >
-            <Download className="w-4 h-4" />
-            <span>Download CSV</span>
+            Download CSV
           </button>
-        </motion.div>
+        </div>
 
         {/* FINANCE EXPORT */}
-        <motion.div 
-          whileHover={{ y: -4 }}
-          className="glow-card-emerald rounded-3xl p-6 flex flex-col justify-between shadow-lg"
-        >
+        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between">
           <div>
-            <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-emerald-500 to-teal-500 text-white flex items-center justify-center mb-4 shadow-md shadow-emerald-500/25">
-              <Receipt className="w-6 h-6" />
+            <div className="w-12 h-12 bg-emerald-50 text-emerald-600 rounded-xl flex items-center justify-center mb-4">
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
             </div>
-            <h2 className="text-lg font-black text-slate-900 tracking-tight">Finance Ledger</h2>
-            <p className="text-xs text-slate-500 mt-1 mb-6 leading-relaxed">
-              Complete fee accounting audit including issued invoices, recorded payments, payment methods, and pending dues.
-            </p>
+            <h2 className="text-lg font-bold text-slate-900">Finance Ledger</h2>
+            <p className="text-sm text-slate-500 mt-1 mb-6">Download all invoices, payments, and outstanding balances for accounting.</p>
           </div>
           <button 
-            onClick={() => downloadFile('/api/v1/exports/finance', 'Financial Ledger')}
-            className="w-full bg-gradient-to-tr from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold text-xs uppercase tracking-wider py-3 rounded-2xl transition-all flex items-center justify-center gap-2 shadow-lg shadow-emerald-600/25"
+            onClick={() => downloadFile('/api/v1/exports/finance')}
+            className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 rounded-xl transition-colors"
           >
-            <Download className="w-4 h-4" />
-            <span>Download CSV</span>
+            Download CSV
           </button>
-        </motion.div>
+        </div>
 
         {/* ATTENDANCE EXPORT */}
-        <motion.div 
-          whileHover={{ y: -4 }}
-          className="glow-card-amber rounded-3xl p-6 flex flex-col justify-between shadow-lg"
-        >
+        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between">
           <div>
-            <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-amber-500 to-orange-500 text-white flex items-center justify-center mb-4 shadow-md shadow-amber-500/25">
-              <Calendar className="w-6 h-6" />
+            <div className="w-12 h-12 bg-amber-50 text-amber-600 rounded-xl flex items-center justify-center mb-4">
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
             </div>
-            <h2 className="text-lg font-black text-slate-900 tracking-tight">Daily Attendance</h2>
-            <p className="text-xs text-slate-500 mt-1 mb-4 leading-relaxed">
-              Export daily attendance register by date to analyze absences and tardiness.
-            </p>
-            <div className="mb-4">
-              <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">Target Date</label>
-              <input 
-                type="date" 
-                value={attendanceDate}
-                onChange={(e) => setAttendanceDate(e.target.value)}
-                className="w-full glass-input text-xs font-semibold"
-              />
-            </div>
+            <h2 className="text-lg font-bold text-slate-900">Daily Attendance</h2>
+            <p className="text-sm text-slate-500 mt-1 mb-4">Download the attendance sheet for a specific day.</p>
+            <input 
+              type="date" 
+              value={attendanceDate} 
+              onChange={e => setAttendanceDate(e.target.value)} 
+              className="w-full px-3 py-2 border rounded-lg text-sm mb-4 font-mono"
+            />
           </div>
           <button 
-            onClick={() => downloadFile(`/api/v1/exports/attendance?date=${attendanceDate}`, 'Daily Attendance')}
-            className="w-full bg-gradient-to-tr from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 text-white font-bold text-xs uppercase tracking-wider py-3 rounded-2xl transition-all flex items-center justify-center gap-2 shadow-lg shadow-amber-600/25"
+            onClick={() => downloadFile(`/api/v1/exports/attendance?date=${attendanceDate}`)}
+            className="w-full bg-amber-500 hover:bg-amber-600 text-white font-bold py-2.5 rounded-xl transition-colors"
           >
-            <Download className="w-4 h-4" />
-            <span>Download CSV</span>
+            Download CSV
           </button>
-        </motion.div>
+        </div>
+
       </div>
     </div>
   );

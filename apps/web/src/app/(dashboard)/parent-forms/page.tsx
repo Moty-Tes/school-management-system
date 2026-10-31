@@ -1,251 +1,225 @@
 'use client';
 
-import { useEffect, useState, FormEvent } from 'react';
+import { useEffect, useState } from 'react';
 import { api } from '@/lib/api';
+import { getMe } from '@/lib/auth';
+import Link from 'next/link';
 import { motion } from 'framer-motion';
-import { CheckCircle, X, Loader2, FolderPlus as FolderAdd, Menu, Shield, Users, UserPlus, LogOut, Clock, Flag, Info, Trash2, Edit2, RefreshCw } from 'lucide-react';
-import { useToast } from '@/components/ui/use-toast';
+import {
+  Users, FileText, Search,
+  CheckCircle2, X, Calendar
+} from 'lucide-react';
+import {
+  Card, KpiEmptyState, Skeleton, Table, TableHeadCell, TableRowCell, EmptyState, KpiEmptyStateComponent, KpiCard, TableSection, Button
+} from '@/components/ui';
+import { use_reducedMotion } from '@/hooks/use-reduced-motion';
+
+interface ParentForm {
+  id: string;
+  name: string;
+  type: 'address-update' | 'contact-update' | 'permission' | 'financial' | 'general';
+  status: 'draft' | 'submitted' | 'approved' | 'rejected' | 'completed';
+  studentName: string;
+  studentGrade: string;
+  submittedAt: string | null;
+  responseDeadline: string;
+}
+
+interface FilterState {
+  search: string;
+  type: 'all' | 'address-update' | 'contact-update' | 'permission' | 'financial' | 'general';
+  status: 'all' | 'draft' | 'submitted' | 'approved' | 'rejected' | 'completed';
+}
 
 export default function ParentFormsPage() {
-  const [forms, setForms] = useState<any[]>([]);
+  const [role, setRole] = useState<'ADMIN' | 'TEACHER' | 'PARENT' | 'REGISTRAR'>('ADMIN');
+  const [forms, setForms] = useState<ParentForm[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeForm, setActiveForm] = useState<any | null>(null);
-  const [formData, setFormData] = useState<Record<string, any>>({});
-  const [isSubmitting, setIsSubmitting] = useState(false);
-
-  const { toast } = useToast();
+  const [filters, setFilters] = useState<FilterState>({ search: '', type: 'all', status: 'all' });
+  const reducedMotion = use_reducedMotion();
 
   useEffect(() => {
-    api.get<any[]>('/api/v1/forms').then(data => {
-      setForms(data.filter((f: any) => f.isActive));
-      setLoading(false);
+    getMe().then((me: any) => {
+      const userRoles: string[] = me.roles || [];
+      const isSuperAdmin = userRoles.includes('SUPER_ADMIN');
+      const isTenantAdmin = userRoles.includes('TENANT_ADMIN');
+      const isRegistrar = userRoles.includes('REGISTRAR');
+      const isParent = userRoles.includes('PARENT');
+
+      setRole(isSuperAdmin || isTenantAdmin ? 'ADMIN' : isRegistrar ? 'REGISTRAR' : isParent ? 'PARENT' : 'ADMIN');
     });
+
+    // Load parent forms
+    async function loadForms() {
+      try {
+        const data = await api.get<any[]>('/api/v1/parent-forms');
+        setForms(data || []);
+      } catch (err) {
+        setForms([]);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    loadForms();
   }, []);
 
-  async function handleSubmit(e: FormEvent) {
-    e.preventDefault();
-    try {
-      await api.post(`/api/v1/forms/${activeForm.id}/submit`, { data: formData });
-      toast({
-        title: 'Form submitted',
-        description: 'Your form response has been successfully submitted.',
-        variant: 'success',
-      });
-      setActiveForm(null);
-      setFormData({});
-    } catch (err: any) {
-      toast({
-        title: 'Error',
-        description: err.message || 'Failed to submit form. Please try again.',
-        variant: 'destructive',
-      });
-    } finally {
-      setIsSubmitting(false);
-    }
-  }
+  const filteredForms = forms.filter((form: ParentForm) => {
+    const matchesSearch = filters.search
+      ? form.name.toLowerCase().includes(filters.search.toLowerCase()) ||
+        form.studentName.toLowerCase().includes(filters.search.toLowerCase())
+      : true;
+    const matchesType = filters.type === 'all' || form.type === filters.type;
+    const matchesStatus = filters.status === 'all' || form.status === filters.status;
+
+    return matchesSearch && matchesType && matchesStatus;
+  });
+
+  // Compute summary stats
+  const totalForms = filteredForms.length;
+  const submittedCount = filteredForms.filter(f => f.status === 'submitted').length;
+  const approvedCount = filteredForms.filter(f => f.status === 'approved').length;
 
   return (
-    <motion.div className="min-h-screen bg-slate-50">
-      {/* Header */}
+    <div className="bg-neutral-50 dark:bg-neutral-900 min-h-screen">
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ type: "spring", stiffness: 300, delay: 0.1 }}
-        className="bg-white border-b border-slate-200 px-6 py-4 shadow-sm"
+        exit={{ opacity: 0, y: -20 }}
+        className="reduced-motion:transition-none"
       >
-        <div className="flex justify-between items-center">
-          <div>
-            <h1 className="text-2xl font-bold text-slate-900 tracking-tighter">
-              <FolderAdd className="w-5 h-5 text-indigo-600 mr-2" /> Action Required
-            </h1>
-            <p className="text-slate-500 text-sm mt-1">Please fill out the pending school forms</p>
+        <div className="p-4 sm:p-6 lg:p-8">
+          {/* Parent Forms Summary */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+            <Card>
+              <div className="p-4 text-center">
+                <div className="text-3xl font-extrabold text-neutral-900">{totalForms}</div>
+                <div className="text-sm text-neutral-500">Parent Forms</div>
+              </div>
+            </Card>
+
+            <Card>
+              <div className="p-4 text-center">
+                <div className="text-3xl font-extrabold text-brand-primary">{submittedCount}</div>
+                <div className="text-sm text-neutral-500">Submitted</div>
+              </div>
+            </Card>
+
+            <Card>
+              <div className="p-4 text-center">
+                <div className="text-3xl font-extrabold text-green-600">{approvedCount}</div>
+                <div className="text-sm text-neutral-500">Approved</div>
+              </div>
+            </Card>
+
+            <Card>
+              <div className="p-4 text-center">
+                <div className="text-3xl font-extrabold text-neutral-500">0</div>
+                <div className="text-sm text-neutral-500">Rejected</div>
+              </div>
+            </Card>
           </div>
 
-          {activeForm && (
-            <motion.button
-              onClick={() => setActiveForm(null)}
-              whileHover={{ scale: 1.02 }}
-              transition={{ type: "spring" }}
-              className="bg-slate-200 text-slate-800 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-300 hover:bg-slate-100"
-            >
-              Close
-            </motion.button>
-          )}
-        </div>
-      </motion.div>
-
-      {/* Main Content */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ type: "spring", stiffness: 300, delay: 0.15 }}
-        className="px-6 py-8 lg:px-12"
-      >
-        {/* Summary */}
-        <motion.div
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ type: "spring", stiffness: 300, delay: 0.1 }}
-          className="mb-8"
-        >
-          <h1 className="text-2xl font-bold text-slate-900">Action Required</h1>
-          <p className="text-slate-500 text-sm mt-1">Please fill out the pending school forms</p>
-
-          {forms.length === 0 ? (
-            <motion.div
-              initial={{ opacity: 0, y: -20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ type: "spring", stiffness: 300 }}
-              className="p-8 text-center text-slate-500"
-            >
-              <CheckCircle className="w-12 h-12 mx-auto mb-4 opacity-50" />
-              <p>No pending forms.</p>
-            </motion.div>
-          ) : (
-            <p className="text-sm text-slate-500">You have {forms.length} form(s) to complete.</p>
-          )}
-        </motion.div>
-
-        {/* Forms List */}
-        <motion.div
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ type: "spring", stiffness: 300, delay: 0.1 }}
-          className="space-y-4"
-        >
-          {forms.length === 0 ? (
-            <motion.div
-              initial={{ opacity: 0, y: -20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ type: "spring", stiffness: 300 }}
-              className="p-8 text-center text-slate-500"
-            >
-              <Loader2 className="w-12 h-12 mx-auto mb-4 opacity-50 animate-spin" />
-              <p>No pending forms.</p>
-            </motion.div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {forms.map((f: any) => (
-                <motion.div
-                  key={f.id}
-                  whileHover={{ y: -6, scale: 1.03 }}
-                  transition={{ type: "spring", stiffness: 400, damping: 30 }}
-                  className="group bg-white rounded-3xl border border-slate-200 p-6 shadow-3xl shadow-slate-50/30 transform transition-all duration-500 hover:shadow-4xl hover:shadow-slate-50/40"
-                  style={{ background: 'linear-gradient(135deg, var(--bg), var(--bg-light))' }}
-                >
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <h3 className="text-lg font-bold text-slate-900">{f.title}</h3>
-                      <p className="text-sm text-slate-500 line-clamp-2">{f.description}</p>
-                    </div>
-
-                    <motion.div className="p-3 rounded-xl bg-indigo-50/50 backdrop-blur-sm">
-                      <Info className="w-4 h-4 text-indigo-400" />
-                      <p className="text-xs text-indigo-600">Fill form</p>
-                    </motion.div>
-                  </div>
-
-                  <motion.button
-                    onClick={() => setActiveForm(f)}
-                    whileHover={{ scale: 1.05 }}
-                    transition={{ type: "spring" }}
-                    className="w-full bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-3 rounded-lg text-sm font-medium transition-all duration-300 shadow-lg shadow-indigo-500/20 hover:shadow-indigo-500/40 mt-4"
+          {/* Filters */}
+          <Card>
+            <div className="p-4 space-y-3">
+              <h3 className="text-sm font-medium text-neutral-600 uppercase tracking-wider mb-2">
+                Filters
+              </h3>
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <label className="block text-xs text-neutral-500 uppercase tracking-wider mb-1">Search</label>
+                  <input
+                    type="text"
+                    placeholder="Search form name or student..."
+                    value={filters.search}
+                    onChange={(e) => setFilters({ ...filters, search: e.target.value })}
+                    className={`w-full rounded-lg border border-border dark:border-border-overlay px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-brand-primary/20 transition-colors ${reducedMotion ? 'transition-none' : ''}`}
+                    defaultValue=""
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs text-neutral-500 uppercase tracking-wider mb-1">Type</label>
+                  <select
+                    value={filters.type}
+                    onChange={(e) => setFilters({ ...filters, type: e.target.value } as any)}
+                    className={`w-full rounded-lg border border-border dark:border-border-overlay px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-brand-primary/20 ${reducedMotion ? 'transition-none' : ''}`}
                   >
-                    Fill Form
-                  </motion.button>
-                </motion.div>
-              ))}
+                    <option value="all">All Types</option>
+                    <option value="address-update">Address Update</option>
+                    <option value="contact-update">Contact Update</option>
+                    <option value="permission">Permission</option>
+                    <option value="financial">Financial</option>
+                    <option value="general">General</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs text-neutral-500 uppercase tracking-wider mb-1">Status</label>
+                  <select
+                    value={filters.status}
+                    onChange={(e) => setFilters({ ...filters, status: e.target.value } as any)}
+                    className={`w-full rounded-lg border border-border dark:border-border-overlay px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-brand-primary/20 ${reducedMotion ? 'transition-none' : ''}`}
+                  >
+                    <option value="all">All Statuses</option>
+                    <option value="draft">Draft</option>
+                    <option value="submitted">Submitted</option>
+                    <option value="approved">Approved</option>
+                    <option value="rejected">Rejected</option>
+                    <option value="completed">Completed</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+          </Card>
+
+          {/* Parent Forms Table */}
+          {loading ? (
+            <Skeleton className="h-72 rounded-md animate-bounce" />
+          ) : filteredForms.length === 0 ? (
+            <KpiEmptyStateComponent
+              icon="Users"
+              title="No parent forms found"
+              description="Create parent forms to get started"
+              actionLabel="Create Form"
+            />
+          ) : (
+            <Table>
+              <TableSection.head>
+                <TableHeadCell style="primary">Form</TableHeadCell>
+                <TableHeadCell style="primary">Type</TableHeadCell>
+                <TableHeadCell style="primary">Student</TableHeadCell>
+                <TableHeadCell style="primary">Grade</TableHeadCell>
+                <TableHeadCell style="primary">Status</TableHeadCell>
+                <TableHeadCell style="primary">Submitted</TableHeadCell>
+              </TableSection.head>
+              <TableSection.body>
+                {filteredForms.slice(0, 15).map((form: ParentForm, index: number) => (
+                  <TableRowCell key={index} style="primary">
+                    <span className="font-medium text-neutral-700">{form.name}</span>
+                    <span className="text-neutral-500 text-xs">{form.type}</span>
+                    <span className="text-neutral-500 text-xs">{form.studentName}</span>
+                    <span className="text-neutral-500 text-xs">{form.studentGrade}</span>
+                    <span
+                      className={`inline-flex items-center gap-1 px-2 rounded text-xs font-medium ${form.status}`}>{form.status}</span>
+                    <span className="text-neutral-500 text-xs">{form.submittedAt ? new Date(form.submittedAt).toLocaleDateString() : '—'}</span>
+                  </TableRowCell>
+                ))}
+              </TableSection.body>
+            </Table>
+          )}
+
+          {/* Export & Reports */}
+          {filteredForms.length > 0 && (
+            <div className="mt-6 flex items-center justify-between text-sm text-neutral-500">
+              <span>Showing {filteredForms.length} of {forms.length} forms</span>
+              <div className="flex gap-2">
+                <Button variant="ghost" size="sm">Export List</Button>
+                <Button variant="primary" size="sm">Generate Report</Button>
+              </div>
             </div>
           )}
-        </motion.div>
-
-        {/* FORM SUBMISSION MODAL */}
-        {activeForm && (
-          <motion.div
-            className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50"
-            whileHover={{ opacity: 0.9 }}
-          >
-            <motion.div
-              className="bg-white rounded-3xl shadow-3xl w-full max-w-lg p-8 shadow-3xl"
-              initial={{ scale: 0.95, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              transition={{ type: "spring", stiffness: 400, damping: 30 }}
-            >
-              <h2 className="text-2xl font-bold text-slate-900 mb-6 flex items-center gap-3">
-                <FolderAdd className="w-5 h-5 text-indigo-500" /> {activeForm.title}
-              </h2>
-
-              <p className="text-sm text-slate-500 mb-6">{activeForm.description}</p>
-
-              <form onSubmit={handleSubmit} className="space-y-5">
-                {activeForm.schema.map((field: any) => (
-                  <div key={field.id} className="space-y-2">
-                    {field.type === 'TEXT' && (
-                      <>
-                        <label className="block text-sm font-medium text-slate-700 mb-1">
-                          {field.label} {field.required && <span className="text-red-500">*</span>}
-                        </label>
-                        <input
-                          required={field.required}
-                          type="text"
-                          onChange={(e: any) => setFormData({...formData, [field.id]: e.target.value})}
-                          className="w-full px-4 py-3 rounded-xl border border-slate-200 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all"
-                          placeholder={field.placeholder || ''}
-                        />
-                      </>
-                    )}
-                    {field.type === 'DATE' && (
-                      <>
-                        <label className="block text-sm font-medium text-slate-700 mb-1">
-                          {field.label} {field.required && <span className="text-red-500">*</span>}
-                        </label>
-                        <input
-                          required={field.required}
-                          type="date"
-                          onChange={(e: any) => setFormData({...formData, [field.id]: e.target.value})}
-                          className="w-full px-4 py-3 rounded-xl border border-slate-200 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all"
-                        />
-                      </>
-                    )}
-                    {field.type === 'CHECKBOX' && (
-                      <label className="flex items-center gap-2 mt-4 p-3 border rounded-lg cursor-pointer hover:bg-slate-50">
-                        <input
-                          required={field.required}
-                          type="checkbox"
-                          onChange={(e: any) => setFormData({...formData, [field.id]: e.target.checked})}
-                          className="w-4 h-4 text-indigo-600"
-                        />
-                        <span className="text-sm font-medium text-slate-700">{field.label}</span>
-                      </label>
-                    )}
-                  </div>
-                ))}
-
-                <motion.div className="flex justify-end gap-3 pt-6 border-t">
-                  <motion.button
-                    type="button"
-                    onClick={() => setActiveForm(null)}
-                    whileHover={{ scale: 1.02 }}
-                    transition={{ type: "spring" }}
-                    className="px-5 py-3 text-sm font-medium text-slate-600 hover:text-slate-900 transition-all duration-300"
-                  >
-                    Cancel
-                  </motion.button>
-                  <motion.button
-                    type="submit"
-                    disabled={isSubmitting}
-                    whileHover={{ scale: 1.02 }}
-                    transition={{ type: "spring" }}
-                    className="px-5 py-3 text-sm font-medium bg-indigo-600 text-white rounded-xl transition-all disabled:opacity-50"
-                  >
-                    {isSubmitting ? 'Submitting...' : 'Submit Signature'}
-                  </motion.button>
-                </motion.div>
-              </form>
-            </motion.div>
-          </motion.div>
-        )}
+                </div>
       </motion.div>
-    </motion.div>
+    </div>
   );
 }

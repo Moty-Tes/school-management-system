@@ -1,283 +1,223 @@
 'use client';
 
-import { useEffect, useState, FormEvent } from 'react';
+import { useEffect, useState } from 'react';
 import { api } from '@/lib/api';
 import { getMe } from '@/lib/auth';
+import Link from 'next/link';
 import { motion } from 'framer-motion';
-import { AlertTriangle as FlagWarning, Loader2, CheckCircle, X } from 'lucide-react';
-import { useToast } from '@/components/ui/use-toast';
+import {
+  Users, Heart, Shield, Clipboard, TrendingUp, FileText,
+  Calendar, CheckCircle2, X, Search
+} from 'lucide-react';
+import {
+  Card, KpiEmptyState, Skeleton, Table, TableHeadCell, TableRowCell, EmptyState, KpiEmptyStateComponent, KpiCard, TableSection, Button
+} from '@/components/ui';
+import { use_reducedMotion } from '@/hooks/use-reduced-motion';
 
-const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+interface HealthRecord {
+  id: string;
+  studentName: string;
+  studentId: string;
+  examinationType: 'physical' | 'vision' | 'hearing' | 'dental' | 'general';
+  date: string;
+  result: 'pass' | 'fail' | 'pending';
+  notes: string;
+  referredTo: string | null;
+}
+
+interface FilterState {
+  search: string;
+  examinationType: 'all' | 'physical' | 'vision' | 'hearing' | 'dental' | 'general';
+  result: 'all' | 'pass' | 'fail' | 'pending';
+}
 
 export default function PhysicalExamsPage() {
-  const [exams, setExams] = useState<any[]>([]);
-  const [role, setRole] = useState<string>('');
+  const [role, setRole] = useState<'ADMIN' | 'TEACHER' | 'REGISTRAR'>('ADMIN');
+  const [healthRecords, setHealthRecords] = useState<HealthRecord[]>([]);
   const [loading, setLoading] = useState(true);
-  const [term, setTerm] = useState('Term 1');
-  const [year, setYear] = useState(new Date().getFullYear());
-  const [isCreating, setIsCreating] = useState(false);
+  const [filters, setFilters] = useState<FilterState>({ search: '', examinationType: 'all', result: 'all' });
+  const reducedMotion = use_reducedMotion();
 
-  const { toast } = useToast();
+  useEffect(() => {
+    getMe().then((me: any) => {
+      const userRoles: string[] = me.roles || [];
+      const isSuperAdmin = userRoles.includes('SUPER_ADMIN');
+      const isTenantAdmin = userRoles.includes('TENANT_ADMIN');
+      const isRegistrar = userRoles.includes('REGISTRAR');
 
-  async function loadData() {
-    try {
-      const meData: any = await getMe();
-      const isAdmin = meData.roles?.includes('TENANT_ADMIN') || meData.roles?.includes('SUPER_ADMIN');
-      setRole(isAdmin ? 'ADMIN' : 'TEACHER');
+      setRole(isSuperAdmin || isTenantAdmin ? 'ADMIN' : isRegistrar ? 'REGISTRAR' : 'TEACHER');
+    });
 
+    // Load health records
+    async function loadHealthRecords() {
       try {
-        if (isAdmin) {
-          const data = await api.get<any[]>(`/api/v1/physical-exams/list?term=${term}&year=${year}`);
-          setExams(data);
-        } else {
-          const data = await api.get<any[]>('/api/v1/physical-exams/me');
-          setExams(data);
-        }
+        const data = await api.get<any[]>('/api/v1/health-records');
+        setHealthRecords(data || []);
       } catch (err) {
-        toast({
-          title: 'Error',
-          description: 'Failed to load physical examination data.',
-          variant: 'destructive',
-        });
+        setHealthRecords([]);
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
-    } catch (err) {
-      setLoading(false);
     }
-  }
 
-  useEffect(() => { loadData(); }, [term, year]);
+    loadHealthRecords();
+  }, []);
 
-  async function handleCreate(e: FormEvent) {
-    e.preventDefault();
-    try {
-      setIsCreating(true);
-      await api.post('/api/v1/physical-exams', {
-        name,
-        term,
-        year,
-        totalStudents,
-        passedStudents,
-        failedStudents,
-      });
-      toast({
-        title: 'Exam created',
-        description: 'Physical examination has been successfully created.',
-        variant: 'success',
-      });
-      setIsCreating(false);
-      loadData();
-    } catch (err: any) {
-      toast({
-        title: 'Error',
-        description: err.message || 'Failed to create physical examination. Please try again.',
-        variant: 'destructive',
-      });
-      setIsCreating(false);
-    }
-  }
+  const filteredRecords = healthRecords.filter((record: HealthRecord) => {
+    const matchesSearch = filters.search
+      ? record.studentName.toLowerCase().includes(filters.search.toLowerCase()) ||
+        record.studentId.toLowerCase().includes(filters.search.toLowerCase())
+      : true;
+    const matchesType = filters.examinationType === 'all' || record.examinationType === filters.examinationType;
+    const matchesResult = filters.result === 'all' || record.result === filters.result;
+
+    return matchesSearch && matchesType && matchesResult;
+  });
+
+  // Compute summary stats
+  const totalRecords = filteredRecords.length;
+  const passedCount = filteredRecords.filter(r => r.result === 'pass').length;
+  const failedCount = filteredRecords.filter(r => r.result === 'fail').length;
 
   return (
-    <motion.div className="min-h-screen bg-slate-50">
-      {/* Header */}
+    <div className="bg-neutral-50 dark:bg-neutral-900 min-h-screen">
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ type: "spring", stiffness: 300, delay: 0.1 }}
-        className="bg-white border-b border-slate-200 px-6 py-4 shadow-sm"
+        exit={{ opacity: 0, y: -20 }}
+        className="reduced-motion:transition-none"
       >
-        <div className="flex justify-between items-center">
-          <div>
-            <h1 className="text-2xl font-bold text-slate-900 tracking-tighter">
-              <FlagWarning className="w-5 h-5 text-red-500 mr-2" /> Physical Exams
-            </h1>
-            <p className="text-slate-500 text-sm mt-1">
-              {role === 'ADMIN' ? 'Record and manage student physical examination results' : 'View your physical exam results'}
-            </p>
+        <div className="p-4 sm:p-6 lg:p-8">
+          {/* Health Records Summary */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+            <Card>
+              <div className="p-4 text-center">
+                <div className="text-3xl font-extrabold text-neutral-900">{totalRecords}</div>
+                <div className="text-sm text-neutral-500">Health Records</div>
+              </div>
+            </Card>
+
+            <Card>
+              <div className="p-4 text-center">
+                <div className="text-3xl font-extrabold text-green-600">{passedCount}</div>
+                <div className="text-sm text-neutral-500">Passed</div>
+              </div>
+            </Card>
+
+            <Card>
+              <div className="p-4 text-center">
+                <div className="text-3xl font-extrabold text-red-600">{failedCount}</div>
+                <div className="text-sm text-neutral-500">Failed</div>
+              </div>
+            </Card>
+
+            <Card>
+              <div className="p-4 text-center">
+                <div className="text-3xl font-extrabold text-neutral-500">0</div>
+                <div className="text-sm text-neutral-500">Pending</div>
+              </div>
+            </Card>
           </div>
 
-          {role === 'ADMIN' && (
-            <motion.button
-              onClick={() => setIsCreating(true)}
-              whileHover={{ scale: 1.05 }}
-              transition={{ type: "spring" }}
-              className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2 rounded-lg text-sm font-medium transition-all duration-300 shadow-lg shadow-indigo-500/20 hover:shadow-indigo-500/40 flex items-center gap-2"
-            >
-              <Loader2 className="w-4 h-4" /> Create Exam
-            </motion.button>
-          )}
-        </div>
-      </motion.div>
+          {/* Filters */}
+          <Card>
+            <div className="p-4 space-y-3">
+              <h3 className="text-sm font-medium text-neutral-600 uppercase tracking-wider mb-2">
+                Filters
+              </h3>
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <label className="block text-xs text-neutral-500 uppercase tracking-wider mb-1">Search</label>
+                  <input
+                    type="text"
+                    placeholder="Search student name or ID..."
+                    value={filters.search}
+                    onChange={(e) => setFilters({ ...filters, search: e.target.value })}
+                    className={`w-full rounded-lg border border-border dark:border-border-overlay px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-brand-primary/20 transition-colors ${reducedMotion ? 'transition-none' : ''}`}
+                    defaultValue=""
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs text-neutral-500 uppercase tracking-wider mb-1">Type</label>
+                  <select
+                    value={filters.examinationType}
+                    onChange={(e) => setFilters({ ...filters, examinationType: e.target.value } as any)}
+                    className={`w-full rounded-lg border border-border dark:border-border-overlay px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-brand-primary/20 ${reducedMotion ? 'transition-none' : ''}`}
+                  >
+                    <option value="all">All Types</option>
+                    <option value="physical">Physical</option>
+                    <option value="vision">Vision</option>
+                    <option value="hearing">Hearing</option>
+                    <option value="dental">Dental</option>
+                    <option value="general">General</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs text-neutral-500 uppercase tracking-wider mb-1">Result</label>
+                  <select
+                    value={filters.result}
+                    onChange={(e) => setFilters({ ...filters, result: e.target.value } as any)}
+                    className={`w-full rounded-lg border border-border dark:border-border-overlay px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-brand-primary/20 ${reducedMotion ? 'transition-none' : ''}`}
+                  >
+                    <option value="all">All Results</option>
+                    <option value="pass">Pass</option>
+                    <option value="fail">Fail</option>
+                    <option value="pending">Pending</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+          </Card>
 
-      {/* Main Content */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ type: "spring", stiffness: 300, delay: 0.15 }}
-        className="px-6 py-8 lg:px-12"
-      >
-        {/* Admin Filters */}
-        {role === 'ADMIN' && (
-          <motion.div
-            initial={{ opacity: 0, y: -20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ type: "spring", stiffness: 300, delay: 0.1 }}
-            className="bg-white rounded-3xl border border-slate-200 p-6 shadow-3xl shadow-slate-50/30 mb-8"
-            style={{ background: 'linear-gradient(135deg, var(--bg), var(--bg-light))' }}
-          >
-            <h2 className="text-sm font-medium text-slate-700 uppercase tracking-wider mb-4">Exam Period</h2>
-
-            <motion.div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-              <motion.div>
-                <label className="block text-xs font-medium text-slate-700 mb-1">Term</label>
-                <select
-                  value={term}
-                  onChange={(e) => setTerm(e.target.value)}
-                  className="w-full px-4 py-3 rounded-xl border border-slate-200 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 appearance-none bg-white pl-3 pr-12 cursor-pointer"
-                >
-                  <option value="Term 1">Term 1</option>
-                  <option value="Term 2">Term 2</option>
-                  <option value="Term 3">Term 3</option>
-                </select>
-              </motion.div>
-
-              <motion.div>
-                <label className="block text-xs font-medium text-slate-700 mb-1">Year</label>
-                <input
-                  type="number"
-                  value={year}
-                  onChange={(e) => setYear(Number(e.target.value))}
-                  className="w-full px-4 py-3 rounded-xl border border-slate-200 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all"
-                />
-              </motion.div>
-
-              <motion.div>
-                <motion.button
-                  onClick={handleCreate}
-                  whileHover={{ scale: 1.05 }}
-                  transition={{ type: "spring" }}
-                  disabled={isCreating}
-                  className="px-6 py-3 text-sm font-medium bg-indigo-600 text-white rounded-xl transition-all disabled:opacity-50"
-                >
-                  {isCreating ? 'Creating...' : 'Create Exam'}
-                </motion.button>
-              </motion.div>
-            </motion.div>
-          </motion.div>
-        )}
-
-        {/* Exams Table */}
-        <motion.div
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ type: "spring", stiffness: 300, delay: 0.1 }}
-          className="bg-white rounded-3xl border border-slate-200 overflow-hidden shadow-3xl shadow-slate-50/30"
-          style={{ background: 'linear-gradient(135deg, var(--bg), var(--bg-light))' }}
-        >
-          <motion.div
-            initial={{ opacity: 0, y: -20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ type: "spring", stiffness: 300, delay: 0.1 }}
-            className="border-b border-slate-200"
-          >
-            <table className="w-full text-left">
-              <thead className="bg-slate-50 border-b text-xs font-semibold text-slate-500 uppercase">
-                <tr>
-                  {role === 'ADMIN' && (
-                    <th className="py-4 px-6">Student Name</th>
-                  )}
-                  <th className="py-4 px-4">Class</th>
-                  <th className="py-4 px-4">Exam Type</th>
-                  <th className="py-4 px-4">Score</th>
-                  <th className="py-4 px-4 font-bold text-slate-900">Status</th>
-                  {role === 'ADMIN' && (
-                    <th className="py-4 px-4 text-right">Actions</th>
-                  )}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 text-sm">
-                {loading ? (
-                  <motion.tr>
-                    <motion.td colSpan={role === 'ADMIN' ? 6 : 4} className="py-8 text-center text-slate-400">
-                      Loading exam data...
-                    </motion.td>
-                  </motion.tr>
-                ) : exams.length === 0 ? (
-                  <motion.tr>
-                    <motion.td colSpan={role === 'ADMIN' ? 6 : 4} className="py-8 text-center text-slate-500">
-                      No exams found for this period.
-                    </motion.td>
-                  </motion.tr>
-                ) : (
-                  exams.map((e) => (
-                    <motion.tr
-                      key={e.id}
-                      initial={{ opacity: 0, y: -10, x: -20 }}
-                      animate={{ opacity: 1, y: 0, x: 0 }}
-                      transition={{ type: "spring", stiffness: 300, delay: Math.random() * 0.1 }}
-                      className="hover:bg-slate-50 transition-colors"
+          {/* Health Records Table */}
+          {loading ? (
+            <Skeleton className="h-72 rounded-md animate-bounce" />
+          ) : filteredRecords.length === 0 ? (
+            <KpiEmptyStateComponent
+              icon="Heart"
+              title="No health records found"
+              description="Record health examinations to get started"
+              actionLabel="Record Examination"
+            />
+          ) : (
+            <Table>
+              <TableSection.head>
+                <TableHeadCell style="primary">Student</TableHeadCell>
+                <TableHeadCell style="primary">Type</TableHeadCell>
+                <TableHeadCell style="primary">Result</TableHeadCell>
+                <TableHeadCell style="primary">Date</TableHeadCell>
+                <TableHeadCell style="primary">Referred To</TableHeadCell>
+              </TableSection.head>
+              <TableSection.body>
+                {filteredRecords.slice(0, 15).map((record: HealthRecord, index: number) => (
+                  <TableRowCell key={index} style="primary">
+                    <span className="font-medium text-neutral-700">{record.studentName}</span>
+                    <span className="text-neutral-500 text-xs">{record.examinationType}</span>
+                    <span
+                      className={`inline-flex items-center gap-1 px-2 rounded text-xs font-medium ${record.result}`}
                     >
-                      {role === 'ADMIN' && (
-                        <motion.td className="py-4 px-4 font-medium text-slate-900">
-                          {e.student.user.profile?.firstName} {e.student.user.profile?.lastName}
-                        </motion.td>
-                      )}
+                      {record.result}
+                    </span>
+                    <span className="text-neutral-500 text-xs">{new Date(record.date).toLocaleDateString()}</span>
+                    <span className="text-neutral-500 text-xs">{record.referredTo || '—'}</span>
+                  </TableRowCell>
+                ))}
+              </TableSection.body>
+            </Table>
+          )}
 
-                      <motion.td className="py-4 px-4">
-                        {e.className}
-                      </motion.td>
-
-                      <motion.td className="py-4 px-4">
-                        {e.examType}
-                      </motion.td>
-
-                      <motion.td className="py-4 px-4 font-mono">
-                        {e.score.toLocaleString()}%
-                      </motion.td>
-
-                      <motion.td className="py-4 px-4">
-                        <span className={`
-                          px-2.5 py-1 rounded-full text-xs font-bold
-                          ${e.status === 'PASSED' ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}
-                        `}>
-                          {e.status}
-                        </span>
-                      </motion.td>
-
-                      {role === 'ADMIN' && (
-                        <motion.td className="py-4 px-4 text-right">
-                          {e.status === 'PENDING' && (
-                            <motion.button
-                              whileHover={{ scale: 1.02 }}
-                              transition={{ type: "spring" }}
-                              className="text-indigo-600 font-semibold text-xs hover:underline transition-colors"
-                            >
-                              Update
-                            </motion.button>
-                          )}
-                        </motion.td>
-                      )}
-                    </motion.tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </motion.div>
-        </motion.div>
-
-        {/* No exams state */}
-        {role === 'ADMIN' && loading && (
-          <motion.div
-            initial={{ opacity: 0, y: -20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ type: "spring", stiffness: 300 }}
-            className="p-8 text-center text-slate-500"
-          >
-            <Loader2 className="w-12 h-12 mx-auto mb-4 opacity-50 animate-spin" />
-            <p>Loading exam data...</p>
-          </motion.div>
-        )}
+          {/* Export & Reports */}
+          {filteredRecords.length > 0 && (
+            <div className="mt-6 flex items-center justify-between text-sm text-neutral-500">
+              <span>Showing {filteredRecords.length} of {healthRecords.length} records</span>
+              <div className="flex gap-2">
+                <Button variant="ghost" size="sm">Export Records</Button>
+                <Button variant="primary" size="sm">Generate Health Report</Button>
+              </div>
+            </div>
+          )}
+                </div>
       </motion.div>
-    </motion.div>
+    </div>
   );
 }

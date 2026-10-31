@@ -1,333 +1,211 @@
 'use client';
 
-import { useEffect, useState, FormEvent } from 'react';
+import { useEffect, useState } from 'react';
 import { api } from '@/lib/api';
+import { getMe } from '@/lib/auth';
+import Link from 'next/link';
 import { motion } from 'framer-motion';
-import { CheckCircle, X, Loader2, FolderPlus as FolderAdd, Menu, Shield, Users, UserPlus, LogOut, Clock, Flag, Info, Trash2, Edit2, RefreshCw } from 'lucide-react';
-import { useToast } from '@/components/ui/use-toast';
+import {
+  Home, Users, Bed, Search,
+  CheckCircle2, X, Calendar
+} from 'lucide-react';
+import {
+  Card, KpiEmptyState, Skeleton, Table, TableHeadCell, TableRowCell, EmptyState, KpiEmptyStateComponent, KpiCard, TableSection, Button
+} from '@/components/ui';
+import { use_reducedMotion } from '@/hooks/use-reduced-motion';
+
+interface HostelRecord {
+  id: string;
+  roomNumber: string;
+  building: string;
+  occupancy: number;
+  capacity: number;
+  status: 'available' | 'occupied' | 'maintenance' | 'renovation';
+  residentName: string | null;
+  residentId: string | null;
+  checkInDate: string | null;
+  checkOutDate: string | null;
+}
+
+interface FilterState {
+  search: string;
+  status: 'all' | 'available' | 'occupied' | 'maintenance' | 'renovation';
+}
 
 export default function HostelPage() {
-  const [data, setData] = useState<{ blocks: any[], totalAllocated: number }>({ blocks: [], totalAllocated: 0 });
-  const [students, setStudents] = useState<any[]>([]);
+  const [role, setRole] = useState<'ADMIN' | 'TEACHER' | 'REGISTRAR'>('ADMIN');
+  const [records, setRecords] = useState<HostelRecord[]>([]);
   const [loading, setLoading] = useState(true);
-  const [isBlockOpen, setIsBlockOpen] = useState(false);
-  const [selectedBlock, setSelectedBlock] = useState<any | null>(null);
+  const [filters, setFilters] = useState<FilterState>({ search: '', status: 'all' });
+  const reducedMotion = use_reducedMotion();
 
-  const { toast } = useToast();
+  useEffect(() => {
+    getMe().then((me: any) => {
+      const userRoles: string[] = me.roles || [];
+      const isSuperAdmin = userRoles.includes('SUPER_ADMIN');
+      const isTenantAdmin = userRoles.includes('TENANT_ADMIN');
+      const isRegistrar = userRoles.includes('REGISTRAR');
 
-  async function loadData() {
-    const [hostelData, studentsData] = await Promise.all([
-      api.get<any>('/api/v1/hostel'),
-      api.get<any[]>('/api/v1/students')
-    ]);
-    setData(hostelData);
-    setStudents(studentsData);
-    setLoading(false);
-  }
+      setRole(isSuperAdmin || isTenantAdmin ? 'ADMIN' : isRegistrar ? 'REGISTRAR' : 'TEACHER');
+    });
 
-  useEffect(() => { loadData(); }, []);
-
-  async function handleCreateBlock(e: FormEvent) {
-    e.preventDefault();
-    try {
-      await api.post('/api/v1/hostel/blocks', blockData);
-      setIsBlockOpen(false);
-      setBlockData({ name: '', wardenName: '', wardenPhone: '' });
-      loadData();
-      toast({
-        title: 'Block created',
-        description: 'The hostel block has been successfully created.',
-        variant: 'success',
-      });
-    } catch (err) {
-      toast({
-        title: 'Error',
-        description: 'Failed to create hostel block. Please try again.',
-        variant: 'destructive',
-      });
+    // Load hostel records
+    async function loadRecords() {
+      try {
+        const data = await api.get<any[]>('/api/v1/hostel');
+        setRecords(data || []);
+      } catch (err) {
+        setRecords([]);
+      } finally {
+        setLoading(false);
+      }
     }
-  }
 
-  // Form state
-  const [blockData, setBlockData] = useState({ name: '', wardenName: '', wardenPhone: '' });
+    loadRecords();
+  }, []);
 
-  async function handleCreateRoom(e: FormEvent) {
-    e.preventDefault();
-    if (!selectedBlock) return;
-    try {
-      await api.post(`/api/v1/hostel/blocks/${selectedBlock.id}/rooms`, { ...roomData, capacity: Number(roomData.capacity) });
-      setSelectedBlock(null);
-      setRoomData({ roomNumber: '', capacity: 4 });
-      loadData();
-      toast({
-        title: 'Room added',
-        description: 'A new room has been added to the hostel block.',
-        variant: 'success',
-      });
-    } catch (err) {
-      toast({
-        title: 'Error',
-        description: 'Failed to add room. Please try again.',
-        variant: 'destructive',
-      });
-    }
-  }
+  const filteredRecords = records.filter((record: HostelRecord) => {
+    const matchesSearch = filters.search
+      ? record.roomNumber.toLowerCase().includes(filters.search.toLowerCase()) ||
+        record.residentName?.toLowerCase().includes(filters.search.toLowerCase()) ||
+        record.building.toLowerCase().includes(filters.search.toLowerCase())
+      : true;
+    const matchesStatus = filters.status === 'all' || record.status === filters.status;
 
-  const [roomData, setRoomData] = useState({ roomNumber: '', capacity: 4 });
+    return matchesSearch && matchesStatus;
+  });
 
-  async function handleAllocate(e: FormEvent) {
-    e.preventDefault();
-    if (!selectedBlock || !allocateData.studentId) return;
-    try {
-      await api.post('/api/v1/hostel/allocate', {
-        ...allocateData,
-        bedNumber: Number(allocateData.bedNumber),
-        roomId: selectedBlock.id
-      });
-      setSelectedBlock(null);
-      setAllocateData({ studentId: '', bedNumber: 1 });
-      loadData();
-      toast({
-        title: 'Student allocated',
-        description: 'Student has been successfully allocated to a bed.',
-        variant: 'success',
-      });
-    } catch (err: any) {
-      toast({
-        title: 'Error',
-        description: err.message || 'Failed to allocate student. Please try again.',
-        variant: 'destructive',
-      });
-    }
-  }
-
-  const [allocateData, setAllocateData] = useState({ studentId: '', bedNumber: 1 });
+  // Compute summary stats
+  const totalRecords = filteredRecords.length;
+  const availableCount = filteredRecords.filter(r => r.status === 'available').length;
+  const occupiedCount = filteredRecords.filter(r => r.status === 'occupied').length;
 
   return (
-    <motion.div className="min-h-screen bg-slate-50">
-      {/* Header */}
+    <div className="bg-neutral-50 dark:bg-neutral-900 min-h-screen">
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ type: "spring", stiffness: 300, delay: 0.1 }}
-        className="bg-white border-b border-slate-200 px-6 py-4 shadow-sm"
+        exit={{ opacity: 0, y: -20 }}
+        className="reduced-motion:transition-none"
       >
-        <div className="flex justify-between items-center">
-          <div>
-            <h1 className="text-2xl font-bold text-slate-900 tracking-tighter">
-              <Bed className="w-5 h-5 text-emerald-600 mr-2" /> Hostel & Boarding
-            </h1>
-            <p className="text-slate-500 text-sm mt-1">Manage dormitory rooms and student allocations</p>
+        <div className="p-4 sm:p-6 lg:p-8">
+          {/* Hostel Summary */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+            <Card>
+              <div className="p-4 text-center">
+                <div className="text-3xl font-extrabold text-neutral-900">{totalRecords}</div>
+                <div className="text-sm text-neutral-500">Rooms</div>
+              </div>
+            </Card>
+
+            <Card>
+              <div className="p-4 text-center">
+                <div className="text-3xl font-extrabold text-green-600">{availableCount}</div>
+                <div className="text-sm text-neutral-500">Available</div>
+              </div>
+            </Card>
+
+            <Card>
+              <div className="p-4 text-center">
+                <div className="text-3xl font-extrabold text-amber-600">{occupiedCount}</div>
+                <div className="text-sm text-neutral-500">Occupied</div>
+              </div>
+            </Card>
+
+            <Card>
+              <div className="p-4 text-center">
+                <div className="text-3xl font-extrabold text-neutral-500">0</div>
+                <div className="text-sm text-neutral-500">Maintenance</div>
+              </div>
+            </Card>
           </div>
 
-          <motion.button
-            onClick={() => setIsBlockOpen(true)}
-            whileHover={{ scale: 1.05 }}
-            transition={{ type: "spring" }}
-            className="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-3 rounded-xl text-sm font-medium transition-all duration-300 shadow-lg shadow-indigo-500/20 hover:shadow-indigo-500/40 flex items-center gap-2"
-          >
-            <FolderAdd className="w-4 h-4" /> Add Hostel Block
-          </motion.button>
-        </div>
-      </motion.div>
-
-      {/* Main Content */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ type: "spring", stiffness: 300, delay: 0.15 }}
-        className="px-6 py-8 lg:px-12"
-      >
-        {/* Summary Card */}
-        <motion.div
-          whileHover={{ y: -4, scale: 1.02 }}
-          transition={{ type: "spring", stiffness: 400, damping: 30 }}
-          className="bg-white rounded-3xl border border-slate-200 p-6 shadow-3xl shadow-slate-50/30"
-          style={{ background: 'linear-gradient(135deg, var(--bg), var(--bg-light))' }}
-        >
-          <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">Total Students Housed</p>
-          <p className="text-5xl font-bold text-emerald-600 mt-2">{data.totalAllocated}</p>
-        </motion.div>
-
-        {/* BLOCKS LIST */}
-        <motion.div
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ type: "spring", stiffness: 300, delay: 0.1 }}
-          className="grid grid-cols-1 lg:grid-cols-3 gap-6 my-8"
-        >
-          {data.blocks.map(block => (
-            <motion.div
-              key={block.id}
-              whileHover={{ y: -6, scale: 1.03 }}
-              transition={{ type: "spring", stiffness: 400, damping: 30 }}
-              className="group bg-white rounded-3xl border border-slate-200 p-6 shadow-3xl shadow-slate-50/30 transform transition-all duration-500 hover:shadow-4xl hover:shadow-slate-50/40"
-              style={{ background: 'linear-gradient(135deg, var(--bg), var(--bg-light))' }}
-            >
-              <div className="flex items-start justify-between">
+          {/* Filters */}
+          <Card>
+            <div className="p-4 space-y-3">
+              <h3 className="text-sm font-medium text-neutral-600 uppercase tracking-wider mb-2">
+                Filters
+              </h3>
+              <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <h2 className="text-xl font-bold text-slate-900">{block.name}</h2>
-                  <p className="text-sm text-slate-500">Warden: {block.wardenName} ({block.wardenPhone})</p>
+                  <label className="block text-xs text-neutral-500 uppercase tracking-wider mb-1">Search</label>
+                  <input
+                    type="text"
+                    placeholder="Search room number or building..."
+                    value={filters.search}
+                    onChange={(e) => setFilters({ ...filters, search: e.target.value })}
+                    className={`w-full rounded-lg border border-border dark:border-border-overlay px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-brand-primary/20 transition-colors ${reducedMotion ? 'transition-none' : ''}`}
+                    defaultValue=""
+                  />
                 </div>
-
-                <motion.div className="p-3 rounded-xl bg-indigo-50/50 backdrop-blur-sm">
-                  <Bed className="w-4 h-4 text-emerald-400" />
-                  <p className="text-xs text-emerald-600">Hostel block</p>
-                </motion.div>
-              </div>
-
-              {/* Rooms Grid */}
-              <motion.div className="mt-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                {block.rooms.map((room: any) => (
-                  <motion.div
-                    key={room.id}
-                    whileHover={{ y: -4, scale: 1.02 }}
-                    transition={{ type: "spring", stiffness: 400, damping: 30 }}
-                    className="border rounded-xl p-5 bg-slate-50 relative"
-                    style={{ transition: 'all 0.2s ease' }}
+                <div>
+                  <label className="block text-xs text-neutral-500 uppercase tracking-wider mb-1">Status</label>
+                  <select
+                    value={filters.status}
+                    onChange={(e) => setFilters({ ...filters, status: e.target.value } as any)}
+                    className={`w-full rounded-lg border border-border dark:border-border-overlay px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-brand-primary/20 ${reducedMotion ? 'transition-none' : ''}`}
                   >
-                    <div className="flex justify-between items-center mb-4">
-                      <h3 className="font-bold text-slate-900">Room {room.roomNumber}</h3>
-                      <span className="text-xs font-bold bg-indigo-100 text-indigo-700 px-2 py-1 rounded">
-                        {room.allocations.length} / {room.capacity} Beds
-                      </span>
-                    </div>
+                    <option value="all">All Statuses</option>
+                    <option value="available">Available</option>
+                    <option value="occupied">Occupied</option>
+                    <option value="maintenance">Maintenance</option>
+                    <option value="renovation">Renovation</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+          </Card>
 
-                    {/* Beds Visualizer with Animation */}
-                    <motion.div className="space-y-2">
-                      {Array.from({ length: room.capacity }).map((_, index) => {
-                        const bedNum = index + 1;
-                        const allocation = room.allocations.find((a: any) => a.bedNumber === bedNum);
-
-                        return (
-                          <motion.div
-                            key={bedNum}
-                            initial={{ opacity: 0, y: -10, x: (index % 2 === 0 ? -10 : 10) }}
-                            animate={{ opacity: 1, y: 0, x: 0 }}
-                            transition={{ type: "spring", stiffness: 300, delay: index * 0.03 }}
-                            className={`flex items-center justify-between p-2 rounded-lg border ${
-                              allocation ? 'bg-white border-indigo-200' : 'bg-slate-100 border-dashed border-slate-300'
-                            }`}
-                            style={{ transition: 'all 0.2s ease' }}
-                          >
-                            <span className="text-xs font-medium text-slate-500">Bed {bedNum}</span>
-                            {allocation ? (
-                              <motion.span
-                                className="text-sm font-bold text-slate-900 truncate max-w-[140px]"
-                                initial={{ opacity: 0 }}
-                                animate={{ opacity: 1 }}
-                                transition={{ type: "spring", stiffness: 300 }}
-                              >
-                                {allocation.student.firstName} {allocation.student.lastName}
-                              </motion.span>
-                            ) : (
-                              <motion.button
-                                onClick={() => setAllocateData({ studentId: allocation ? '' : students[0]?.id || '', bedNumber: bedNum })}
-                                whileHover={{ scale: 1.05, backgroundColor: 'rgba(79, 137, 241, 0.1)' }}
-                                transition={{ type: "spring" }}
-                                className="text-xs font-bold text-indigo-600 hover:underline"
-                              >
-                                <Plus className="w-3 h-3 mr-1" /> Allocate
-                              </motion.button>
-                            )}
-                          </motion.div>
-                        );
-                      })}
-                    </motion.div>
-                  </motion.div>
+          {/* Hostel Table */}
+          {loading ? (
+            <Skeleton className="h-72 rounded-md animate-bounce" />
+          ) : filteredRecords.length === 0 ? (
+            <KpiEmptyStateComponent
+              icon="Home"
+              title="No hostel records found"
+              description="Add hostel rooms to get started"
+              actionLabel="Add Room"
+            />
+          ) : (
+            <Table>
+              <TableSection.head>
+                <TableHeadCell style="primary">Room</TableHeadCell>
+                <TableHeadCell style="primary">Building</TableHeadCell>
+                <TableHeadCell style="primary">Occupancy</TableHeadCell>
+                <TableHeadCell style="primary">Capacity</TableHeadCell>
+                <TableHeadCell style="primary">Status</TableHeadCell>
+                <TableHeadCell style="primary">Resident</TableHeadCell>
+              </TableSection.head>
+              <TableSection.body>
+                {filteredRecords.slice(0, 15).map((record: HostelRecord, index: number) => (
+                  <TableRowCell key={index} style="primary">
+                    <span className="font-medium text-neutral-700">{record.roomNumber}</span>
+                    <span className="text-neutral-500 text-xs">{record.building}</span>
+                    <span className="text-neutral-500 text-xs">{record.occupancy}/{record.capacity}</span>
+                    <span
+                      className={`inline-flex items-center gap-1 px-2 rounded text-xs font-medium ${record.status}`}
+                    >
+                      {record.status}
+                    </span>
+                    <span className="text-neutral-500 text-xs">{record.residentName || '—'}</span>
+                  </TableRowCell>
                 ))}
-              </motion.div>
-            </motion.div>
-          ))}
-        </motion.div>
+              </TableSection.body>
+            </Table>
+          )}
 
-        {/* Empty state */}
-        {data.blocks.length === 0 && (
-          <motion.div
-            initial={{ opacity: 0, y: -20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ type: "spring", stiffness: 300 }}
-            className="p-12 text-center text-slate-500"
-          >
-            <Loader2 className="w-12 h-12 mx-auto mb-4 opacity-50 animate-spin" />
-            <p>No hostel blocks found.</p>
-            <p className="text-sm text-slate-400 mt-2">Create your first hostel block.</p>
-          </motion.div>
-        )}
+          {/* Export & Reports */}
+          {filteredRecords.length > 0 && (
+            <div className="mt-6 flex items-center justify-between text-sm text-neutral-500">
+              <span>Showing {filteredRecords.length} of {records.length} rooms</span>
+              <div className="flex gap-2">
+                <Button variant="ghost" size="sm">Export Records</Button>
+                <Button variant="primary" size="sm">Generate Report</Button>
+              </div>
+            </div>
+          )}
+                </div>
       </motion.div>
-
-      {/* CREATE BLOCK MODAL */}
-      {isBlockOpen && (
-        <motion.div
-          className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50"
-          whileHover={{ opacity: 0.9 }}
-        >
-          <motion.div
-            className="bg-white rounded-3xl shadow-3xl w-full max-w-sm p-8 shadow-3xl"
-            initial={{ scale: 0.95, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            transition={{ type: "spring", stiffness: 400, damping: 30 }}
-          >
-            <h2 className="text-2xl font-bold text-slate-900 mb-6 flex items-center gap-3">
-              <FolderAdd className="w-5 h-5 text-indigo-500" /> Add Hostel Block
-            </h2>
-
-            <form onSubmit={handleCreateBlock} className="space-y-5">
-              <motion.div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">Block Name</label>
-                <input
-                  required
-                  type="text"
-                  value={blockData.name}
-                  onChange={(e) => setBlockData({...blockData, name: e.target.value})}
-                  className="w-full px-4 py-3 rounded-xl border border-slate-200 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all"
-                  placeholder="e.g. Boys Block A"
-                />
-              </motion.div>
-
-              <motion.div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Warden Name</label>
-                <input
-                  type="text"
-                  value={blockData.wardenName}
-                  onChange={(e) => setBlockData({...blockData, wardenName: e.target.value})}
-                  className="w-full px-4 py-3 rounded-xl border border-slate-200 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all"
-                />
-              </motion.div>
-
-              <motion.div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Warden Phone</label>
-                <input
-                  type="text"
-                  value={blockData.wardenPhone}
-                  onChange={(e) => setBlockData({...blockData, wardenPhone: e.target.value})}
-                  className="w-full px-4 py-3 rounded-xl border border-slate-200 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all"
-                />
-              </motion.div>
-
-              <motion.div className="flex justify-end gap-3 pt-6 border-t">
-                <motion.button
-                  type="button"
-                  onClick={() => setIsBlockOpen(false)}
-                  whileHover={{ scale: 1.02 }}
-                  transition={{ type: "spring" }}
-                  className="px-5 py-3 text-sm font-medium text-slate-600 hover:text-slate-900 transition-all duration-300"
-                >
-                  Cancel
-                </motion.button>
-                <motion.button
-                  type="submit"
-                  whileHover={{ scale: 1.02 }}
-                  transition={{ type: "spring" }}
-                  className="px-5 py-3 text-sm font-medium bg-indigo-600 text-white rounded-xl transition-all"
-                >
-                  Save Block
-                </motion.button>
-              </motion.div>
-            </form>
-          </motion.div>
-        </motion.div>
-      )}
-    </motion.div>
+    </div>
   );
 }

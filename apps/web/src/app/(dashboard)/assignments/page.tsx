@@ -32,7 +32,7 @@ export default function AssignmentsPage() {
     const isTeacher = (meData as any).roles?.includes('TEACHER') || (meData as any).roles?.includes('TENANT_ADMIN');
     setRole(isTeacher ? 'TEACHER' : 'STUDENT');
     setClasses(Array.isArray(classesData) ? classesData : []);
-    setAssignments(Array.isArray(assignmentsData) ? assignmentsData : (assignmentsData?.data || []));
+    setAssignments(Array.isArray(assignmentsData) ? assignmentsData : ((assignmentsData as any)?.data || []));
     if (classesData?.length > 0) setFormData(prev => ({...prev, classId: classesData[0].id}));
   }
 

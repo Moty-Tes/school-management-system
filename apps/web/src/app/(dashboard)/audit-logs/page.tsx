@@ -2,112 +2,241 @@
 
 import { useEffect, useState } from 'react';
 import { api } from '@/lib/api';
+import { getMe } from '@/lib/auth';
+import Link from 'next/link';
+import { motion } from 'framer-motion';
+import {
+  Shield, Search,
+  CheckCircle2, X, Clock
+} from 'lucide-react';
+import {
+  Card, KpiEmptyState, Skeleton, Table, TableHeadCell, TableRowCell, EmptyState, KpiEmptyStateComponent, KpiCard, TableSection, Button
+} from '@/components/ui';
+import { use_reducedMotion } from '@/hooks/use-reduced-motion';
+
+interface AuditLog {
+  id: string;
+  action: 'create' | 'update' | 'delete' | 'login' | 'export' | 'import';
+  entity: 'student' | 'teacher' | 'class' | 'grade' | 'attendance' | 'fee' | 'report';
+  entityId: string;
+  performedBy: string;
+  performedAt: string;
+  ipAddress: string;
+  details: string;
+  status: 'success' | 'failed';
+}
+
+interface FilterState {
+  search: string;
+  action: 'all' | 'create' | 'update' | 'delete' | 'login' | 'export' | 'import';
+  entity: 'all' | 'student' | 'teacher' | 'class' | 'grade' | 'attendance' | 'fee' | 'report';
+  status: 'all' | 'success' | 'failed';
+}
 
 export default function AuditLogsPage() {
-  const [logs, setLogs] = useState<any[]>([]);
+  const [role, setRole] = useState<'ADMIN' | 'TEACHER' | 'REGISTRAR'>('ADMIN');
+  const [logs, setLogs] = useState<AuditLog[]>([]);
   const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState('');
-  const [actionFilter, setActionFilter] = useState('ALL');
-
-  async function loadData() {
-    setLoading(true);
-    try {
-      const query = new URLSearchParams();
-      if (search) query.append('search', search);
-      if (actionFilter !== 'ALL') query.append('action', actionFilter);
-      
-      const data = await api.get<any[]>(`/api/v1/audit?${query.toString()}`);
-      setLogs(data);
-    } finally {
-      setLoading(false);
-    }
-  }
+  const [filters, setFilters] = useState<FilterState>({ search: '', action: 'all', entity: 'all', status: 'all' });
+  const reducedMotion = use_reducedMotion();
 
   useEffect(() => {
-    // Debounce search slightly so we don't spam the API on every keystroke
-    const timer = setTimeout(() => { loadData(); }, 300);
-    return () => clearTimeout(timer);
-  }, [search, actionFilter]);
+    getMe().then((me: any) => {
+      const userRoles: string[] = me.roles || [];
+      const isSuperAdmin = userRoles.includes('SUPER_ADMIN');
+      const isTenantAdmin = userRoles.includes('TENANT_ADMIN');
+      const isRegistrar = userRoles.includes('REGISTRAR');
 
-  function getActionColor(action: string) {
-    if (action.includes('CREATE') || action.includes('PAID')) return 'text-emerald-600 bg-emerald-50 border-emerald-200';
-    if (action.includes('DELETE') || action.includes('REJECT')) return 'text-red-600 bg-red-50 border-red-200';
-    if (action.includes('UPDATE') || action.includes('EDIT')) return 'text-amber-600 bg-amber-50 border-amber-200';
-    return 'text-slate-600 bg-slate-50 border-slate-200';
-  }
+      setRole(isSuperAdmin || isTenantAdmin ? 'ADMIN' : isRegistrar ? 'REGISTRAR' : 'TEACHER');
+    });
+
+    // Load audit logs
+    async function loadLogs() {
+      try {
+        const data = await api.get<any[]>('/api/v1/audit-logs');
+        setLogs(data || []);
+      } catch (err) {
+        setLogs([]);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    loadLogs();
+  }, []);
+
+  const filteredLogs = logs.filter((log: AuditLog) => {
+    const matchesSearch = filters.search
+      ? log.action.toLowerCase().includes(filters.search.toLowerCase()) ||
+        log.entity.toLowerCase().includes(filters.search.toLowerCase()) ||
+        log.performedBy.toLowerCase().includes(filters.search.toLowerCase())
+      : true;
+    const matchesAction = filters.action === 'all' || log.action === filters.action;
+    const matchesEntity = filters.entity === 'all' || log.entity === filters.entity;
+    const matchesStatus = filters.status === 'all' || log.status === filters.status;
+
+    return matchesSearch && matchesAction && matchesEntity && matchesStatus;
+  });
+
+  // Compute summary stats
+  const totalLogs = filteredLogs.length;
+  const successCount = filteredLogs.filter(l => l.status === 'success').length;
+  const failedCount = filteredLogs.filter(l => l.status === 'failed').length;
 
   return (
-    <div className="max-w-5xl mx-auto space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-slate-900">Security & Audit Logs</h1>
-        <p className="text-slate-500 text-sm mt-1">Track every action performed in the system</p>
-      </div>
+    <div className="bg-neutral-50 dark:bg-neutral-900 min-h-screen">
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, y: -20 }}
+        className="reduced-motion:transition-none"
+      >
+        <div className="p-4 sm:p-6 lg:p-8">
+          {/* Audit Logs Summary */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+            <Card>
+              <div className="p-4 text-center">
+                <div className="text-3xl font-extrabold text-neutral-900">{totalLogs}</div>
+                <div className="text-sm text-neutral-500">Audit Logs</div>
+              </div>
+            </Card>
 
-      {/* Filters */}
-      <div className="bg-white p-4 rounded-xl border shadow-sm flex flex-col sm:flex-row gap-4">
-        <div className="flex-1 relative">
-          <svg className="w-5 h-5 absolute left-3 top-2.5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
-          <input 
-            type="text" 
-            placeholder="Search by user name or action details..." 
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-indigo-500"
-          />
-        </div>
-        <select 
-          value={actionFilter} 
-          onChange={e => setActionFilter(e.target.value)}
-          className="px-4 py-2 border rounded-lg text-sm bg-slate-50 font-medium"
-        >
-          <option value="ALL">All Actions</option>
-          <option value="RECORD_PAYMENT">Payments Recorded</option>
-          <option value="SAVE_GRADES">Grades Modified</option>
-          <option value="CREATE_STUDENT">Students Created</option>
-          <option value="DELETE_STUDENT">Students Deleted</option>
-        </select>
-      </div>
+            <Card>
+              <div className="p-4 text-center">
+                <div className="text-3xl font-extrabold text-green-600">{successCount}</div>
+                <div className="text-sm text-neutral-500">Success</div>
+              </div>
+            </Card>
 
-      {/* Timeline */}
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
-        {loading ? (
-          <div className="flex justify-center py-10"><div className="w-8 h-8 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin"></div></div>
-        ) : logs.length === 0 ? (
-          <p className="text-center text-slate-500 py-10">No activity logs found matching your criteria.</p>
-        ) : (
-          <div className="relative border-l-2 border-slate-100 ml-3 space-y-8">
-            {logs.map((log) => (
-              <div key={log.id} className="relative pl-6">
-                {/* Timeline Dot */}
-                <div className="absolute -left-[9px] top-1.5 w-4 h-4 bg-indigo-500 rounded-full border-4 border-white shadow"></div>
-                
-                <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-2">
-                  <div>
-                    <div className="flex items-center gap-3 mb-1">
-                      <span className="font-bold text-slate-900">
-                        {log.user.profile?.firstName} {log.user.profile?.lastName}
-                      </span>
-                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded border uppercase tracking-wider ${getActionColor(log.action)}`}>
-                        {log.action.replace('_', ' ')}
-                      </span>
-                    </div>
-                    <p className="text-sm text-slate-600">{log.details}</p>
-                    <p className="text-xs text-slate-400 mt-1">Entity: {log.entity} | IP: Internal</p>
-                  </div>
-                  <div className="text-left sm:text-right shrink-0">
-                    <p className="text-xs font-medium text-slate-500 bg-slate-50 px-2 py-1 rounded">
-                      {new Date(log.createdAt).toLocaleDateString()}
-                    </p>
-                    <p className="text-[10px] text-slate-400 mt-1 font-mono">
-                      {new Date(log.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
-                    </p>
-                  </div>
+            <Card>
+              <div className="p-4 text-center">
+                <div className="text-3xl font-extrabold text-red-600">{failedCount}</div>
+                <div className="text-sm text-neutral-500">Failed</div>
+              </div>
+            </Card>
+
+            <Card>
+              <div className="p-4 text-center">
+                <div className="text-3xl font-extrabold text-neutral-500">0</div>
+                <div className="text-sm text-neutral-500">Pending</div>
+              </div>
+            </Card>
+          </div>
+
+          {/* Filters */}
+          <Card>
+            <div className="p-4 space-y-3">
+              <h3 className="text-sm font-medium text-neutral-600 uppercase tracking-wider mb-2">
+                Filters
+              </h3>
+              <div className="grid grid-cols-4 gap-3">
+                <div>
+                  <label className="block text-xs text-neutral-500 uppercase tracking-wider mb-1">Search</label>
+                  <input
+                    type="text"
+                    placeholder="Search action, entity, or user..."
+                    value={filters.search}
+                    onChange={(e) => setFilters({ ...filters, search: e.target.value })}
+                    className={`w-full rounded-lg border border-border dark:border-border-overlay px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-brand-primary/20 transition-colors ${reducedMotion ? 'transition-none' : ''}`}
+                    defaultValue=""
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs text-neutral-500 uppercase tracking-wider mb-1">Action</label>
+                  <select
+                    value={filters.action}
+                    onChange={(e) => setFilters({ ...filters, action: e.target.value } as any)}
+                    className={`w-full rounded-lg border border-border dark:border-border-overlay px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-brand-primary/20 ${reducedMotion ? 'transition-none' : ''}`}
+                  >
+                    <option value="all">All Actions</option>
+                    <option value="create">Create</option>
+                    <option value="update">Update</option>
+                    <option value="delete">Delete</option>
+                    <option value="login">Login</option>
+                    <option value="export">Export</option>
+                    <option value="import">Import</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs text-neutral-500 uppercase tracking-wider mb-1">Entity</label>
+                  <select
+                    value={filters.entity}
+                    onChange={(e) => setFilters({ ...filters, entity: e.target.value } as any)}
+                    className={`w-full rounded-lg border border-border dark:border-border-overlay px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-brand-primary/20 ${reducedMotion ? 'transition-none' : ''}`}
+                  >
+                    <option value="all">All Entities</option>
+                    <option value="student">Student</option>
+                    <option value="teacher">Teacher</option>
+                    <option value="class">Class</option>
+                    <option value="grade">Grade</option>
+                    <option value="attendance">Attendance</option>
+                    <option value="fee">Fee</option>
+                    <option value="report">Report</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs text-neutral-500 uppercase tracking-wider mb-1">Status</label>
+                  <select
+                    value={filters.status}
+                    onChange={(e) => setFilters({ ...filters, status: e.target.value } as any)}
+                    className={`w-full rounded-lg border border-border dark:border-border-overlay px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-brand-primary/20 ${reducedMotion ? 'transition-none' : ''}`}
+                  >
+                    <option value="all">All Statuses</option>
+                    <option value="success">Success</option>
+                    <option value="failed">Failed</option>
+                  </select>
                 </div>
               </div>
-            ))}
-          </div>
-        )}
-      </div>
+            </div>
+          </Card>
+
+          {/* Audit Logs Table */}
+          {loading ? (
+            <Skeleton className="h-72 rounded-md animate-bounce" />
+          ) : filteredLogs.length === 0 ? (
+            <KpiEmptyStateComponent
+              icon="Shield"
+              title="No audit logs found"
+              description="Audit logs will appear here"
+              actionLabel="View Activity"
+            />
+          ) : (
+            <Table>
+              <TableSection.head>
+                <TableHeadCell style="primary">Action</TableHeadCell>
+                <TableHeadCell style="primary">Entity</TableHeadCell>
+                <TableHeadCell style="primary">Entity ID</TableHeadCell>
+                <TableHeadCell style="primary">Performed By</TableHeadCell>
+                <TableHeadCell style="primary">Date</TableHeadCell>
+                <TableHeadCell style="primary">IP Address</TableHeadCell>
+              </TableSection.head>
+              <TableSection.body>
+                {filteredLogs.slice(0, 15).map((log: AuditLog, index: number) => (
+                  <TableRowCell key={index} style="primary">
+                    <span className="text-neutral-500 text-xs">{log.action}</span>
+                    <span className="text-neutral-500 text-xs">{log.entity}</span>
+                    <span className="text-neutral-500 text-xs">{log.entityId}</span>
+                    <span className="text-neutral-500 text-xs">{log.performedBy}</span>
+                    <span className="text-neutral-500 text-xs">{new Date(log.performedAt).toLocaleDateString()}</span>
+                    <span className="text-neutral-500 text-xs">{log.ipAddress}</span>
+                  </TableRowCell>
+                ))}
+              </TableSection.body>
+            </Table>
+          )}
+
+          {/* Export & Reports */}
+          {filteredLogs.length > 0 && (
+            <div className="mt-6 flex items-center justify-between text-sm text-neutral-500">
+              <span>Showing {filteredLogs.length} of {logs.length} logs</span>
+              <div className="flex gap-2">
+                <Button variant="ghost" size="sm">Export Logs</Button>
+                <Button variant="primary" size="sm">Generate Report</Button>
+              </div>
+            </div>
+          )}
+                </div>
+      </motion.div>
     </div>
   );
 }

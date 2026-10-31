@@ -1,193 +1,227 @@
 'use client';
 
-import { useEffect, useState, FormEvent } from 'react';
+import { useEffect, useState } from 'react';
 import { api } from '@/lib/api';
+import { getMe } from '@/lib/auth';
+import Link from 'next/link';
+import { motion } from 'framer-motion';
+import {
+  Utensils, Coffee, Search,
+  CheckCircle2, X, TrendingUp
+} from 'lucide-react';
+import {
+  Card, KpiEmptyState, Skeleton, Table, TableHeadCell, TableRowCell, EmptyState, KpiEmptyStateComponent, KpiCard, TableSection, Button
+} from '@/components/ui';
+import { use_reducedMotion } from '@/hooks/use-reduced-motion';
+
+interface CafeteriaRecord {
+  id: string;
+  mealType: 'breakfast' | 'lunch' | 'dinner' | 'snack';
+  date: string;
+  totalMeals: number;
+  vegetarianCount: number;
+  veganCount: number;
+  halalCount: number;
+  kosherCount: number;
+  status: 'serving' | 'completed' | 'closed';
+  averageRating: number | null;
+  costPerMeal: number;
+}
+
+interface FilterState {
+  search: string;
+  mealType: 'all' | 'breakfast' | 'lunch' | 'dinner' | 'snack';
+  status: 'all' | 'serving' | 'completed' | 'closed';
+}
 
 export default function CafeteriaPage() {
-  const [activeTab, setActiveTab] = useState<'pos' | 'menu'>('pos');
-  const [menu, setMenu] = useState<any[]>([]);
+  const [role, setRole] = useState<'ADMIN' | 'TEACHER' | 'PARENT' | 'REGISTRAR'>('ADMIN');
+  const [records, setRecords] = useState<CafeteriaRecord[]>([]);
   const [loading, setLoading] = useState(true);
+  const [filters, setFilters] = useState<FilterState>({ search: '', mealType: 'all', status: 'all' });
+  const reducedMotion = use_reducedMotion();
 
-  // POS State
-  const [admissionNumber, setAdmissionNumber] = useState('');
-  const [selectedItem, setSelectedItem] = useState<any>(null);
-  const [receipt, setReceipt] = useState<any>(null);
-  const [error, setError] = useState('');
+  useEffect(() => {
+    getMe().then((me: any) => {
+      const userRoles: string[] = me.roles || [];
+      const isSuperAdmin = userRoles.includes('SUPER_ADMIN');
+      const isTenantAdmin = userRoles.includes('TENANT_ADMIN');
+      const isRegistrar = userRoles.includes('REGISTRAR');
+      const isParent = userRoles.includes('PARENT');
 
-  // Menu Form State
-  const [isMenuModalOpen, setIsMenuModalOpen] = useState(false);
-  const [menuForm, setMenuForm] = useState({ name: '', price: 0, category: 'LUNCH', allergens: '' });
+      setRole(isSuperAdmin || isTenantAdmin ? 'ADMIN' : isRegistrar ? 'REGISTRAR' : isParent ? 'PARENT' : 'ADMIN');
+    });
 
-  async function loadMenu() {
-    const data = await api.get<any[]>('/api/v1/cafeteria/menu');
-    setMenu(data);
-    setLoading(false);
-  }
-
-  useEffect(() => { loadMenu(); }, []);
-
-  async function handlePurchase(e: FormEvent) {
-    e.preventDefault();
-    setError('');
-    setReceipt(null);
-    if (!selectedItem) {
-      setError('Please select a food item first.');
-      return;
+    // Load cafeteria records
+    async function loadRecords() {
+      try {
+        const data = await api.get<any[]>('/api/v1/cafeteria');
+        setRecords(data || []);
+      } catch (err) {
+        setRecords([]);
+      } finally {
+        setLoading(false);
+      }
     }
 
-    try {
-      const res = await api.post<any>('/api/v1/cafeteria/purchase', {
-        admissionNumber: admissionNumber.toUpperCase(),
-        menuItemId: selectedItem.id,
-      });
-      setReceipt(res);
-      setAdmissionNumber(''); // Clear for next student
-      setSelectedItem(null);
-    } catch (err: any) {
-      setError(err.message);
-    }
-  }
+    loadRecords();
+  }, []);
 
-  async function handleCreateMenuItem(e: FormEvent) {
-    e.preventDefault();
-    await api.post('/api/v1/cafeteria/menu', { ...menuForm, price: Number(menuForm.price) });
-    setIsMenuModalOpen(false);
-    setMenuForm({ name: '', price: 0, category: 'LUNCH', allergens: '' });
-    loadMenu();
-  }
+  const filteredRecords = records.filter((record: CafeteriaRecord) => {
+    const matchesSearch = filters.search
+      ? record.date.toLowerCase().includes(filters.search.toLowerCase())
+      : true;
+    const matchesType = filters.mealType === 'all' || record.mealType === filters.mealType;
+    const matchesStatus = filters.status === 'all' || record.status === filters.status;
 
-  if (loading) return <div className="p-10 text-center">Loading cafeteria...</div>;
+    return matchesSearch && matchesType && matchesStatus;
+  });
+
+  // Compute summary stats
+  const totalRecords = filteredRecords.length;
+  const servingCount = filteredRecords.filter(r => r.status === 'serving').length;
+  const completedCount = filteredRecords.filter(r => r.status === 'completed').length;
 
   return (
-    <div className="space-y-6 max-w-5xl mx-auto">
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900">Cafeteria & Wallet</h1>
-          <p className="text-slate-500 text-sm mt-1">Manage meals and cashless purchases</p>
-        </div>
-      </div>
-
-      <div className="flex gap-4 border-b">
-        <button onClick={() => setActiveTab('pos')} className={`pb-2 px-2 text-sm font-medium ${activeTab === 'pos' ? 'border-b-2 border-indigo-600 text-indigo-600' : 'text-slate-500'}`}>Cashier POS</button>
-        <button onClick={() => setActiveTab('menu')} className={`pb-2 px-2 text-sm font-medium ${activeTab === 'menu' ? 'border-b-2 border-indigo-600 text-indigo-600' : 'text-slate-500'}`}>Menu Items</button>
-      </div>
-
-      {/* CASHIER POS TAB */}
-      {activeTab === 'pos' && (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-          {/* Left Side: Scan & Pay */}
-          <div className="bg-white rounded-2xl border shadow-sm p-6">
-            <h2 className="text-lg font-bold mb-4">Scan Student ID</h2>
-            <form onSubmit={handlePurchase} className="space-y-4">
-              <div>
-                <label className="block text-xs font-medium mb-1">Admission Number</label>
-                <input 
-                  required 
-                  type="text" 
-                  value={admissionNumber} 
-                  onChange={e => setAdmissionNumber(e.target.value)} 
-                  className="w-full px-4 py-3 border rounded-xl text-lg font-mono uppercase focus:ring-2 focus:ring-indigo-500" 
-                  placeholder="e.g. STU-0001" 
-                  autoFocus
-                />
+    <div className="bg-neutral-50 dark:bg-neutral-900 min-h-screen">
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, y: -20 }}
+        className="reduced-motion:transition-none"
+      >
+        <div className="p-4 sm:p-6 lg:p-8">
+          {/* Cafeteria Summary */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+            <Card>
+              <div className="p-4 text-center">
+                <div className="text-3xl font-extrabold text-neutral-900">{totalRecords}</div>
+                <div className="text-sm text-neutral-500">Meals Served</div>
               </div>
-              <div>
-                <label className="block text-xs font-medium mb-1">Select Food Item</label>
-                <select 
-                  required 
-                  onChange={e => setSelectedItem(menu.find(m => m.id === e.target.value))}
-                  className="w-full px-3 py-2 border rounded-lg text-sm"
-                >
-                  <option value="">-- Choose item --</option>
-                  {menu.map(m => (
-                    <option key={m.id} value={m.id}>{m.name} - {Number(m.price).toLocaleString()} ETB</option>
-                  ))}
-                </select>
-              </div>
-              <button type="submit" className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-xl shadow-sm">
-                Deduct from Wallet
-              </button>
-            </form>
+            </Card>
 
-            {error && <div className="mt-4 p-4 bg-red-50 text-red-700 border border-red-200 rounded-lg text-sm font-bold">{error}</div>}
-
-            {receipt && (
-              <div className="mt-6 p-4 bg-emerald-50 border border-emerald-200 rounded-xl">
-                <h3 className="font-bold text-emerald-800 mb-1">✅ Payment Successful</h3>
-                <p className="text-sm text-emerald-700">Student: <span className="font-bold">{receipt.studentName}</span></p>
-                <p className="text-sm text-emerald-700">New Balance: <span className="font-bold">{receipt.newBalance} ETB</span></p>
-                {receipt.allergyWarning && (
-                  <div className="mt-3 p-3 bg-red-600 text-white font-bold text-sm rounded-lg animate-pulse">
-                    {receipt.allergyWarning}
-                  </div>
-                )}
+            <Card>
+              <div className="p-4 text-center">
+                <div className="text-3xl font-extrabold text-brand-primary">{servingCount}</div>
+                <div className="text-sm text-neutral-500">Serving</div>
               </div>
-            )}
+            </Card>
+
+            <Card>
+              <div className="p-4 text-center">
+                <div className="text-3xl font-extrabold text-green-600">{completedCount}</div>
+                <div className="text-sm text-neutral-500">Completed</div>
+              </div>
+            </Card>
+
+            <Card>
+              <div className="p-4 text-center">
+                <div className="text-3xl font-extrabold text-neutral-500">0</div>
+                <div className="text-sm text-neutral-500">Closed</div>
+              </div>
+            </Card>
           </div>
 
-          {/* Right Side: Menu Preview */}
-          <div className="bg-slate-50 rounded-2xl border p-6">
-            <h2 className="text-lg font-bold mb-4">Today's Menu</h2>
-            <div className="space-y-3">
-              {menu.map(m => (
-                <div key={m.id} className="bg-white p-3 rounded-lg border flex justify-between items-center">
-                  <div>
-                    <p className="font-bold text-slate-900 text-sm">{m.name}</p>
-                    {m.allergens && <p className="text-[10px] text-red-500">Contains: {m.allergens}</p>}
-                  </div>
-                  <p className="font-mono text-indigo-600 font-bold">{Number(m.price)} ETB</p>
+          {/* Filters */}
+          <Card>
+            <div className="p-4 space-y-3">
+              <h3 className="text-sm font-medium text-neutral-600 uppercase tracking-wider mb-2">
+                Filters
+              </h3>
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <label className="block text-xs text-neutral-500 uppercase tracking-wider mb-1">Search</label>
+                  <input
+                    type="text"
+                    placeholder="Search date..."
+                    value={filters.search}
+                    onChange={(e) => setFilters({ ...filters, search: e.target.value })}
+                    className={`w-full rounded-lg border border-border dark:border-border-overlay px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-brand-primary/20 transition-colors ${reducedMotion ? 'transition-none' : ''}`}
+                    defaultValue=""
+                  />
                 </div>
-              ))}
+                <div>
+                  <label className="block text-xs text-neutral-500 uppercase tracking-wider mb-1">Meal Type</label>
+                  <select
+                    value={filters.mealType}
+                    onChange={(e) => setFilters({ ...filters, mealType: e.target.value } as any)}
+                    className={`w-full rounded-lg border border-border dark:border-border-overlay px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-brand-primary/20 ${reducedMotion ? 'transition-none' : ''}`}
+                  >
+                    <option value="all">All Types</option>
+                    <option value="breakfast">Breakfast</option>
+                    <option value="lunch">Lunch</option>
+                    <option value="dinner">Dinner</option>
+                    <option value="snack">Snack</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs text-neutral-500 uppercase tracking-wider mb-1">Status</label>
+                  <select
+                    value={filters.status}
+                    onChange={(e) => setFilters({ ...filters, status: e.target.value } as any)}
+                    className={`w-full rounded-lg border border-border dark:border-border-overlay px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-brand-primary/20 ${reducedMotion ? 'transition-none' : ''}`}
+                  >
+                    <option value="all">All Statuses</option>
+                    <option value="serving">Serving</option>
+                    <option value="completed">Completed</option>
+                    <option value="closed">Closed</option>
+                  </select>
+                </div>
+              </div>
             </div>
-          </div>
-        </div>
-      )}
+          </Card>
 
-      {/* MENU TAB */}
-      {activeTab === 'menu' && (
-        <div className="bg-white rounded-2xl border shadow-sm p-6">
-          <div className="flex justify-between items-center mb-6">
-            <h2 className="text-lg font-bold">Manage Menu</h2>
-            <button onClick={() => setIsMenuModalOpen(true)} className="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-medium">+ Add Item</button>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {menu.map(m => (
-              <div key={m.id} className="p-4 border rounded-xl bg-slate-50">
-                <h3 className="font-bold text-slate-900">{m.name}</h3>
-                <p className="text-sm text-indigo-600 font-bold mt-1">{Number(m.price)} ETB</p>
-                {m.allergens && <p className="text-xs text-red-500 mt-2">Allergens: {m.allergens}</p>}
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
+          {/* Cafeteria Table */}
+          {loading ? (
+            <Skeleton className="h-72 rounded-md animate-bounce" />
+          ) : filteredRecords.length === 0 ? (
+            <KpiEmptyStateComponent
+              icon="Utensils"
+              title="No cafeteria records found"
+              description="Meal records will appear here"
+              actionLabel="View Menu"
+            />
+          ) : (
+            <Table>
+              <TableSection.head>
+                <TableHeadCell style="primary">Date</TableHeadCell>
+                <TableHeadCell style="primary">Meal Type</TableHeadCell>
+                <TableHeadCell style="primary">Total Meals</TableHeadCell>
+                <TableHeadCell style="primary">Vegetarian</TableHeadCell>
+                <TableHeadCell style="primary">Vegan</TableHeadCell>
+                <TableHeadCell style="primary">Status</TableHeadCell>
+              </TableSection.head>
+              <TableSection.body>
+                {filteredRecords.slice(0, 15).map((record: CafeteriaRecord, index: number) => (
+                  <TableRowCell key={index} style="primary">
+                    <span className="text-neutral-500 text-xs">{new Date(record.date).toLocaleDateString()}</span>
+                    <span className="text-neutral-500 text-xs">{record.mealType}</span>
+                    <span className="font-medium text-neutral-700">{record.totalMeals}</span>
+                    <span className="text-neutral-500 text-xs">{record.vegetarianCount}</span>
+                    <span className="text-neutral-500 text-xs">{record.veganCount}</span>
+                    <span
+                      className={`inline-flex items-center gap-1 px-2 rounded text-xs font-medium ${record.status}`}
+                    >
+                      {record.status}
+                    </span>
+                  </TableRowCell>
+                ))}
+              </TableSection.body>
+            </Table>
+          )}
 
-      {/* ADD MENU ITEM MODAL */}
-      {isMenuModalOpen && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-xl w-full max-w-sm p-6">
-            <h2 className="text-xl font-bold mb-4">Add Menu Item</h2>
-            <form onSubmit={handleCreateMenuItem} className="space-y-4">
-              <div>
-                <label className="block text-xs font-medium mb-1">Item Name</label>
-                <input required type="text" value={menuForm.name} onChange={e => setMenuForm({...menuForm, name: e.target.value})} className="w-full px-3 py-2 border rounded-lg text-sm" placeholder="e.g. Chicken Sandwich" />
+          {/* Export & Reports */}
+          {filteredRecords.length > 0 && (
+            <div className="mt-6 flex items-center justify-between text-sm text-neutral-500">
+              <span>Showing {filteredRecords.length} of {records.length} records</span>
+              <div className="flex gap-2">
+                <Button variant="ghost" size="sm">Export Data</Button>
+                <Button variant="primary" size="sm">Generate Report</Button>
               </div>
-              <div>
-                <label className="block text-xs font-medium mb-1">Price (ETB)</label>
-                <input required type="number" value={menuForm.price} onChange={e => setMenuForm({...menuForm, price: Number(e.target.value)})} className="w-full px-3 py-2 border rounded-lg text-sm" />
-              </div>
-              <div>
-                <label className="block text-xs font-medium mb-1">Allergens (Comma separated)</label>
-                <input type="text" value={menuForm.allergens} onChange={e => setMenuForm({...menuForm, allergens: e.target.value})} className="w-full px-3 py-2 border rounded-lg text-sm" placeholder="e.g. Peanuts, Dairy" />
-              </div>
-              <div className="flex justify-end gap-3 pt-4 border-t">
-                <button type="button" onClick={() => setIsMenuModalOpen(false)} className="px-4 py-2 text-sm">Cancel</button>
-                <button type="submit" className="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm">Save Item</button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+            </div>
+          )}
+                </div>
+      </motion.div>
     </div>
   );
 }
