@@ -2,6 +2,14 @@ import { Request, Response, NextFunction } from 'express';
 import * as cbtService from '../services/cbt.service.js';
 import { prisma } from '../lib/prisma.js';
 
+export async function listExamsHandler(req: Request, res: Response, next: NextFunction) {
+  try {
+    if (!req.auth?.tenantId) throw new Error("No tenant");
+    const result = await cbtService.listExams(req.auth.tenantId);
+    res.status(200).json(result);
+  } catch (err) { next(err); }
+}
+
 export async function createExamHandler(req: Request, res: Response, next: NextFunction) {
   try {
     if (!req.auth?.tenantId) throw new Error("No tenant");

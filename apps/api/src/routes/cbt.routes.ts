@@ -4,6 +4,7 @@ import { authenticate } from '../middleware/auth.middleware.js';
 
 const router = Router();
 
+router.get('/', authenticate, cbtController.listExamsHandler);
 router.post('/', authenticate, cbtController.createExamHandler);
 router.post('/:id/start', authenticate, cbtController.startExamHandler);
 router.post('/log-cheat', authenticate, cbtController.logCheatHandler);

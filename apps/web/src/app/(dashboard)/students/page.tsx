@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, FormEvent } from 'react';
+import { useEffect, useState, useRef, FormEvent } from 'react';
 import { api, ApiError } from '@/lib/api';
 import { getMe } from '@/lib/auth';
 import Papa from 'papaparse';

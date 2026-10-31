@@ -17,7 +17,7 @@ export async function createSubjectHandler(req: Request, res: Response, next: Ne
     if (!req.auth?.tenantId) throw new Error("No tenant");
     const input = subjectSchema.parse(req.body);
     const result = await timetableService.createSubject(req.auth.tenantId, input as any);
-    res.status(201).json({ success: true, data: result });
+    res.status(201).json(result);
   } catch (err) { next(err); }
 }
 
@@ -25,7 +25,7 @@ export async function listSubjectsHandler(req: Request, res: Response, next: Nex
   try {
     if (!req.auth?.tenantId) throw new Error("No tenant");
     const result = await timetableService.listSubjects(req.auth.tenantId);
-    res.status(200).json({ success: true, data: result });
+    res.status(200).json(result);
   } catch (err) { next(err); }
 }
 
@@ -34,7 +34,7 @@ export async function createTimetableHandler(req: Request, res: Response, next: 
     if (!req.auth?.tenantId) throw new Error("No tenant");
     const input = timetableSchema.parse(req.body);
     const result = await timetableService.createTimetableEntry(req.auth.tenantId, input as any);
-    res.status(201).json({ success: true, data: result });
+    res.status(201).json(result);
   } catch (err) { next(err); }
 }
 
@@ -44,6 +44,6 @@ export async function getTimetableHandler(req: Request, res: Response, next: Nex
     const classId = req.query.classId as string;
     if (!classId) throw new Error("classId is required");
     const result = await timetableService.getTimetable(req.auth.tenantId, classId);
-    res.status(200).json({ success: true, data: result });
+    res.status(200).json(result);
   } catch (err) { next(err); }
 }

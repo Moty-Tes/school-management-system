@@ -50,6 +50,15 @@ import gradingRoutes from './routes/grading.routes.js';
 import exportRoutes from './routes/export.routes.js';
 import roleRoutes from './routes/role.routes.js';
 import platformRoutes from './routes/platform.routes.js';
+import analyticsRoutes from './routes/analytics.routes.js';
+import assignmentRoutes from './routes/assignment.routes.js';
+import timetableRoutes from './routes/timetable.routes.js';
+import reportRoutes from './routes/report.routes.js';
+import dashboardRoutes from './routes/dashboard.routes.js';
+import dailylogRoutes from './routes/dailylog.routes.js';
+import substituteRoutes from './routes/substitute.routes.js';
+import verifyRoutes from './routes/verify.routes.js';
+import websiteRoutes from './routes/website.routes.js';
 import { startAutomations } from './services/automation.service.js';
 
 const app = express();
@@ -121,6 +130,15 @@ app.use('/api/v1/grading', gradingRoutes);
 app.use('/api/v1/exports', exportRoutes);
 app.use('/api/v1/roles', roleRoutes);
 app.use('/api/v1/platform', platformRoutes);
+app.use('/api/v1/analytics', analyticsRoutes);
+app.use('/api/v1/assignments', assignmentRoutes);
+app.use('/api/v1/timetable', timetableRoutes);
+app.use('/api/v1/reports', reportRoutes);
+app.use('/api/v1/dashboard', dashboardRoutes);
+app.use('/api/v1/dailylogs', dailylogRoutes);
+app.use('/api/v1/substitutes', substituteRoutes);
+app.use('/api/v1/verify', verifyRoutes);
+app.use('/api/v1/website', websiteRoutes);
 
 
 // Error Handler

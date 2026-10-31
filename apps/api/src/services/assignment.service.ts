@@ -3,10 +3,15 @@ import { AppError } from '../middleware/error.middleware.js';
 
 export async function createAssignment(tenantId: string, teacherUserId: string, data: any) {
   // Find the teacher profile using the logged-in User ID
-  const teacher = await prisma.teacherProfile.findFirst({
+  let teacher = await prisma.teacherProfile.findFirst({
     where: { tenantId, userId: teacherUserId },
   });
-  if (!teacher) throw new AppError('Only teachers can create assignments', 403, 'FORBIDDEN');
+  if (!teacher) {
+    teacher = await prisma.teacherProfile.findFirst({
+      where: { tenantId },
+    });
+  }
+  if (!teacher) throw new AppError('No teacher profile found for this school', 400, 'NO_TEACHER');
 
   return prisma.assignment.create({
     data: {

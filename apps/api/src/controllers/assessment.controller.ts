@@ -58,13 +58,19 @@ export async function listHandler(req: Request, res: Response, next: NextFunctio
 export async function saveGradesHandler(req: Request, res: Response, next: NextFunction) {
   try {
     if (!req.auth?.tenantId) throw new Error("No tenant context");
-    const { assessmentId } = req.params;
-    const input = saveGradesSchema.parse(req.body);
+    const assessmentId = req.params.assessmentId || req.params.id || req.body.assessmentId;
+    if (!assessmentId) throw new Error("assessmentId is required");
+
+    const rawGrades = req.body.grades || req.body.records || [];
+    const formattedGrades = rawGrades.map((g: any) => ({
+      studentId: g.studentId,
+      score: Number(g.score !== undefined ? g.score : (g.scoreObtained ?? 0)),
+    }));
 
     await assessmentService.saveGrades(
       req.auth.tenantId,
       assessmentId,
-      input.grades as any
+      formattedGrades
     );
 
     res.status(200).json({ success: true, message: 'Grades saved' });
@@ -76,7 +82,8 @@ export async function saveGradesHandler(req: Request, res: Response, next: NextF
 export async function getGradesHandler(req: Request, res: Response, next: NextFunction) {
   try {
     if (!req.auth?.tenantId) throw new Error("No tenant context");
-    const { assessmentId } = req.params;
+    const assessmentId = req.params.assessmentId || req.params.id || (req.query.assessmentId as string);
+    if (!assessmentId) throw new Error("assessmentId is required");
 
     const grades = await assessmentService.getGrades(
       req.auth.tenantId,

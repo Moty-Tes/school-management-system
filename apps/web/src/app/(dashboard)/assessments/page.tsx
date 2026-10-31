@@ -4,6 +4,7 @@ import { useEffect, useState, FormEvent } from 'react';
 import { api } from '@/lib/api';
 import { motion } from 'framer-motion';
 import { CalendarPlus, Clipboard, Plus, CheckCircle, AlertCircle } from 'lucide-react';
+import { toast } from 'sonner';
 
 interface ClassItem { id: string; name: string; section: string; }
 interface Assessment { id: string; title: string; maxScore: number; date: string; class: ClassItem; _count: { grades: number } }
@@ -38,7 +39,7 @@ export default function AssessmentsPage() {
   async function handleCreate(e: FormEvent) {
     e.preventDefault();
     await api.post('/api/v1/assessments', formData);
-    showSuccessToast('Assessment created successfully!');
+    toast.success('Assessment created successfully!');
     setIsCreateOpen(false);
     loadData();
   }
@@ -67,55 +68,14 @@ export default function AssessmentsPage() {
         assessmentId: gradingAssessment.id,
         records: students.filter(s => s.score !== '').map(s => ({ studentId: s.id, score: Number(s.score) }))
       });
-      showSuccessToast('Grades saved successfully!');
+      toast.success('Grades saved successfully!');
       setGradingAssessment(null);
       loadData();
     } catch (err) {
-      showErrorToast('Failed to save grades. Please try again.');
+      toast.error('Failed to save grades. Please try again.');
     } finally {
       setSavingGrades(false);
     }
-  }
-
-  // --- Toast & Feedback System ---
-  function showSuccessToast(message: string) {
-    const toastContainer = document.createElement('div');
-    toastContainer.className = 'fixed top-4 right-4 z-50 space-y-3';
-    toastContainer.innerHTML = `
-      <div className="bg-emerald-600 text-white px-6 py-4 rounded-3xl shadow-2xl shadow-emerald-500/20 transform translate-y-0 transition-transform duration-500 ease-out">
-        <svg className="w-5 h-5 -mr-2 inline-block" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path></svg>
-        <span>${message}</span>
-      </div>
-    `;
-    document.body.appendChild(toastContainer);
-
-    setTimeout(() => {
-      toastContainer.querySelector('div')!.className = 'bg-emerald-600 text-white px-6 py-4 rounded-3xl shadow-2xl shadow-emerald-500/20 transform translate-y-0 transition-transform duration-500 ease-out';
-    }, 10);
-
-    setTimeout(() => {
-      toastContainer.style.transform = 'translateY(-100%)';
-      toastContainer.style.opacity = '0';
-      setTimeout(() => toastContainer.remove(), 300);
-    }, 3000);
-  }
-
-  function showErrorToast(message: string) {
-    const toastContainer = document.createElement('div');
-    toastContainer.className = 'fixed top-4 right-4 z-50 space-y-3';
-    toastContainer.innerHTML = `
-      <div className="bg-red-600 text-white px-6 py-4 rounded-3xl shadow-2xl shadow-red-500/20 transform translate-y-0 transition-transform duration-500 ease-out">
-        <svg className="w-5 h-5 -mr-2 inline-block" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116 21H8a2 2 0 01-2-1.858L5 7"></path></svg>
-        <span>${message}</span>
-      </div>
-    `;
-    document.body.appendChild(toastContainer);
-
-    setTimeout(() => {
-      toastContainer.style.transform = 'translateY(-100%)';
-      toastContainer.style.opacity = '0';
-      setTimeout(() => toastContainer.remove(), 300);
-    }, 3000);
   }
 
   return (

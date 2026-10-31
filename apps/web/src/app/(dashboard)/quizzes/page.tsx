@@ -1,247 +1,396 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, FormEvent } from 'react';
+import Link from 'next/link';
 import { api } from '@/lib/api';
+import { getMe } from '@/lib/auth';
 import { motion } from 'framer-motion';
-import { BarChart3, Loader2, CheckCircle, X } from 'lucide-react';
-import { useToast } from '@/components/ui/use-toast';
+import { Sparkles, HelpCircle, Plus, Clock, Users, ArrowRight, Play, BookOpen, CheckCircle, X } from 'lucide-react';
+import { toast } from 'sonner';
 
-const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+interface CBTExamItem {
+  id: string;
+  title: string;
+  duration: number;
+  totalMarks: number;
+  startTime: string;
+  endTime: string;
+  class?: { id: string; name: string; section: string };
+  questions?: any[];
+  attempts?: any[];
+}
 
 export default function QuizzesPage() {
-  const [quizzes, setQuizzes] = useState<any[]>([]);
-  const [role, setRole] = useState<string>('');
+  const [quizzes, setQuizzes] = useState<CBTExamItem[]>([]);
+  const [classes, setClasses] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [term, setTerm] = useState('Term 1');
-  const [year, setYear] = useState(new Date().getFullYear());
+  const [isStaff, setIsStaff] = useState(false);
+  const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const { toast } = useToast();
+  const [formData, setFormData] = useState({
+    title: '',
+    classId: '',
+    duration: 30,
+    startTime: new Date().toISOString().slice(0, 16),
+    endTime: new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 16),
+    questions: [
+      { text: '', options: ['', '', '', ''], correctOption: 0, marks: 5 }
+    ]
+  });
 
   async function loadData() {
     try {
-      const meData: any = await getMe();
-      const isAdmin = meData.roles?.includes('TENANT_ADMIN') || meData.roles?.includes('SUPER_ADMIN');
-      setRole(isAdmin ? 'ADMIN' : 'TEACHER');
+      setLoading(true);
+      const [meData, classesData, cbtData] = await Promise.all([
+        getMe().catch(() => ({ roles: [] })),
+        api.get<any[]>('/api/v1/classes').catch(() => []),
+        api.get<CBTExamItem[]>('/api/v1/cbt').catch(() => [])
+      ]);
 
-      try {
-        if (isAdmin) {
-          const data = await api.get<any[]>(`/api/v1/quizzes/list?term=${term}&year=${year}`);
-          setQuizzes(data);
-        } else {
-          const data = await api.get<any[]>('/api/v1/quizzes/me');
-          setQuizzes(data);
-        }
-      } catch (err) {
-        toast({
-          title: 'Error',
-          description: 'Failed to load quiz data.',
-          variant: 'destructive',
-        });
+      const roles = (meData as any)?.roles || [];
+      const staffRole = roles.includes('TEACHER') || roles.includes('TENANT_ADMIN') || roles.includes('SUPER_ADMIN');
+      setIsStaff(staffRole);
+      setClasses(classesData || []);
+      setQuizzes(cbtData || []);
+
+      if (classesData?.length > 0 && !formData.classId) {
+        setFormData(prev => ({ ...prev, classId: classesData[0].id }));
       }
-      setLoading(false);
-    } catch (err) {
+    } catch (err: any) {
+      toast.error('Failed to load quizzes');
+    } finally {
       setLoading(false);
     }
   }
 
-  useEffect(() => { loadData(); }, [term, year]);
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  function addQuestion() {
+    setFormData(prev => ({
+      ...prev,
+      questions: [...prev.questions, { text: '', options: ['', '', '', ''], correctOption: 0, marks: 5 }]
+    }));
+  }
+
+  function updateQuestion(index: number, text: string) {
+    const next = [...formData.questions];
+    next[index].text = text;
+    setFormData(prev => ({ ...prev, questions: next }));
+  }
+
+  function updateOption(qIdx: number, oIdx: number, val: string) {
+    const next = [...formData.questions];
+    next[qIdx].options[oIdx] = val;
+    setFormData(prev => ({ ...prev, questions: next }));
+  }
+
+  function setCorrectOption(qIdx: number, oIdx: number) {
+    const next = [...formData.questions];
+    next[qIdx].correctOption = oIdx;
+    setFormData(prev => ({ ...prev, questions: next }));
+  }
+
+  async function handleCreate(e: FormEvent) {
+    e.preventDefault();
+    if (!formData.title.trim()) {
+      toast.error('Please enter a quiz title');
+      return;
+    }
+    if (!formData.classId) {
+      toast.error('Please select a target class');
+      return;
+    }
+
+    try {
+      setIsSubmitting(true);
+      await api.post('/api/v1/cbt', formData);
+      toast.success('Interactive Quiz published successfully!');
+      setIsCreateOpen(false);
+      setFormData({
+        title: '',
+        classId: classes[0]?.id || '',
+        duration: 30,
+        startTime: new Date().toISOString().slice(0, 16),
+        endTime: new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 16),
+        questions: [{ text: '', options: ['', '', '', ''], correctOption: 0, marks: 5 }]
+      });
+      loadData();
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to create quiz');
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
 
   return (
-    <motion.div className="min-h-screen bg-slate-50">
-      {/* Header */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ type: "spring", stiffness: 300, delay: 0.1 }}
-        className="bg-white border-b border-slate-200 px-6 py-4 shadow-sm"
-      >
-        <div className="flex justify-between items-center">
+    <div className="space-y-8 animate-fade-in">
+      {/* Header Banner */}
+      <div className="relative overflow-hidden rounded-3xl glass-card p-8 border border-white/40 shadow-xl bg-gradient-to-r from-amber-500/10 via-orange-500/10 to-indigo-500/10 backdrop-blur-xl">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 relative z-10">
           <div>
-            <h1 className="text-2xl font-bold text-slate-900 tracking-tighter">
-              <BarChart3 className="w-5 h-5 text-emerald-600 mr-2" /> Quizzes
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold bg-amber-500/15 text-amber-700 border border-amber-300/40 mb-3">
+              <Sparkles className="w-3.5 h-3.5 text-amber-600" />
+              Gamified Interactive Quizzes
+            </div>
+            <h1 className="text-3xl font-extrabold tracking-tight text-slate-900">
+              Classroom Quizzes & Tests
             </h1>
-            <p className="text-slate-500 text-sm mt-1">
-              {role === 'ADMIN' ? 'Create and manage quizzes' : 'View your quizzes'}
+            <p className="text-slate-600 text-sm mt-1 max-w-xl">
+              Conduct instant timed quizzes, practice mock exams, and review student attempt scores with automatic anti-cheat validation.
             </p>
           </div>
 
-          {role === 'ADMIN' && (
-            <motion.button
-              whileHover={{ scale: 1.05 }}
-              transition={{ type: "spring" }}
-              className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2 rounded-lg text-sm font-medium transition-all duration-300 shadow-lg shadow-indigo-500/20 hover:shadow-indigo-500/40 flex items-center gap-2"
+          <div className="flex items-center gap-3">
+            <Link
+              href="/cbt"
+              className="glass-button-secondary inline-flex items-center gap-2 text-sm font-semibold"
             >
-              <Loader2 className="w-4 h-4" /> Create Quiz
-            </motion.button>
-          )}
+              <Play className="w-4 h-4 text-emerald-600" />
+              Open CBT Room
+            </Link>
+
+            {isStaff && (
+              <button
+                onClick={() => setIsCreateOpen(true)}
+                className="glass-button-primary inline-flex items-center gap-2 text-sm font-semibold"
+              >
+                <Plus className="w-4 h-4" />
+                Create Quiz
+              </button>
+            )}
+          </div>
         </div>
-      </motion.div>
+      </div>
 
-      {/* Main Content */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ type: "spring", stiffness: 300, delay: 0.15 }}
-        className="px-6 py-8 lg:px-12"
-      >
-        {/* Admin Filters */}
-        {role === 'ADMIN' && (
-          <motion.div
-            initial={{ opacity: 0, y: -20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ type: "spring", stiffness: 300, delay: 0.1 }}
-            className="bg-white rounded-3xl border border-slate-200 p-6 shadow-3xl shadow-slate-50/30 mb-8"
-            style={{ background: 'linear-gradient(135deg, var(--bg), var(--bg-light))' }}
-          >
-            <h2 className="text-sm font-medium text-slate-700 uppercase tracking-wider mb-4">Quiz Period</h2>
+      {/* Quiz Grid */}
+      <div>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
+            <HelpCircle className="w-5 h-5 text-indigo-600" />
+            Active Quizzes ({quizzes.length})
+          </h2>
+          <span className="text-xs text-slate-500 font-medium">Real-time synchronized with CBT Engine</span>
+        </div>
 
-            <motion.div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-              <motion.div>
-                <label className="block text-xs font-medium text-slate-700 mb-1">Term</label>
-                <select
-                  value={term}
-                  onChange={(e) => setTerm(e.target.value)}
-                  className="w-full px-4 py-3 rounded-xl border border-slate-200 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 appearance-none bg-white pl-3 pr-12 cursor-pointer"
-                >
-                  <option value="Term 1">Term 1</option>
-                  <option value="Term 2">Term 2</option>
-                  <option value="Term 3">Term 3</option>
-                </select>
+        {loading ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {[1, 2, 3].map(i => (
+              <div key={i} className="glass-card p-6 rounded-2xl animate-pulse space-y-4">
+                <div className="h-6 bg-slate-200/60 rounded w-2/3"></div>
+                <div className="h-4 bg-slate-200/40 rounded w-1/2"></div>
+                <div className="h-10 bg-slate-200/50 rounded-xl"></div>
+              </div>
+            ))}
+          </div>
+        ) : quizzes.length === 0 ? (
+          <div className="glass-card rounded-3xl p-12 text-center max-w-md mx-auto border border-dashed border-slate-300">
+            <BookOpen className="w-12 h-12 text-indigo-400 mx-auto mb-3" />
+            <h3 className="text-lg font-bold text-slate-800">No Quizzes Created Yet</h3>
+            <p className="text-sm text-slate-500 mt-1 mb-5">
+              Get started by creating your first timed quiz for students to complete.
+            </p>
+            {isStaff && (
+              <button
+                onClick={() => setIsCreateOpen(true)}
+                className="glass-button-primary inline-flex items-center gap-2 text-sm font-semibold"
+              >
+                <Plus className="w-4 h-4" />
+                Create First Quiz
+              </button>
+            )}
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {quizzes.map((quiz) => (
+              <motion.div
+                key={quiz.id}
+                whileHover={{ y: -4 }}
+                transition={{ duration: 0.2 }}
+                className="glass-card rounded-2xl p-6 border border-white/60 shadow-lg hover:shadow-xl flex flex-col justify-between"
+              >
+                <div>
+                  <div className="flex items-start justify-between gap-3 mb-2">
+                    <span className="px-2.5 py-1 rounded-lg text-xs font-semibold bg-indigo-500/10 text-indigo-700 border border-indigo-200/50">
+                      {quiz.class ? `${quiz.class.name} (${quiz.class.section})` : 'All Classes'}
+                    </span>
+                    <span className="inline-flex items-center gap-1 text-xs font-medium text-slate-500 bg-white/70 px-2 py-0.5 rounded-full border border-slate-200/60">
+                      <Clock className="w-3.5 h-3.5 text-amber-500" />
+                      {quiz.duration} mins
+                    </span>
+                  </div>
+
+                  <h3 className="text-lg font-bold text-slate-900 line-clamp-1 mb-2">
+                    {quiz.title}
+                  </h3>
+
+                  <div className="grid grid-cols-2 gap-2 text-xs text-slate-600 mb-4 bg-slate-50/80 p-3 rounded-xl border border-slate-100">
+                    <div>
+                      <span className="text-slate-400 block text-[11px]">Questions</span>
+                      <span className="font-semibold text-slate-800">{quiz.questions?.length ?? 0} Questions</span>
+                    </div>
+                    <div>
+                      <span className="text-slate-400 block text-[11px]">Submissions</span>
+                      <span className="font-semibold text-emerald-600">{quiz.attempts?.length ?? 0} Attempts</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="pt-3 border-t border-slate-100/80 flex items-center justify-between gap-3">
+                  <span className="text-xs font-semibold text-slate-700">
+                    Max: {quiz.totalMarks || (quiz.questions ? quiz.questions.length * 5 : 100)} pts
+                  </span>
+
+                  <Link
+                    href={`/cbt`}
+                    className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-semibold bg-indigo-600 text-white hover:bg-indigo-700 shadow-md shadow-indigo-500/20 transition-all"
+                  >
+                    Launch <ArrowRight className="w-3.5 h-3.5" />
+                  </Link>
+                </div>
               </motion.div>
-
-              <motion.div>
-                <label className="block text-xs font-medium text-slate-700 mb-1">Year</label>
-                <input
-                  type="number"
-                  value={year}
-                  onChange={(e) => setYear(Number(e.target.value))}
-                  className="w-full px-4 py-3 rounded-xl border border-slate-200 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all"
-                />
-              </motion.div>
-
-              <motion.div>
-                <motion.button
-                  whileHover={{ scale: 1.05 }}
-                  transition={{ type: "spring" }}
-                  className="px-6 py-3 text-sm font-medium bg-indigo-600 text-white rounded-xl transition-all"
-                >
-                  Manage Quizzes
-                </motion.button>
-              </motion.div>
-            </motion.div>
-          </motion.div>
+            ))}
+          </div>
         )}
+      </div>
 
-        {/* Quizzes Table */}
-        <motion.div
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ type: "spring", stiffness: 300, delay: 0.1 }}
-          className="bg-white rounded-3xl border border-slate-200 overflow-hidden shadow-3xl shadow-slate-50/30"
-          style={{ background: 'linear-gradient(135deg, var(--bg), var(--bg-light))' }}
-        >
-          <motion.div
-            initial={{ opacity: 0, y: -20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ type: "spring", stiffness: 300, delay: 0.1 }}
-            className="border-b border-slate-200"
-          >
-            <table className="w-full text-left">
-              <thead className="bg-slate-50 border-b text-xs font-semibold text-slate-500 uppercase">
-                <tr>
-                  {role === 'ADMIN' && (
-                    <th className="py-4 px-6">Teacher Name</th>
-                  )}
-                  <th className="py-4 px-4">Class</th>
-                  <th className="py-4 px-4">Subject</th>
-                  <th className="py-4 px-4">Topic</th>
-                  <th className="py-4 px-4 font-bold text-slate-900">Date</th>
-                  <th className="py-4 px-4">Total Questions</th>
-                  {role === 'ADMIN' && (
-                    <th className="py-4 px-4 text-right">Actions</th>
-                  )}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 text-sm">
-                {loading ? (
-                  <motion.tr>
-                    <motion.td colSpan={role === 'ADMIN' ? 7 : 5} className="py-8 text-center text-slate-400">
-                      Loading quiz data...
-                    </motion.td>
-                  </motion.tr>
-                ) : quizzes.length === 0 ? (
-                  <motion.tr>
-                    <motion.td colSpan={role === 'ADMIN' ? 7 : 5} className="py-8 text-center text-slate-500">
-                      No quizzes found for this period.
-                    </motion.td>
-                  </motion.tr>
-                ) : (
-                  quizzes.map((q) => (
-                    <motion.tr
-                      key={q.id}
-                      initial={{ opacity: 0, y: -10, x: -20 }}
-                      animate={{ opacity: 1, y: 0, x: 0 }}
-                      transition={{ type: "spring", stiffness: 300, delay: Math.random() * 0.1 }}
-                      className="hover:bg-slate-50 transition-colors"
-                    >
-                      {role === 'ADMIN' && (
-                        <motion.td className="py-4 px-4 font-medium text-slate-900">
-                          {q.teacher.user.profile?.firstName} {q.teacher.user.profile?.lastName}
-                        </motion.td>
-                      )}
+      {/* Create Quiz Modal */}
+      {isCreateOpen && (
+        <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="glass-panel w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-3xl p-6 sm:p-8 border border-white/60 shadow-2xl space-y-6">
+            <div className="flex items-center justify-between border-b border-slate-200/60 pb-4">
+              <div>
+                <h3 className="text-xl font-bold text-slate-900">Create Interactive Quiz</h3>
+                <p className="text-xs text-slate-500 mt-0.5">Define quiz parameters and multiple-choice questions</p>
+              </div>
+              <button
+                onClick={() => setIsCreateOpen(false)}
+                className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-500"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
 
-                      <motion.td className="py-4 px-4">
-                        {q.className}
-                      </motion.td>
+            <form onSubmit={handleCreate} className="space-y-5">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="sm:col-span-2">
+                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Quiz Title</label>
+                  <input
+                    required
+                    type="text"
+                    value={formData.title}
+                    onChange={e => setFormData({ ...formData, title: e.target.value })}
+                    placeholder="e.g., Mathematics Quick Quiz - Fractions"
+                    className="glass-input w-full"
+                  />
+                </div>
 
-                      <motion.td className="py-4 px-4">
-                        {q.subject}
-                      </motion.td>
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Target Class</label>
+                  <select
+                    required
+                    value={formData.classId}
+                    onChange={e => setFormData({ ...formData, classId: e.target.value })}
+                    className="glass-input w-full"
+                  >
+                    {classes.map(c => (
+                      <option key={c.id} value={c.id}>{c.name} - {c.section}</option>
+                    ))}
+                  </select>
+                </div>
 
-                      <motion.td className="py-4 px-4">
-                        {q.topic}
-                      </motion.td>
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Duration (Minutes)</label>
+                  <input
+                    required
+                    type="number"
+                    min="5"
+                    max="180"
+                    value={formData.duration}
+                    onChange={e => setFormData({ ...formData, duration: Number(e.target.value) })}
+                    className="glass-input w-full"
+                  />
+                </div>
+              </div>
 
-                      <motion.td className="py-4 px-4">
-        {new Date(q.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-      </motion.td>
+              {/* Questions Builder */}
+              <div className="space-y-4 pt-2">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">
+                    Questions ({formData.questions.length})
+                  </label>
+                  <button
+                    type="button"
+                    onClick={addQuestion}
+                    className="text-xs font-bold text-indigo-600 hover:text-indigo-700 flex items-center gap-1"
+                  >
+                    <Plus className="w-3.5 h-3.5" /> Add Question
+                  </button>
+                </div>
 
-                      <motion.td className="py-4 px-4">
-                        {q.totalQuestions}
-                      </motion.td>
+                {formData.questions.map((q, qIdx) => (
+                  <div key={qIdx} className="p-4 rounded-2xl bg-white/60 border border-slate-200/80 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-slate-500">Question #{qIdx + 1}</span>
+                      <span className="text-[11px] text-amber-600 font-medium">Select radio to set correct answer</span>
+                    </div>
 
-                      {role === 'ADMIN' && (
-                        <motion.td className="py-4 px-4 text-right">
-                          <motion.button
-                            whileHover={{ scale: 1.02 }}
-                            transition={{ type: "spring" }}
-                            className="text-indigo-600 font-semibold text-xs hover:underline transition-colors"
-                          >
-                            View
-                          </motion.button>
-                        </motion.td>
-                      )}
-                    </motion.tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </motion.div>
-        </motion.div>
+                    <input
+                      required
+                      type="text"
+                      value={q.text}
+                      onChange={e => updateQuestion(qIdx, e.target.value)}
+                      placeholder="e.g., What is 3/4 converted into a percentage?"
+                      className="glass-input w-full text-sm"
+                    />
 
-        {/* No quizzes state */}
-        {role === 'ADMIN' && loading && (
-          <motion.div
-            initial={{ opacity: 0, y: -20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ type: "spring", stiffness: 300 }}
-            className="p-8 text-center text-slate-500"
-          >
-            <Loader2 className="w-12 h-12 mx-auto mb-4 opacity-50 animate-spin" />
-            <p>Loading quiz data...</p>
-          </motion.div>
-        )}
-      </motion.div>
-    </motion.div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
+                      {q.options.map((opt, oIdx) => (
+                        <div key={oIdx} className="flex items-center gap-2 bg-slate-50/70 p-2 rounded-xl border border-slate-200/50">
+                          <input
+                            type="radio"
+                            name={`correct_${qIdx}`}
+                            checked={q.correctOption === oIdx}
+                            onChange={() => setCorrectOption(qIdx, oIdx)}
+                            className="w-4 h-4 text-indigo-600 focus:ring-indigo-500"
+                          />
+                          <input
+                            required
+                            type="text"
+                            value={opt}
+                            onChange={e => updateOption(qIdx, oIdx, e.target.value)}
+                            placeholder={`Option ${String.fromCharCode(65 + oIdx)}`}
+                            className="w-full bg-transparent border-0 text-xs text-slate-800 focus:outline-none"
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-200/60">
+                <button
+                  type="button"
+                  onClick={() => setIsCreateOpen(false)}
+                  className="glass-button-secondary text-sm font-semibold"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="glass-button-primary text-sm font-semibold"
+                >
+                  {isSubmitting ? 'Publishing...' : 'Publish Quiz'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+    </div>
   );
 }

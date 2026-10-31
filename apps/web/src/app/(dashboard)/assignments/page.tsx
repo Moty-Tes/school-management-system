@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, FormEvent } from 'react';
+import { useEffect, useState, useRef, FormEvent } from 'react';
 import { api } from '@/lib/api';
 import { getMe } from '@/lib/auth';
 import { motion } from 'framer-motion';
@@ -31,9 +31,9 @@ export default function AssignmentsPage() {
 
     const isTeacher = (meData as any).roles?.includes('TEACHER') || (meData as any).roles?.includes('TENANT_ADMIN');
     setRole(isTeacher ? 'TEACHER' : 'STUDENT');
-    setClasses(classesData);
-    setAssignments(assignmentsData);
-    if (classesData.length > 0) setFormData(prev => ({...prev, classId: classesData[0].id}));
+    setClasses(Array.isArray(classesData) ? classesData : []);
+    setAssignments(Array.isArray(assignmentsData) ? assignmentsData : (assignmentsData?.data || []));
+    if (classesData?.length > 0) setFormData(prev => ({...prev, classId: classesData[0].id}));
   }
 
   const [formData, setFormData] = useState({ classId: '', title: '', description: '', dueDate: '' });

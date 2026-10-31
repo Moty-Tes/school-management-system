@@ -2,7 +2,12 @@
 
 import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import { api, ApiError } from '@/lib/api';
+import { api } from '@/lib/api';
+import { 
+  Clock, CheckCircle2, XCircle, AlertCircle, 
+  Calendar as CalendarIcon, Save, Users, Sparkles, Loader2 
+} from 'lucide-react';
+import { sonner } from '@/components/sonner';
 
 interface ClassItem {
   id: string;
@@ -15,7 +20,7 @@ interface Student {
   firstName: string;
   lastName: string;
   admissionNumber: string;
-  status?: 'PRESENT' | 'ABSENT' | 'LATE';
+  status: 'PRESENT' | 'ABSENT' | 'LATE';
 }
 
 export default function AttendancePage() {
@@ -26,297 +31,329 @@ export default function AttendancePage() {
   const [students, setStudents] = useState<Student[]>([]);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
 
   // 1. Load classes on mount
   useEffect(() => {
     api.get<ClassItem[]>('/api/v1/classes').then((data) => {
-      setClasses(data);
-      if (data.length > 0) setSelectedClassId(data[0].id);
-    });
+      setClasses(data || []);
+      if (data && data.length > 0) setSelectedClassId(data[0].id);
+    }).catch(console.error);
   }, []);
 
   // 2. Load students and existing attendance when class or date changes
-  useEffect(() => {
+  async function fetchAttendance() {
     if (!selectedClassId || !date) return;
-
-    async function loadAttendance() {
-      setLoading(true);
-      setMessage(null);
-      try {
-        // Fetch students in this class
-        const allStudents = await api.get<Student[]>('/api/v1/students');
-        const classStudents = allStudents.filter((s: any) => s.classId === selectedClassId);
-
-        // Fetch existing attendance for this date
-        const existing = await api.get<{ studentId: string, status: 'PRESENT' | 'ABSENT' | 'LATE' }[]>(
+    setLoading(true);
+    try {
+      const [allStudents, existing] = await Promise.all([
+        api.get<any[]>('/api/v1/students').catch(() => []),
+        api.get<{ studentId: string, status: 'PRESENT' | 'ABSENT' | 'LATE' }[]>(
           `/api/v1/attendance?classId=${selectedClassId}&date=${date}`
-        );
+        ).catch(() => [])
+      ]);
 
-        // Merge them together
-        const merged = classStudents.map((student) => {
-          const record = existing.find((e) => e.studentId === student.id);
-          return { ...student, status: record?.status || 'PRESENT' }; // Default to PRESENT
-        });
+      const classStudents = allStudents.filter((s: any) => s.classId === selectedClassId);
 
-        setStudents(merged);
-      } catch (err) {
-        setMessage({ type: 'error', text: 'Failed to load attendance data' });
-      } finally {
-        setLoading(false);
-      }
+      const merged: Student[] = classStudents.map((student) => {
+        const record = existing.find((e) => e.studentId === student.id);
+        return {
+          id: student.id,
+          firstName: student.firstName,
+          lastName: student.lastName,
+          admissionNumber: student.admissionNumber,
+          status: record?.status || 'PRESENT', // default to PRESENT
+        };
+      });
+
+      setStudents(merged);
+    } catch (err) {
+      console.error('Failed to load attendance:', err);
+      sonner.error('Failed to load attendance records');
+    } finally {
+      setLoading(false);
     }
-
-    loadAttendance();
-  }, [selectedClassId, date]);
-
-  function toggleStatus(studentId: string, status: 'PRESENT' | 'ABSENT' | 'LATE') {
-    // Update the student status in local state
-    // In a real app, this would update the visual feedback immediately
-    // The actual save happens on handleSave
   }
 
+  useEffect(() => {
+    fetchAttendance();
+  }, [selectedClassId, date]);
+
+  // Toggle individual student attendance
+  function toggleStatus(studentId: string, status: 'PRESENT' | 'ABSENT' | 'LATE') {
+    setStudents(prev => prev.map(s => s.id === studentId ? { ...s, status } : s));
+  }
+
+  // Quick Actions: mark all
+  function markAll(status: 'PRESENT' | 'ABSENT' | 'LATE') {
+    setStudents(prev => prev.map(s => ({ ...s, status })));
+    sonner.info(`Marked all students as ${status.toLowerCase()}`);
+  }
+
+  // Save attendance
   async function handleSave() {
+    if (!selectedClassId) {
+      sonner.error('Please select a class first');
+      return;
+    }
+
     setSaving(true);
-    setMessage(null);
     try {
       await api.post('/api/v1/attendance', {
         classId: selectedClassId,
         date,
         records: students.map(s => ({ studentId: s.id, status: s.status })),
       });
-      setMessage({ type: 'success', text: 'Attendance saved successfully!' });
 
-      // Show success animation
-      showSuccessToast('Attendance saved successfully!');
-
-      // Reload after a moment
-      setTimeout(() => {
-        loadAttendance();
-        setSaving(false);
-      }, 1500);
-    } catch (err) {
-      setMessage({ type: 'error', text: 'Failed to save attendance' });
-      showErrorToast('Failed to save attendance. Please try again.');
+      sonner.success('Attendance recorded and saved successfully!');
+    } catch (err: any) {
+      console.error('Failed to save attendance:', err);
+      sonner.error(err.message || 'Failed to save attendance');
+    } finally {
       setSaving(false);
     }
   }
 
-  // --- Toast & Feedback System ---
-  function showSuccessToast(message: string) {
-    const toastContainer = document.createElement('div');
-    toastContainer.className = 'fixed top-4 right-4 z-50 space-y-3';
-    toastContainer.innerHTML = `
-      <div className="bg-emerald-600 text-white px-6 py-4 rounded-3xl shadow-2xl shadow-emerald-500/20 transform translate-y-0 transition-transform duration-500 ease-out">
-        <svg className="w-5 h-5 -mr-2 inline-block" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path></svg>
-        <span>${message}</span>
-      </div>
-    `;
-    document.body.appendChild(toastContainer);
-
-    // Animate in
-    setTimeout(() => {
-      toastContainer.querySelector('div')!.className = 'bg-emerald-600 text-white px-6 py-4 rounded-3xl shadow-2xl shadow-emerald-500/20 transform translate-y-0 transition-transform duration-500 ease-out';
-    }, 10);
-
-    // Remove after 3 seconds
-    setTimeout(() => {
-      toastContainer.style.transform = 'translateY(-100%)';
-      toastContainer.style.opacity = '0';
-      setTimeout(() => toastContainer.remove(), 300);
-    }, 3000);
-  }
-
-  function showErrorToast(message: string) {
-    const toastContainer = document.createElement('div');
-    toastContainer.className = 'fixed top-4 right-4 z-50 space-y-3';
-    toastContainer.innerHTML = `
-      <div className="bg-red-600 text-white px-6 py-4 rounded-3xl shadow-2xl shadow-red-500/20 transform translate-y-0 transition-transform duration-500 ease-out">
-        <svg className="w-5 h-5 -mr-2 inline-block" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116 21H8a2 2 0 01-2-1.858L5 7"></path></svg>
-        <span>${message}</span>
-      </div>
-    `;
-    document.body.appendChild(toastContainer);
-
-    setTimeout(() => {
-      toastContainer.style.transform = 'translateY(-100%)';
-      toastContainer.style.opacity = '0';
-      setTimeout(() => toastContainer.remove(), 300);
-    }, 3000);
-  }
+  // Calculate live counts
+  const presentCount = students.filter(s => s.status === 'PRESENT').length;
+  const absentCount = students.filter(s => s.status === 'ABSENT').length;
+  const lateCount = students.filter(s => s.status === 'LATE').length;
+  const attendanceRate = students.length > 0 ? Math.round((presentCount / students.length) * 100) : 0;
 
   return (
-    <motion.div className="space-y-6">
-      {/* Page Header */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ type: "spring", stiffness: 300, delay: 0.1 }}
-        className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4"
-      >
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900">Daily Attendance</h1>
-          <p className="text-slate-500 text-sm mt-1">Mark attendance for your class</p>
-        </div>
-
-        <div className="flex items-center gap-3">
-          {/* Save button */}
-          {students.length > 0 && (
-            <motion.button
-              onClick={handleSave}
-              disabled={saving}
-              className="bg-emerald-600 hover:bg-emerald-700 text-white px-6 py-3 rounded-xl font-medium text-sm transition-all duration-300 shadow-lg shadow-emerald-500/20 hover:shadow-emerald-500/40 disabled:opacity-50"
-            >
-              {saving ? 'Saving...' : 'Save Attendance'}
-              <svg className="w-4 h-4 inline -mr-1 animate-bounce" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path>
-              </svg>
-            </motion.button>
-          )}
-
-          {/* Message display */}
-          {message && (
-            <motion.div
-              className={`p-4 rounded-lg mb-4 ${
-                message.type === 'success'
-                  ? 'bg-emerald-50 text-emerald-700'
-                  : 'bg-red-50 text-red-700'
-              }`}
-            >
-              {message.text}
-            </motion.div>
-          )}
-        </div>
-      </motion.div>
-
-      {/* Filters with nice animations */}
-      <motion.div
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ type: "spring", stiffness: 300, delay: 0.15 }}
-        className="bg-white rounded-2xl border border-slate-200 p-6 sm:p-8 shadow-lg shadow-slate-50/30 mb-8"
-      >
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+    <div className="space-y-6 max-w-[1600px] mx-auto">
+      {/* Header Banner */}
+      <div className="glass-card-dark rounded-3xl p-6 sm:p-8 text-white relative overflow-hidden">
+        <div className="absolute top-0 right-0 w-96 h-96 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 relative z-10">
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-2">Select Class</label>
+            <div className="inline-flex items-center gap-2 px-3 py-1 bg-white/10 backdrop-blur-md rounded-full text-xs font-semibold mb-3 border border-white/10">
+              <Clock className="w-3.5 h-3.5 text-emerald-400" />
+              <span>Daily Roll Call</span>
+            </div>
+            <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight">Classroom Attendance</h1>
+            <p className="text-slate-300 text-sm mt-1 max-w-xl">
+              Take daily attendance, track absent and late students, and maintain audit-compliant records.
+            </p>
+          </div>
+
+          {/* Save Button in Header */}
+          <button
+            onClick={handleSave}
+            disabled={saving || students.length === 0}
+            className="px-6 py-3 rounded-2xl glass-button-primary text-sm font-bold flex items-center gap-2 shadow-xl shadow-indigo-600/30 disabled:opacity-50"
+          >
+            {saving ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                <span>Saving...</span>
+              </>
+            ) : (
+              <>
+                <Save className="w-4 h-4" />
+                <span>Save Attendance</span>
+              </>
+            )}
+          </button>
+        </div>
+      </div>
+
+      {/* Filter and KPI Counters */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Class and Date Selectors */}
+        <div className="glass-card rounded-3xl p-6 space-y-4">
+          <div>
+            <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">
+              Select Class
+            </label>
             <select
               value={selectedClassId}
               onChange={(e) => setSelectedClassId(e.target.value)}
-              className="w-full px-4 py-3 rounded-xl border border-slate-200 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 appearance-none bg-white pl-4 pr-12 cursor-pointer"
+              className="w-full px-4 py-2.5 rounded-xl glass-input text-sm font-semibold text-slate-800"
             >
-              <option value="" disabled>Select a class</option>
               {classes.map(c => (
-                <option key={c.id} value={c.id}>{c.name} - {c.section}</option>
+                <option key={c.id} value={c.id}>
+                  {c.name} {c.section ? `(${c.section})` : ''}
+                </option>
               ))}
             </select>
           </div>
+
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-2">Select Date</label>
+            <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">
+              Attendance Date
+            </label>
             <input
               type="date"
               value={date}
               onChange={(e) => setDate(e.target.value)}
-              className="w-full px-4 py-3 rounded-xl border border-slate-200 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 appearance-none bg-white"
+              className="w-full px-4 py-2.5 rounded-xl glass-input text-sm font-semibold text-slate-800"
             />
           </div>
+
+          {/* Quick Mark All Buttons */}
+          <div className="pt-2 flex gap-2">
+            <button
+              onClick={() => markAll('PRESENT')}
+              disabled={students.length === 0}
+              className="flex-1 px-3 py-2 rounded-xl bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200 text-xs font-bold transition-colors disabled:opacity-50"
+            >
+              ✓ All Present
+            </button>
+            <button
+              onClick={() => markAll('ABSENT')}
+              disabled={students.length === 0}
+              className="flex-1 px-3 py-2 rounded-xl bg-rose-50 text-rose-700 hover:bg-rose-100 border border-rose-200 text-xs font-bold transition-colors disabled:opacity-50"
+            >
+              ✗ All Absent
+            </button>
+          </div>
         </div>
-      </motion.div>
 
-      {/* Student List with animated rows */}
-      <motion.div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-lg shadow-slate-50/30">
-        <motion.table className="w-full text-left animate-in" style={{ transitionProperty: 'all', transitionDuration: '0.2s' }}>
-          <motion.thead className="bg-slate-50 border-b border-slate-200 text-xs font-semibold text-slate-500 uppercase">
-            <motion.tr>
-              <motion.th className="py-3 px-4">Adm No</motion.th>
-              <motion.th className="py-3 px-4">Name</motion.th>
-              <motion.th className="py-3 px-4 text-right">Status</motion.th>
-            </motion.tr>
-          </motion.thead>
-          <motion.tbody className="divide-y divide-slate-100 text-sm text-slate-700">
-            {loading ? (
-              <motion.tr className="align-middle">
-                <motion.td colSpan={3} className="py-10 text-center text-slate-400">
-                  Loading students...
-                </motion.td>
-              </motion.tr>
-            ) : students.length === 0 ? (
-              <motion.tr className="align-middle">
-                <motion.td colSpan={3} className="py-10 text-center text-slate-400">
-                  No students in this class.
-                </motion.td>
-              </motion.tr>
-            ) : (
-              students.map((student, index) => (
-                <motion.tr
-                  key={student.id}
-                  initial={{ opacity: 0, y: -20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ type: "spring", stiffness: 300, delay: index * 0.05 }}
-                  className="hover:bg-slate-50 transition-colors cursor-pointer"
-                >
-                  <motion.td className="py-3 px-4 font-mono text-indigo-600">{student.admissionNumber}</motion.td>
-                  <motion.td className="py-3 px-4 font-medium text-slate-900">{student.firstName} {student.lastName}</motion.td>
-                  <motion.td className="py-3 px-4 text-right">
-                    <motion.div className="flex gap-2">
-                      <motion.button
-                        onClick={() => toggleStatus(student.id, 'PRESENT')}
-                        className={`px-3 py-1 rounded text-xs font-semibold ${
-                          student.status === 'PRESENT'
-                            ? 'bg-emerald-600 text-white'
-                            : 'bg-slate-100 text-slate-600'
-                        }`}
-                        whileHover={{ background: student.status === 'PRESENT' ? 'bg-emerald-700' : 'bg-indigo-50' }}
-                      >
-                        Present
-                      </motion.button>
-                      <motion.button
-                        onClick={() => toggleStatus(student.id, 'ABSENT')}
-                        className={`px-3 py-1 rounded text-xs font-semibold ${
-                          student.status === 'ABSENT'
-                            ? 'bg-red-600 text-white'
-                            : 'bg-slate-100 text-slate-600'
-                        }`}
-                        whileHover={{ background: student.status === 'ABSENT' ? 'bg-red-700' : 'bg-indigo-50' }}
-                      >
-                        Absent
-                      </motion.button>
-                      <motion.button
-                        onClick={() => toggleStatus(student.id, 'LATE')}
-                        className={`px-3 py-1 rounded text-xs font-semibold ${
-                          student.status === 'LATE'
-                            ? 'bg-amber-500 text-white'
-                            : 'bg-slate-100 text-slate-600'
-                        }`}
-                        whileHover={{ background: student.status === 'LATE' ? 'bg-amber-600' : 'bg-indigo-50' }}
-                      >
-                        Late
-                      </motion.button>
-                    </motion.div>
-                  </motion.td>
-                </motion.tr>
-              ))
-            )}
-          </motion.tbody>
-        </motion.table>
-      </motion.div>
+        {/* Live Counters */}
+        <div className="lg:col-span-2 grid grid-cols-2 sm:grid-cols-4 gap-4 items-stretch">
+          <div className="glass-card rounded-3xl p-5 flex flex-col justify-between">
+            <span className="text-xs font-bold uppercase tracking-wider text-slate-400">Total</span>
+            <div className="flex items-end justify-between mt-2">
+              <span className="text-3xl font-extrabold text-slate-900">{students.length}</span>
+              <Users className="w-5 h-5 text-slate-400" />
+            </div>
+            <span className="text-[11px] text-slate-400 mt-1">Students in class</span>
+          </div>
 
-      {/* Save Button */}
-      {students.length > 0 && (
-        <motion.div className="mt-6">
-          <motion.button
-            onClick={handleSave}
-            disabled={saving}
-            className="w-full bg-emerald-600 hover:bg-emerald-700 text-white py-3 rounded-xl font-medium text-sm transition-all duration-300 shadow-lg shadow-emerald-500/20 hover:shadow-emerald-500/40 disabled:opacity-50"
-            whileHover={{ transform: 'translateY(-2)', background: 'bg-emerald-700' }}
-            whileTap={{ transform: 'translateY(2)' }}
-          >
-            {saving ? 'Saving Attendance...' : 'Save All Attendance'}
-            <svg className="w-4 h-4 inline -mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path>
-            </svg>
-          </motion.button>
-        </motion.div>
-      )}
-    </motion.div>
+          <div className="glass-card rounded-3xl p-5 flex flex-col justify-between">
+            <span className="text-xs font-bold uppercase tracking-wider text-emerald-600">Present</span>
+            <div className="flex items-end justify-between mt-2">
+              <span className="text-3xl font-extrabold text-emerald-600">{presentCount}</span>
+              <CheckCircle2 className="w-5 h-5 text-emerald-500" />
+            </div>
+            <span className="text-[11px] text-emerald-600/80 mt-1 font-semibold">{attendanceRate}% Rate</span>
+          </div>
+
+          <div className="glass-card rounded-3xl p-5 flex flex-col justify-between">
+            <span className="text-xs font-bold uppercase tracking-wider text-rose-600">Absent</span>
+            <div className="flex items-end justify-between mt-2">
+              <span className="text-3xl font-extrabold text-rose-600">{absentCount}</span>
+              <XCircle className="w-5 h-5 text-rose-500" />
+            </div>
+            <span className="text-[11px] text-rose-600/80 mt-1 font-semibold">Unexcused</span>
+          </div>
+
+          <div className="glass-card rounded-3xl p-5 flex flex-col justify-between">
+            <span className="text-xs font-bold uppercase tracking-wider text-amber-600">Late</span>
+            <div className="flex items-end justify-between mt-2">
+              <span className="text-3xl font-extrabold text-amber-600">{lateCount}</span>
+              <AlertCircle className="w-5 h-5 text-amber-500" />
+            </div>
+            <span className="text-[11px] text-amber-600/80 mt-1 font-semibold">Tardy arrival</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Student List Table */}
+      <div className="glass-card rounded-3xl overflow-hidden shadow-sm">
+        <div className="p-6 border-b border-slate-100 flex items-center justify-between">
+          <div>
+            <h2 className="text-base font-bold text-slate-900">Student Attendance Roster</h2>
+            <p className="text-xs text-slate-500 mt-0.5">Click any status pill to toggle student attendance.</p>
+          </div>
+
+          <div className="text-xs font-bold text-slate-500">
+            Date: <span className="text-indigo-600">{new Date(date).toLocaleDateString()}</span>
+          </div>
+        </div>
+
+        {loading ? (
+          <div className="p-16 flex flex-col items-center justify-center text-slate-400">
+            <Loader2 className="w-8 h-8 animate-spin text-indigo-600 mb-2" />
+            <p className="text-sm">Loading attendance roster...</p>
+          </div>
+        ) : students.length === 0 ? (
+          <div className="p-16 text-center text-slate-500">
+            <Users className="w-12 h-12 mx-auto text-slate-300 mb-3" />
+            <h3 className="text-base font-bold text-slate-800">No Students Found</h3>
+            <p className="text-xs text-slate-400 mt-1">
+              There are no students enrolled in this class yet.
+            </p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm">
+              <thead className="bg-slate-50/80 border-b border-slate-100 text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                <tr>
+                  <th className="py-3.5 px-6">Student</th>
+                  <th className="py-3.5 px-4">Admission #</th>
+                  <th className="py-3.5 px-6 text-right">Status Action</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {students.map((student) => (
+                  <tr key={student.id} className="hover:bg-slate-50/60 transition-colors">
+                    <td className="py-3 px-6">
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-indigo-700 text-white flex items-center justify-center font-bold text-xs shadow-xs">
+                          {student.firstName.charAt(0)}{student.lastName.charAt(0)}
+                        </div>
+                        <div>
+                          <p className="font-bold text-slate-900 text-sm">
+                            {student.firstName} {student.lastName}
+                          </p>
+                        </div>
+                      </div>
+                    </td>
+
+                    <td className="py-3 px-4 text-xs font-mono text-slate-500">
+                      {student.admissionNumber}
+                    </td>
+
+                    <td className="py-3 px-6 text-right">
+                      <div className="inline-flex rounded-xl p-1 bg-slate-100 border border-slate-200/60 gap-1">
+                        <button
+                          type="button"
+                          onClick={() => toggleStatus(student.id, 'PRESENT')}
+                          className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
+                            student.status === 'PRESENT'
+                              ? 'bg-emerald-600 text-white shadow-sm'
+                              : 'text-slate-600 hover:text-emerald-700 hover:bg-white/50'
+                          }`}
+                        >
+                          <CheckCircle2 className="w-3.5 h-3.5" />
+                          <span>Present</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => toggleStatus(student.id, 'ABSENT')}
+                          className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
+                            student.status === 'ABSENT'
+                              ? 'bg-rose-600 text-white shadow-sm'
+                              : 'text-slate-600 hover:text-rose-700 hover:bg-white/50'
+                          }`}
+                        >
+                          <XCircle className="w-3.5 h-3.5" />
+                          <span>Absent</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => toggleStatus(student.id, 'LATE')}
+                          className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
+                            student.status === 'LATE'
+                              ? 'bg-amber-500 text-white shadow-sm'
+                              : 'text-slate-600 hover:text-amber-700 hover:bg-white/50'
+                          }`}
+                        >
+                          <AlertCircle className="w-3.5 h-3.5" />
+                          <span>Late</span>
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    </div>
   );
 }

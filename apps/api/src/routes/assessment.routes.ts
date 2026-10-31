@@ -7,6 +7,8 @@ const router = Router();
 router.post('/', authenticate, assessmentController.createHandler);
 router.get('/', authenticate, assessmentController.listHandler);
 router.post('/grades', authenticate, assessmentController.saveGradesHandler);
+router.post('/:id/grades', authenticate, assessmentController.saveGradesHandler);
 router.get('/:id/grades', authenticate, assessmentController.getGradesHandler);
+router.get('/grades', authenticate, assessmentController.getGradesHandler);
 
 export default router;

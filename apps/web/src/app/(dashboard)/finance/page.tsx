@@ -1,17 +1,30 @@
 'use client';
 
 import { useEffect, useState, FormEvent } from 'react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { api } from '@/lib/api';
+import { 
+  CreditCard, Plus, DollarSign, Receipt, CheckCircle2, 
+  AlertCircle, Calendar, Users, Search, Filter, Loader2, Sparkles, ArrowRight
+} from 'lucide-react';
+import { sonner } from '@/components/sonner';
+
+interface StudentItem {
+  id: string;
+  firstName: string;
+  lastName: string;
+  admissionNumber?: string;
+  class?: { name: string; section?: string };
+}
 
 interface Invoice {
   id: string;
   title: string;
-  amount: string;
-  status: 'UNPAID' | 'PARTIAL' | 'PAID';
+  amount: string | number;
+  status: 'PENDING' | 'UNPAID' | 'PARTIAL' | 'PAID' | 'CANCELLED';
   dueDate: string;
-  student: { firstName: string; lastName: string };
-  payments: { amount: string }[];
+  student: { firstName: string; lastName: string; admissionNumber?: string };
+  payments: { amount: string | number; method?: string; createdAt?: string }[];
 }
 
 interface ClassItem {
@@ -23,30 +36,65 @@ interface ClassItem {
 export default function FinancePage() {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [classes, setClasses] = useState<ClassItem[]>([]);
+  const [students, setStudents] = useState<StudentItem[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Record Payment Modal
-  const [payingInvoice, setPayingInvoice] = useState<Invoice | null>(null);
-  const [paymentData, setPaymentData] = useState({ amount: '', method: 'CASH', reference: '' });
+  // Filters
+  const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState<string>('ALL');
+  const [selectedClassId, setSelectedClassId] = useState<string>('ALL');
+
+  // Single Invoice Modal
+  const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [createData, setCreateData] = useState({
+    studentId: '',
+    title: 'Tuition Fee - Term 1',
+    amount: 5000,
+    dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+  });
+  const [isSubmittingCreate, setIsSubmittingCreate] = useState(false);
 
   // Bulk Invoice Modal
   const [isBulkOpen, setIsBulkOpen] = useState(false);
-  const [bulkData, setBulkData] = useState({ classId: '', title: 'Term 1 Tuition', amount: 15000, dueDate: '' });
+  const [bulkData, setBulkData] = useState({ 
+    classId: '', 
+    title: 'Tuition Fee - Term 1', 
+    amount: 15000, 
+    dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0] 
+  });
   const [isGenerating, setIsGenerating] = useState(false);
-  const [bulkMessage, setBulkMessage] = useState('');
+
+  // Record Payment Modal
+  const [payingInvoice, setPayingInvoice] = useState<Invoice | null>(null);
+  const [paymentData, setPaymentData] = useState({ 
+    amount: '', 
+    method: 'CASH', 
+    reference: '' 
+  });
+  const [isSubmittingPayment, setIsSubmittingPayment] = useState(false);
 
   async function loadData() {
     setLoading(true);
     try {
-      const [invoicesData, classesData] = await Promise.all([
-        api.get<Invoice[]>('/api/v1/finance/invoices'),
-        api.get<ClassItem[]>('/api/v1/classes')
+      const [invoicesData, classesData, studentsData] = await Promise.all([
+        api.get<Invoice[]>('/api/v1/finance/invoices').catch(() => []),
+        api.get<ClassItem[]>('/api/v1/classes').catch(() => []),
+        api.get<StudentItem[]>('/api/v1/students').catch(() => [])
       ]);
-      setInvoices(invoicesData);
-      setClasses(classesData);
-      if (classesData.length > 0 && !bulkData.classId) {
+
+      setInvoices(invoicesData || []);
+      setClasses(classesData || []);
+      setStudents(studentsData || []);
+
+      if (classesData && classesData.length > 0 && !bulkData.classId) {
         setBulkData(prev => ({ ...prev, classId: classesData[0].id }));
       }
+      if (studentsData && studentsData.length > 0 && !createData.studentId) {
+        setCreateData(prev => ({ ...prev, studentId: studentsData[0].id }));
+      }
+    } catch (err) {
+      console.error('Failed to load finance data:', err);
+      sonner.error('Failed to load invoice records');
     } finally {
       setLoading(false);
     }
@@ -54,30 +102,43 @@ export default function FinancePage() {
 
   useEffect(() => { loadData(); }, []);
 
-  async function handlePayment(e: FormEvent) {
+  // Create single invoice
+  async function handleCreateInvoice(e: FormEvent) {
     e.preventDefault();
-    if (!payingInvoice) return;
+    if (!createData.studentId) {
+      sonner.error('Please select a student');
+      return;
+    }
 
+    setIsSubmittingCreate(true);
     try {
-      await api.post(`/api/v1/finance/invoices/${payingInvoice.id}/pay`, {
-        amount: Number(paymentData.amount),
-        method: paymentData.method,
-        reference: paymentData.reference,
+      await api.post('/api/v1/finance/invoices', {
+        studentId: createData.studentId,
+        title: createData.title,
+        amount: Number(createData.amount),
+        dueDate: createData.dueDate,
       });
-      showSuccessToast('Payment recorded successfully!');
-      setPayingInvoice(null);
-      setPaymentData({ amount: '', method: 'CASH', reference: '' });
+
+      sonner.success('Invoice created successfully!');
+      setIsCreateOpen(false);
       loadData();
-    } catch (err) {
-      showErrorToast('Payment failed. Please try again.');
+    } catch (err: any) {
+      console.error('Failed to create invoice:', err);
+      sonner.error(err.message || 'Failed to create invoice');
+    } finally {
+      setIsSubmittingCreate(false);
     }
   }
 
+  // Bulk generate invoices
   async function handleBulkGenerate(e: FormEvent) {
     e.preventDefault();
-    setIsGenerating(true);
-    setBulkMessage('');
+    if (!bulkData.classId) {
+      sonner.error('Please select a class');
+      return;
+    }
 
+    setIsGenerating(true);
     try {
       const res = await api.post<{ count: number }>('/api/v1/finance/invoices/bulk', {
         classId: bulkData.classId,
@@ -85,352 +146,603 @@ export default function FinancePage() {
         amount: Number(bulkData.amount),
         dueDate: bulkData.dueDate,
       });
-      showSuccessToast(`Successfully generated ${res.count} invoices!`);
-      setTimeout(() => {
-        setIsBulkOpen(false);
-        setBulkMessage('');
-        loadData();
-      }, 2000);
-    } catch (err) {
-      showErrorToast('Failed to generate invoices. Please try again.');
+
+      sonner.success(`Successfully generated ${res?.count || 'class'} invoices!`);
+      setIsBulkOpen(false);
+      loadData();
+    } catch (err: any) {
+      console.error('Failed to generate bulk invoices:', err);
+      sonner.error(err.message || 'Failed to generate bulk invoices');
     } finally {
       setIsGenerating(false);
     }
   }
 
-  // --- Toast & Feedback System ---
-  function showSuccessToast(message: string) {
-    const toastContainer = document.createElement('div');
-    toastContainer.className = 'fixed top-4 right-4 z-50 space-y-3';
-    toastContainer.innerHTML = `
-      <div className="bg-emerald-600 text-white px-6 py-4 rounded-3xl shadow-2xl shadow-emerald-500/20 transform translate-y-0 transition-transform duration-500 ease-out">
-        <svg className="w-5 h-5 -mr-2 inline-block" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path></svg>
-        <span>${message}</span>
-      </div>
-    `;
-    document.body.appendChild(toastContainer);
+  // Record payment
+  async function handleRecordPayment(e: FormEvent) {
+    e.preventDefault();
+    if (!payingInvoice) return;
 
-    setTimeout(() => {
-      toastContainer.querySelector('div')!.className = 'bg-emerald-600 text-white px-6 py-4 rounded-3xl shadow-2xl shadow-emerald-500/20 transform translate-y-0 transition-transform duration-500 ease-out';
-    }, 10);
+    setIsSubmittingPayment(true);
+    try {
+      await api.post(`/api/v1/finance/invoices/${payingInvoice.id}/pay`, {
+        amount: Number(paymentData.amount),
+        method: paymentData.method,
+        reference: paymentData.reference,
+      });
 
-    setTimeout(() => {
-      toastContainer.style.transform = 'translateY(-100%)';
-      toastContainer.style.opacity = '0';
-      setTimeout(() => toastContainer.remove(), 300);
-    }, 3000);
+      sonner.success('Payment recorded successfully!');
+      setPayingInvoice(null);
+      setPaymentData({ amount: '', method: 'CASH', reference: '' });
+      loadData();
+    } catch (err: any) {
+      console.error('Payment failed:', err);
+      sonner.error(err.message || 'Payment recording failed');
+    } finally {
+      setIsSubmittingPayment(false);
+    }
   }
 
-  function showErrorToast(message: string) {
-    const toastContainer = document.createElement('div');
-    toastContainer.className = 'fixed top-4 right-4 z-50 space-y-3';
-    toastContainer.innerHTML = `
-      <div className="bg-red-600 text-white px-6 py-4 rounded-3xl shadow-2xl shadow-red-500/20 transform translate-y-0 transition-transform duration-500 ease-out">
-        <svg className="w-5 h-5 -mr-2 inline-block" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116 21H8a2 2 0 01-2-1.858L5 7"></path></svg>
-        <span>${message}</span>
-      </div>
-    `;
-    document.body.appendChild(toastContainer);
+  // Aggregate Calculations
+  const totalInvoiced = invoices.reduce((sum, inv) => sum + Number(inv.amount || 0), 0);
+  const totalCollected = invoices.reduce((sum, inv) => {
+    const paid = inv.payments?.reduce((s, p) => s + Number(p.amount || 0), 0) || 0;
+    return sum + paid;
+  }, 0);
+  const pendingBalance = Math.max(0, totalInvoiced - totalCollected);
+  const collectionRate = totalInvoiced > 0 ? Math.round((totalCollected / totalInvoiced) * 100) : 0;
 
-    setTimeout(() => {
-      toastContainer.style.transform = 'translateY(-100%)';
-      toastContainer.style.opacity = '0';
-      setTimeout(() => toastContainer.remove(), 300);
-    }, 3000);
-  }
+  // Filter invoices
+  const filteredInvoices = invoices.filter(inv => {
+    const fullName = `${inv.student?.firstName || ''} ${inv.student?.lastName || ''}`.toLowerCase();
+    const matchesSearch = fullName.includes(searchQuery.toLowerCase()) || 
+                          (inv.title || '').toLowerCase().includes(searchQuery.toLowerCase());
+    
+    const matchesStatus = statusFilter === 'ALL' || 
+                          inv.status === statusFilter || 
+                          (statusFilter === 'UNPAID' && (inv.status === 'PENDING' || inv.status === 'UNPAID'));
+
+    return matchesSearch && matchesStatus;
+  });
 
   return (
-    <motion.div className="space-y-6">
-      {/* Page Header */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ type: "spring", stiffness: 300, delay: 0.1 }}
-        className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4"
-      >
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900">Finance & Fees</h1>
-          <p className="text-slate-500 text-sm mt-1">Track student invoices and payments</p>
-        </div>
-
-        <motion.button
-          onClick={() => setIsBulkOpen(true)}
-          className="bg-primary-600 hover:bg-primary-700 text-white px-5 py-3 rounded-lg text-sm font-medium transition-all duration-300 shadow-lg shadow-primary-500/20 hover:shadow-primary-500/40 flex items-center gap-2"
-        >
-          ⚡ Generate Bulk Invoices
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m6 4h12m0 0l-4 4m4-4l-4-4m0-6H4"></path>
-          </svg>
-        </motion.button>
-      </motion.div>
-
-      {/* Filters */}
-      <motion.div
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ type: "spring", stiffness: 300, delay: 0.15 }}
-        className="bg-white rounded-2xl border border-slate-200 p-6 sm:p-8 shadow-lg shadow-slate-50/30 mb-8"
-      >
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+    <div className="space-y-6 max-w-[1600px] mx-auto">
+      {/* Header Banner */}
+      <div className="glass-card-dark rounded-3xl p-6 sm:p-8 text-white relative overflow-hidden">
+        <div className="absolute top-0 right-0 w-96 h-96 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none" />
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 relative z-10">
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-2">Select Class</label>
-            <select className="w-full px-4 py-3 rounded-xl border border-slate-200 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 appearance-none bg-white pl-4 pr-12">
-              <option value="" disabled>Select a class</option>
-              {classes.map(c => (
-                <option key={c.id} value={c.id}>{c.name} - {c.section}</option>
-              ))}
-            </select>
+            <div className="inline-flex items-center gap-2 px-3 py-1 bg-white/10 backdrop-blur-md rounded-full text-xs font-semibold mb-3 border border-white/10">
+              <Receipt className="w-3.5 h-3.5 text-indigo-400" />
+              <span>Tuition & Accounts Receivable</span>
+            </div>
+            <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight">Finance & Fee Management</h1>
+            <p className="text-slate-300 text-sm mt-1 max-w-xl">
+              Track student school fees, issue tuition invoices, record payments, and audit balances.
+            </p>
+          </div>
+
+          {/* Action Buttons */}
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setIsBulkOpen(true)}
+              className="px-4 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-white font-semibold text-xs sm:text-sm transition-all flex items-center gap-2 border border-white/10"
+            >
+              <span>⚡</span>
+              <span>Bulk Invoices</span>
+            </button>
+            <button
+              onClick={() => setIsCreateOpen(true)}
+              className="px-5 py-2.5 rounded-xl glass-button-primary font-bold text-xs sm:text-sm flex items-center gap-2 shadow-xl shadow-indigo-600/30"
+            >
+              <Plus className="w-4 h-4" />
+              <span>Create Invoice</span>
+            </button>
           </div>
         </div>
-      </motion.div>
+      </div>
 
-      {/* Invoices Table */}
-      <motion.div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-lg shadow-slate-50/30">
-        <motion.table className="w-full text-left animate-in" style={{ transitionProperty: 'all', transitionDuration: '0.2s' }}>
-          <motion.thead className="bg-slate-50 border-b border-slate-200 text-xs font-semibold text-slate-500 uppercase">
-            <motion.tr>
-              <motion.th className="py-3 px-4">Student</motion.th>
-              <motion.th className="py-3 px-4">Invoice Title</motion.th>
-              <motion.th className="py-3 px-4">Amount</motion.th>
-              <motion.th className="py-3 px-4">Status</motion.th>
-              <motion.th className="py-3 px-4 text-right">Actions</motion.th>
-            </motion.tr>
-          </motion.thead>
-          <motion.tbody className="divide-y divide-slate-100 text-sm">
-            {loading ? (
-              <motion.tr className="align-middle">
-                <motion.td colSpan={5} className="py-8 text-center text-slate-400">
-                  Loading...
-                </motion.td>
-              </motion.tr>
-            ) : invoices.length === 0 ? (
-              <motion.tr className="align-middle">
-                <motion.td colSpan={5} className="py-8 text-center text-slate-400">
-                  No invoices found.
-                </motion.td>
-              </motion.tr>
-            ) : (
-              invoices.map(inv => {
-                const totalPaid = inv.payments.reduce((sum, p) => sum + Number(p.amount), 0);
-
-                return (
-                  <motion.tr
-                    key={inv.id}
-                    initial={{ opacity: 0, x: -20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ type: "spring", stiffness: 300, delay: Math.random() * 0.1 }}
-                    className="hover:bg-slate-50 transition-colors"
-                  >
-                    <motion.td className="py-3 px-4 font-medium">
-                      {inv.student.firstName} {inv.student.lastName}
-                    </motion.td>
-                    <motion.td className="py-3 px-4">{inv.title}</motion.td>
-                    <motion.td className="py-3 px-4 font-mono">
-                      {Number(inv.amount).toLocaleString()} ETB
-                      {totalPaid > 0 && totalPaid < Number(inv.amount) && (
-                        <span className="block text-xs text-slate-400">Paid: {totalPaid.toLocaleString()}</span>
-                      )}
-                    </motion.td>
-                    <motion.td className="py-3 px-4">
-                      <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${
-                        inv.status === 'PAID'
-                          ? 'bg-emerald-100 text-emerald-700'
-                          : inv.status === 'PARTIAL'
-                            ? 'bg-amber-100 text-amber-700'
-                            : 'bg-red-100 text-red-700'
-                      }`}>
-                        {inv.status}
-                      </span>
-                    </motion.td>
-                    <motion.td className="py-3 px-4 text-right">
-                      {inv.status !== 'PAID' && (
-                        <motion.button
-                          onClick={() => setPayingInvoice(inv)}
-                          className="text-primary-600 font-semibold text-xs hover:underline transition-colors"
-                        >
-                          Record Payment
-                        </motion.button>
-                      )}
-                    </motion.td>
-                  </motion.tr>
-                )
-              })
-            )}
-          </motion.tbody>
-        </motion.table>
-      </motion.div>
-
-      {/* Record Payment Modal */}
-      {payingInvoice && (
-        <motion.div
-          className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50"
-          whileHover={{ opacity: 0.9 }}
-        >
-          <motion.div
-            className="bg-white rounded-3xl shadow-3xl w-full max-w-md p-8 shadow-3xl"
-            initial={{ scale: 0.95, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            transition={{ type: "spring", stiffness: 400, damping: 30 }}
-          >
-            <h2 className="text-2xl font-bold text-slate-900 mb-6 flex items-center gap-3">
-              <svg className="w-6 h-6 text-primary-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m6 4h12m0 0l-4 4m4-4l-4-4m0-6H4"></path>
-              </svg>
-              Record Payment
-            </h2>
-
-            <div className="mb-6 p-4 bg-slate-50 rounded-xl">
-              <p className="text-sm font-semibold">{payingInvoice.student.firstName} {payingInvoice.student.lastName}</p>
-              <p className="text-xs text-slate-500">{payingInvoice.title} - {Number(payingInvoice.amount).toLocaleString()} ETB</p>
+      {/* KPI Stat Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+        <div className="glass-card rounded-3xl p-6">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Total Invoiced</span>
+            <div className="p-3 bg-indigo-50 text-indigo-600 rounded-xl">
+              <Receipt className="w-5 h-5" />
             </div>
+          </div>
+          <p className="text-3xl font-extrabold text-slate-900 mt-4">
+            {totalInvoiced.toLocaleString()} <span className="text-sm font-semibold text-slate-500">ETB</span>
+          </p>
+          <p className="text-xs text-slate-400 font-medium mt-1">{invoices.length} total issued invoices</p>
+        </div>
 
-            <form onSubmit={handlePayment} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium mb-1">Amount (ETB)</label>
-                <input
-                  required
-                  type="number"
-                  value={paymentData.amount}
-                  onChange={(e) => setPaymentData({...paymentData, amount: e.target.value})}
-                  className="w-full px-4 py-3 rounded-xl border border-slate-200 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all"
-                  placeholder="e.g. 5000"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-1">Payment Method</label>
-                <select
-                  value={paymentData.method}
-                  onChange={(e) => setPaymentData({...paymentData, method: e.target.value})}
-                  className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 appearance-none bg-white pl-4 pr-12"
-                >
-                  <option value="CASH">Cash</option>
-                  <option value="TELEBIRR">Telebirr</option>
-                  <option value="BANK_TRANSFER">Bank Transfer</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-1">Reference (Optional)</label>
-                <input
-                  type="text"
-                  value={paymentData.reference}
-                  onChange={(e) => setPaymentData({...paymentData, reference: e.target.value})}
-                  className="w-full px-4 py-3 rounded-xl border border-slate-200 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all"
-                  placeholder="Transaction ID"
-                />
-              </div>
-              <div className="flex justify-end gap-3 pt-8 border-t">
-                <motion.button
-                  type="button"
-                  onClick={() => setPayingInvoice(null)}
-                  className="px-5 py-3 text-sm font-medium text-slate-600 hover:text-slate-900 transition-all duration-300"
-                >
-                  Cancel
-                </motion.button>
-                <motion.button
-                  type="submit"
-                  className="px-5 py-3 text-sm font-medium bg-primary-600 text-white rounded-xl transition-all"
-                >
-                  Save Payment
-                </motion.button>
-              </div>
-            </form>
-          </motion.div>
-        </motion.div>
-      )}
+        <div className="glass-card rounded-3xl p-6">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Total Collected</span>
+            <div className="p-3 bg-emerald-50 text-emerald-600 rounded-xl">
+              <DollarSign className="w-5 h-5" />
+            </div>
+          </div>
+          <p className="text-3xl font-extrabold text-emerald-600 mt-4">
+            {totalCollected.toLocaleString()} <span className="text-sm font-semibold text-slate-500">ETB</span>
+          </p>
+          <p className="text-xs text-emerald-600 font-semibold mt-1">{collectionRate}% collection rate</p>
+        </div>
 
-      {/* Bulk Invoice Modal */}
-      {isBulkOpen && (
-        <motion.div
-          className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50"
-          whileHover={{ opacity: 0.9 }}
-        >
-          <motion.div
-            className="bg-white rounded-3xl shadow-3xl w-full max-w-md p-8 shadow-3xl"
-            initial={{ scale: 0.95, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            transition={{ type: "spring", stiffness: 400, damping: 30 }}
-          >
-            <h2 className="text-2xl font-bold text-slate-900 mb-6 flex items-center gap-3">
-              <svg className="w-6 h-6 text-primary-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m6 4h12m0 0l-4 4m4-4l-4-4m0-6H4"></path>
-              </svg>
-              Generate Bulk Invoices
-            </h2>
+        <div className="glass-card rounded-3xl p-6">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Pending Balance</span>
+            <div className="p-3 bg-amber-50 text-amber-600 rounded-xl">
+              <AlertCircle className="w-5 h-5" />
+            </div>
+          </div>
+          <p className="text-3xl font-extrabold text-amber-600 mt-4">
+            {pendingBalance.toLocaleString()} <span className="text-sm font-semibold text-slate-500">ETB</span>
+          </p>
+          <p className="text-xs text-amber-600 font-semibold mt-1">Outstanding unpaid fees</p>
+        </div>
 
-            <p className="text-sm text-slate-500 mb-6">This will instantly bill every student in the selected class.</p>
+        <div className="glass-card rounded-3xl p-6">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Students</span>
+            <div className="p-3 bg-blue-50 text-blue-600 rounded-xl">
+              <Users className="w-5 h-5" />
+            </div>
+          </div>
+          <p className="text-3xl font-extrabold text-slate-900 mt-4">{students.length}</p>
+          <p className="text-xs text-slate-400 font-medium mt-1">Enrolled student accounts</p>
+        </div>
+      </div>
 
-            {bulkMessage && (
-              <div className="mb-4 p-3 bg-emerald-50 text-emerald-700 rounded-lg text-sm font-medium animate-bounce">
-                {bulkMessage}
-              </div>
-            )}
+      {/* Filter and Search Bar */}
+      <div className="glass-card rounded-3xl p-6">
+        <div className="flex flex-col sm:flex-row gap-4 items-center justify-between">
+          {/* Search Input */}
+          <div className="relative w-full sm:w-80">
+            <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search student or title..."
+              className="w-full pl-10 pr-4 py-2.5 rounded-xl glass-input text-xs sm:text-sm font-semibold"
+            />
+          </div>
 
-            <form onSubmit={handleBulkGenerate} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium mb-1">Select Class</label>
-                <select
-                  required
-                  value={bulkData.classId}
-                  onChange={(e) => setBulkData({...bulkData, classId: e.target.value})}
-                  className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 appearance-none bg-white pl-4 pr-12"
-                >
-                  <option value="" disabled>Select a class</option>
-                  {classes.map(c => (
-                    <option key={c.id} value={c.id}>{c.name} - {c.section}</option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-1">Invoice Title</label>
-                <input
-                  required
-                  type="text"
-                  value={bulkData.title}
-                  onChange={(e) => setBulkData({...bulkData, title: e.target.value})}
-                  className="w-full px-4 py-3 rounded-xl border border-slate-200 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all"
-                  placeholder="e.g. Term 1 Tuition"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-1">Amount per Student (ETB)</label>
-                <input
-                  required
-                  type="number"
-                  value={bulkData.amount}
-                  onChange={(e) => setBulkData({...bulkData, amount: Number(e.target.value)})}
-                  className="w-full px-4 py-3 rounded-xl border border-slate-200 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-1">Due Date</label>
-                <input
-                  required
-                  type="date"
-                  value={bulkData.dueDate}
-                  onChange={(e) => setBulkData({...bulkData, dueDate: e.target.value})}
-                  className="w-full px-4 py-3 rounded-xl border border-slate-200 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all"
-                />
-              </div>
-              <div className="flex justify-end gap-3 pt-8 border-t">
-                <motion.button
-                  type="button"
-                  onClick={() => setIsBulkOpen(false)}
-                  className="px-5 py-3 text-sm font-medium text-slate-600 hover:text-slate-900 transition-all duration-300"
-                >
-                  Cancel
-                </motion.button>
-                <motion.button
-                  type="submit"
-                  disabled={isGenerating}
-                  className="px-5 py-3 text-sm font-medium bg-primary-600 text-white rounded-xl disabled:opacity-50 transition-all"
-                >
-                  {isGenerating ? 'Generating...' : 'Generate Invoices'}
-                </motion.button>
-              </div>
-            </form>
-          </motion.div>
-        </motion.div>
-      )}
-    </motion.div>
+          {/* Status Filter Tabs */}
+          <div className="flex gap-1.5 p-1 bg-slate-100 rounded-2xl w-full sm:w-auto overflow-x-auto">
+            {['ALL', 'UNPAID', 'PARTIAL', 'PAID'].map((status) => (
+              <button
+                key={status}
+                onClick={() => setStatusFilter(status)}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                  statusFilter === status
+                    ? 'bg-white text-indigo-700 shadow-sm'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                {status}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Invoices List Table Card */}
+      <div className="glass-card rounded-3xl overflow-hidden shadow-sm">
+        <div className="p-6 border-b border-slate-100 flex items-center justify-between">
+          <div>
+            <h2 className="text-base font-bold text-slate-900">Student Invoices</h2>
+            <p className="text-xs text-slate-500 mt-0.5">Showing {filteredInvoices.length} invoices matching criteria.</p>
+          </div>
+        </div>
+
+        {loading ? (
+          <div className="p-16 flex flex-col items-center justify-center text-slate-400">
+            <Loader2 className="w-8 h-8 animate-spin text-indigo-600 mb-2" />
+            <p className="text-sm">Loading financial invoices...</p>
+          </div>
+        ) : filteredInvoices.length === 0 ? (
+          <div className="p-16 text-center text-slate-500">
+            <Receipt className="w-12 h-12 mx-auto text-slate-300 mb-3" />
+            <h3 className="text-base font-bold text-slate-800">No Invoices Found</h3>
+            <p className="text-xs text-slate-400 mt-1 max-w-sm mx-auto">
+              Create an invoice for a student or generate bulk tuition fees for a class.
+            </p>
+            <button
+              onClick={() => setIsCreateOpen(true)}
+              className="mt-4 px-4 py-2 rounded-xl glass-button-primary text-xs font-bold inline-flex items-center gap-1.5"
+            >
+              <Plus className="w-4 h-4" />
+              <span>Create First Invoice</span>
+            </button>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm">
+              <thead className="bg-slate-50/80 border-b border-slate-100 text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                <tr>
+                  <th className="py-3.5 px-6">Student</th>
+                  <th className="py-3.5 px-4">Invoice Title</th>
+                  <th className="py-3.5 px-4">Amount</th>
+                  <th className="py-3.5 px-4">Paid</th>
+                  <th className="py-3.5 px-4">Status</th>
+                  <th className="py-3.5 px-6 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {filteredInvoices.map((inv) => {
+                  const paid = inv.payments?.reduce((s, p) => s + Number(p.amount || 0), 0) || 0;
+                  const amt = Number(inv.amount || 0);
+
+                  return (
+                    <tr key={inv.id} className="hover:bg-slate-50/60 transition-colors">
+                      <td className="py-3.5 px-6">
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-indigo-700 text-white flex items-center justify-center font-bold text-xs shadow-xs">
+                            {inv.student?.firstName?.charAt(0)}{inv.student?.lastName?.charAt(0)}
+                          </div>
+                          <div>
+                            <p className="font-bold text-slate-900 text-sm">
+                              {inv.student?.firstName} {inv.student?.lastName}
+                            </p>
+                            <p className="text-[11px] text-slate-400">
+                              {inv.student?.admissionNumber || 'Student'}
+                            </p>
+                          </div>
+                        </div>
+                      </td>
+
+                      <td className="py-3.5 px-4">
+                        <p className="text-sm font-semibold text-slate-800">{inv.title}</p>
+                        <p className="text-[11px] text-slate-400">Due: {new Date(inv.dueDate).toLocaleDateString()}</p>
+                      </td>
+
+                      <td className="py-3.5 px-4 font-mono font-bold text-slate-900">
+                        {amt.toLocaleString()} ETB
+                      </td>
+
+                      <td className="py-3.5 px-4 font-mono text-xs">
+                        <span className={paid > 0 ? 'text-emerald-600 font-bold' : 'text-slate-400'}>
+                          {paid.toLocaleString()} ETB
+                        </span>
+                      </td>
+
+                      <td className="py-3.5 px-4">
+                        <span className={`inline-block px-2.5 py-1 rounded-full text-xs font-extrabold border ${
+                          inv.status === 'PAID'
+                            ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                            : inv.status === 'PARTIAL'
+                            ? 'bg-amber-50 text-amber-700 border-amber-200'
+                            : 'bg-rose-50 text-rose-700 border-rose-200'
+                        }`}>
+                          {inv.status}
+                        </span>
+                      </td>
+
+                      <td className="py-3.5 px-6 text-right">
+                        {inv.status !== 'PAID' ? (
+                          <button
+                            onClick={() => {
+                              setPayingInvoice(inv);
+                              setPaymentData({ 
+                                amount: String(Math.max(0, amt - paid)), 
+                                method: 'CASH', 
+                                reference: '' 
+                              });
+                            }}
+                            className="px-3.5 py-1.5 rounded-xl glass-button-primary text-xs font-bold inline-flex items-center gap-1 shadow-sm"
+                          >
+                            <span>Record Payment</span>
+                            <ArrowRight className="w-3.5 h-3.5" />
+                          </button>
+                        ) : (
+                          <span className="text-xs font-bold text-emerald-600 flex items-center justify-end gap-1">
+                            <CheckCircle2 className="w-4 h-4" /> Settled
+                          </span>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {/* ==================================================================== */}
+      {/* MODAL: CREATE INVOICE */}
+      {/* ==================================================================== */}
+      <AnimatePresence>
+        {isCreateOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-md">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="glass-card w-full max-w-md p-6 rounded-3xl shadow-2xl"
+            >
+              <h3 className="text-lg font-bold text-slate-900 mb-1 flex items-center gap-2">
+                <Receipt className="w-5 h-5 text-indigo-600" />
+                <span>Create Student Invoice</span>
+              </h3>
+              <p className="text-xs text-slate-500 mb-4">Issue a new fee charge for a specific student.</p>
+
+              <form onSubmit={handleCreateInvoice} className="space-y-4">
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">
+                    Select Student
+                  </label>
+                  <select
+                    required
+                    value={createData.studentId}
+                    onChange={(e) => setCreateData({ ...createData, studentId: e.target.value })}
+                    className="w-full px-4 py-2.5 rounded-xl glass-input text-sm font-semibold text-slate-800"
+                  >
+                    {students.map(s => (
+                      <option key={s.id} value={s.id}>
+                        {s.firstName} {s.lastName} {s.class ? `(${s.class.name})` : ''}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">
+                    Fee Title
+                  </label>
+                  <input
+                    required
+                    type="text"
+                    value={createData.title}
+                    onChange={(e) => setCreateData({ ...createData, title: e.target.value })}
+                    placeholder="e.g. Tuition Fee - Term 1"
+                    className="w-full px-4 py-2.5 rounded-xl glass-input text-sm font-semibold"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">
+                      Amount (ETB)
+                    </label>
+                    <input
+                      required
+                      type="number"
+                      min={1}
+                      value={createData.amount}
+                      onChange={(e) => setCreateData({ ...createData, amount: Number(e.target.value) })}
+                      className="w-full px-4 py-2.5 rounded-xl glass-input text-sm font-semibold text-center"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">
+                      Due Date
+                    </label>
+                    <input
+                      required
+                      type="date"
+                      value={createData.dueDate}
+                      onChange={(e) => setCreateData({ ...createData, dueDate: e.target.value })}
+                      className="w-full px-4 py-2.5 rounded-xl glass-input text-sm font-semibold"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex gap-2 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setIsCreateOpen(false)}
+                    className="flex-1 px-4 py-2.5 rounded-xl glass-button-secondary text-xs font-bold"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isSubmittingCreate}
+                    className="flex-1 px-4 py-2.5 rounded-xl glass-button-primary text-xs font-bold shadow-md shadow-indigo-500/20 disabled:opacity-50"
+                  >
+                    {isSubmittingCreate ? 'Creating...' : 'Create Invoice'}
+                  </button>
+                </div>
+              </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* ==================================================================== */}
+      {/* MODAL: BULK INVOICES */}
+      {/* ==================================================================== */}
+      <AnimatePresence>
+        {isBulkOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-md">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="glass-card w-full max-w-md p-6 rounded-3xl shadow-2xl"
+            >
+              <h3 className="text-lg font-bold text-slate-900 mb-1 flex items-center gap-2">
+                <span>⚡</span>
+                <span>Generate Bulk Invoices</span>
+              </h3>
+              <p className="text-xs text-slate-500 mb-4">Create tuition fee invoices for all students in an entire class at once.</p>
+
+              <form onSubmit={handleBulkGenerate} className="space-y-4">
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">
+                    Target Class
+                  </label>
+                  <select
+                    required
+                    value={bulkData.classId}
+                    onChange={(e) => setBulkData({ ...bulkData, classId: e.target.value })}
+                    className="w-full px-4 py-2.5 rounded-xl glass-input text-sm font-semibold text-slate-800"
+                  >
+                    {classes.map(c => (
+                      <option key={c.id} value={c.id}>
+                        {c.name} {c.section ? `(${c.section})` : ''}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">
+                    Invoice Title
+                  </label>
+                  <input
+                    required
+                    type="text"
+                    value={bulkData.title}
+                    onChange={(e) => setBulkData({ ...bulkData, title: e.target.value })}
+                    className="w-full px-4 py-2.5 rounded-xl glass-input text-sm font-semibold"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">
+                      Fee Amount (ETB)
+                    </label>
+                    <input
+                      required
+                      type="number"
+                      min={1}
+                      value={bulkData.amount}
+                      onChange={(e) => setBulkData({ ...bulkData, amount: Number(e.target.value) })}
+                      className="w-full px-4 py-2.5 rounded-xl glass-input text-sm font-semibold text-center"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">
+                      Due Date
+                    </label>
+                    <input
+                      required
+                      type="date"
+                      value={bulkData.dueDate}
+                      onChange={(e) => setBulkData({ ...bulkData, dueDate: e.target.value })}
+                      className="w-full px-4 py-2.5 rounded-xl glass-input text-sm font-semibold"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex gap-2 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setIsBulkOpen(false)}
+                    className="flex-1 px-4 py-2.5 rounded-xl glass-button-secondary text-xs font-bold"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isGenerating}
+                    className="flex-1 px-4 py-2.5 rounded-xl glass-button-primary text-xs font-bold shadow-md shadow-indigo-500/20 disabled:opacity-50"
+                  >
+                    {isGenerating ? 'Generating...' : 'Generate All'}
+                  </button>
+                </div>
+              </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* ==================================================================== */}
+      {/* MODAL: RECORD PAYMENT */}
+      {/* ==================================================================== */}
+      <AnimatePresence>
+        {payingInvoice && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-md">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="glass-card w-full max-w-md p-6 rounded-3xl shadow-2xl"
+            >
+              <h3 className="text-lg font-bold text-slate-900 mb-1 flex items-center gap-2">
+                <DollarSign className="w-5 h-5 text-emerald-600" />
+                <span>Record Fee Payment</span>
+              </h3>
+              <p className="text-xs text-slate-500 mb-4">
+                Student: <span className="font-bold text-slate-800">{payingInvoice.student?.firstName} {payingInvoice.student?.lastName}</span>
+              </p>
+
+              <form onSubmit={handleRecordPayment} className="space-y-4">
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">
+                    Payment Amount (ETB)
+                  </label>
+                  <input
+                    required
+                    type="number"
+                    min={1}
+                    value={paymentData.amount}
+                    onChange={(e) => setPaymentData({ ...paymentData, amount: e.target.value })}
+                    className="w-full px-4 py-2.5 rounded-xl glass-input text-lg font-bold text-slate-900 text-center"
+                    placeholder="0"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">
+                      Method
+                    </label>
+                    <select
+                      value={paymentData.method}
+                      onChange={(e) => setPaymentData({ ...paymentData, method: e.target.value })}
+                      className="w-full px-3 py-2.5 rounded-xl glass-input text-xs font-bold text-slate-800"
+                    >
+                      <option value="CASH">Cash</option>
+                      <option value="BANK_TRANSFER">Bank Transfer</option>
+                      <option value="MOBILE_MONEY">Mobile Money</option>
+                      <option value="CHECK">Check</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">
+                      Reference / Receipt #
+                    </label>
+                    <input
+                      type="text"
+                      value={paymentData.reference}
+                      onChange={(e) => setPaymentData({ ...paymentData, reference: e.target.value })}
+                      placeholder="e.g. TXN-9842"
+                      className="w-full px-3 py-2.5 rounded-xl glass-input text-xs font-semibold"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex gap-2 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setPayingInvoice(null)}
+                    className="flex-1 px-4 py-2.5 rounded-xl glass-button-secondary text-xs font-bold"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isSubmittingPayment}
+                    className="flex-1 px-4 py-2.5 rounded-xl glass-button-primary text-xs font-bold shadow-md shadow-emerald-500/20 disabled:opacity-50"
+                  >
+                    {isSubmittingPayment ? 'Saving...' : 'Submit Payment'}
+                  </button>
+                </div>
+              </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+    </div>
   );
 }

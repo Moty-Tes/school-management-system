@@ -1,311 +1,514 @@
 'use client';
 
 import { useEffect, useState, FormEvent } from 'react';
-import { motion } from 'framer-motion';
 import { api } from '@/lib/api';
+import { motion } from 'framer-motion';
+import { Calendar, Plus, Clock, BookOpen, User, Sparkles, X, Check, Filter } from 'lucide-react';
+import { toast } from 'sonner';
 
-const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
-const PERIODS = ['08:30-09:30', '09:30-10:30', '10:30-11:30', '12:30-13:30', '13:30-14:30'];
+const DAYS = [
+  { name: 'Monday', index: 1 },
+  { name: 'Tuesday', index: 2 },
+  { name: 'Wednesday', index: 3 },
+  { name: 'Thursday', index: 4 },
+  { name: 'Friday', index: 5 },
+];
+
+const PERIODS = [
+  { label: 'Period 1', start: '08:30', end: '09:30' },
+  { label: 'Period 2', start: '09:30', end: '10:30' },
+  { label: 'Period 3', start: '10:30', end: '11:30' },
+  { label: 'Period 4', start: '12:30', end: '13:30' },
+  { label: 'Period 5', start: '13:30', end: '14:30' },
+];
 
 export default function TimetablePage() {
   const [classes, setClasses] = useState<any[]>([]);
   const [selectedClassId, setSelectedClassId] = useState('');
   const [timetable, setTimetable] = useState<any[]>([]);
-
-  // Modals & Dropdowns
-  const [isModalOpen, setIsModalOpen] = useState(false);
   const [subjects, setSubjects] = useState<any[]>([]);
   const [teachers, setTeachers] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const [formData, setFormData] = useState({ subjectId: '', teacherId: '', dayOfWeek: 1, startTime: '08:30', endTime: '09:30' });
-  const [error, setError] = useState<string | null>(null);
+  // Modal states
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isSubjectModalOpen, setIsSubjectModalOpen] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  async function loadData() {
-    const [classesData, subjectsData, teachersData] = await Promise.all([
-      api.get<any[]>('/api/v1/classes'),
-      api.get<any[]>('/api/v1/timetable/subjects'),
-      api.get<any[]>('/api/v1/teachers')
-    ]);
-    setClasses(classesData);
-    setSubjects(subjectsData);
-    setTeachers(teachersData);
+  const [formData, setFormData] = useState({
+    subjectId: '',
+    teacherId: '',
+    dayOfWeek: 1,
+    startTime: '08:30',
+    endTime: '09:30',
+  });
 
-    if (classesData.length > 0 && !selectedClassId) setSelectedClassId(classesData[0].id);
-    if (subjectsData.length > 0 && !formData.subjectId) setFormData(prev => ({...prev, subjectId: subjectsData[0].id}));
-    if (teachersData.length > 0 && !formData.teacherId) setFormData(prev => ({...prev, teacherId: teachersData[0].id}));
-  }
+  const [subjectData, setSubjectData] = useState({ name: '', code: '' });
 
-  useEffect(() => { loadData(); }, []);
-
-  async function loadTimetable() {
-    if (!selectedClassId) return;
-    const data = await api.get<any[]>(`/api/v1/timetable?classId=${selectedClassId}`);
-    setTimetable(data);
-  }
-
-  useEffect(() => { loadTimetable(); }, [selectedClassId]);
-
-  async function handleSubmit(e: FormEvent) {
-    e.preventDefault();
-    setError(null);
+  async function loadInitialData() {
     try {
-      await api.post('/api/v1/timetable', { ...formData, classId: selectedClassId });
-      showSuccessToast('Timetable schedule saved!');
-      setIsModalOpen(false);
-      loadTimetable();
+      setLoading(true);
+      const [classesRes, subjectsRes, teachersRes] = await Promise.all([
+        api.get<any[]>('/api/v1/classes').catch(() => []),
+        api.get<any>('/api/v1/timetable/subjects').catch(() => []),
+        api.get<any[]>('/api/v1/teachers').catch(() => []),
+      ]);
+
+      const cList = Array.isArray(classesRes) ? classesRes : (classesRes?.data || []);
+      const sList = Array.isArray(subjectsRes) ? subjectsRes : (subjectsRes?.data || []);
+      const tList = Array.isArray(teachersRes) ? teachersRes : (teachersRes?.data || []);
+
+      setClasses(cList);
+      setSubjects(sList);
+      setTeachers(tList);
+
+      if (cList.length > 0 && !selectedClassId) {
+        setSelectedClassId(cList[0].id);
+      }
+      if (sList.length > 0 && !formData.subjectId) {
+        setFormData(prev => ({ ...prev, subjectId: sList[0].id }));
+      }
+      if (tList.length > 0 && !formData.teacherId) {
+        setFormData(prev => ({ ...prev, teacherId: tList[0].id }));
+      }
     } catch (err: any) {
-      showErrorToast(err.message || 'Failed to save timetable');
+      toast.error('Failed to load scheduling data');
+    } finally {
+      setLoading(false);
     }
   }
 
-  // Helper to find a schedule block for a specific day/time
-  function getSlot(dayIndex: number, timeRange: string) {
-    const [start, end] = timeRange.split('-');
-    return timetable.find(t => t.dayOfWeek === dayIndex && t.startTime === start && t.endTime === end);
+  useEffect(() => {
+    loadInitialData();
+  }, []);
+
+  async function loadTimetable() {
+    if (!selectedClassId) return;
+    try {
+      const data = await api.get<any>(`/api/v1/timetable?classId=${selectedClassId}`);
+      const list = Array.isArray(data) ? data : (data?.data || []);
+      setTimetable(list);
+    } catch (err) {
+      setTimetable([]);
+    }
   }
 
-  // --- Toast & Feedback System ---
-  function showSuccessToast(message: string) {
-    const toastContainer = document.createElement('div');
-    toastContainer.className = 'fixed top-4 right-4 z-50 space-y-3';
-    toastContainer.innerHTML = `
-      <div className="bg-emerald-600 text-white px-6 py-4 rounded-3xl shadow-2xl shadow-emerald-500/20 transform translate-y-0 transition-transform duration-500 ease-out">
-        <svg className="w-5 h-5 -mr-2 inline-block" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path></svg>
-        <span>${message}</span>
-      </div>
-    `;
-    document.body.appendChild(toastContainer);
+  useEffect(() => {
+    loadTimetable();
+  }, [selectedClassId]);
 
-    setTimeout(() => {
-      toastContainer.querySelector('div')!.className = 'bg-emerald-600 text-white px-6 py-4 rounded-3xl shadow-2xl shadow-emerald-500/20 transform translate-y-0 transition-transform duration-500 ease-out';
-    }, 10);
-
-    setTimeout(() => {
-      toastContainer.style.transform = 'translateY(-100%)';
-      toastContainer.style.opacity = '0';
-      setTimeout(() => toastContainer.remove(), 300);
-    }, 3000);
+  function getSlot(dayIndex: number, start: string, end: string) {
+    return timetable.find(
+      (t) => t.dayOfWeek === dayIndex && t.startTime === start && t.endTime === end
+    );
   }
 
-  function showErrorToast(message: string) {
-    const toastContainer = document.createElement('div');
-    toastContainer.className = 'fixed top-4 right-4 z-50 space-y-3';
-    toastContainer.innerHTML = `
-      <div className="bg-red-600 text-white px-6 py-4 rounded-3xl shadow-2xl shadow-red-500/20 transform translate-y-0 transition-transform duration-500 ease-out">
-        <svg className="w-5 h-5 -mr-2 inline-block" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116 21H8a2 2 0 01-2-1.858L5 7"></path></svg>
-        <span>${message}</span>
-      </div>
-    `;
-    document.body.appendChild(toastContainer);
+  async function handleSubmit(e: FormEvent) {
+    e.preventDefault();
+    if (!selectedClassId) {
+      toast.error('Please select a class first');
+      return;
+    }
+    if (!formData.subjectId || !formData.teacherId) {
+      toast.error('Please select both a subject and teacher');
+      return;
+    }
 
-    setTimeout(() => {
-      toastContainer.style.transform = 'translateY(-100%)';
-      toastContainer.style.opacity = '0';
-      setTimeout(() => toastContainer.remove(), 300);
-    }, 3000);
+    try {
+      setIsSubmitting(true);
+      await api.post('/api/v1/timetable', { ...formData, classId: selectedClassId });
+      toast.success('Timetable period scheduled successfully!');
+      setIsModalOpen(false);
+      loadTimetable();
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to save timetable slot');
+    } finally {
+      setIsSubmitting(false);
+    }
   }
+
+  async function handleCreateSubject(e: FormEvent) {
+    e.preventDefault();
+    try {
+      setIsSubmitting(true);
+      const newSub = await api.post<any>('/api/v1/timetable/subjects', subjectData);
+      toast.success(`Subject ${subjectData.name} created!`);
+      setIsSubjectModalOpen(false);
+      setSubjectData({ name: '', code: '' });
+      // Refresh subjects
+      const updated = await api.get<any>('/api/v1/timetable/subjects');
+      const list = Array.isArray(updated) ? updated : (updated?.data || []);
+      setSubjects(list);
+      if (list.length > 0) {
+        setFormData(prev => ({ ...prev, subjectId: list[list.length - 1].id }));
+      }
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to create subject');
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
+  function openCreateForSlot(dayIndex: number, start: string, end: string) {
+    setFormData(prev => ({
+      ...prev,
+      dayOfWeek: dayIndex,
+      startTime: start,
+      endTime: end,
+    }));
+    setIsModalOpen(true);
+  }
+
+  const selectedClass = classes.find(c => c.id === selectedClassId);
 
   return (
-    <motion.div className="space-y-6">
-      {/* Page Header */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ type: "spring", stiffness: 300, delay: 0.1 }}
-        className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4"
-      >
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900">Timetable</h1>
-          <p className="text-slate-500 text-sm mt-1">Manage class schedules and prevent conflicts</p>
+    <div className="space-y-8 animate-fade-in">
+      {/* Header Banner */}
+      <div className="relative overflow-hidden rounded-3xl glass-card p-8 border border-white/40 shadow-xl bg-gradient-to-r from-blue-500/10 via-indigo-500/10 to-purple-500/10 backdrop-blur-xl">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 relative z-10">
+          <div>
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold bg-indigo-500/15 text-indigo-700 border border-indigo-300/40 mb-3">
+              <Calendar className="w-3.5 h-3.5 text-indigo-600" />
+              Master Academic Schedule
+            </div>
+            <h1 className="text-3xl font-extrabold tracking-tight text-slate-900">
+              Timetable & Period Allocations
+            </h1>
+            <p className="text-slate-600 text-sm mt-1 max-w-xl">
+              Coordinate class periods, assign subject teachers, and manage conflict-free weekly schedules.
+            </p>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-3">
+            <button
+              onClick={() => setIsSubjectModalOpen(true)}
+              className="glass-button-secondary inline-flex items-center gap-2 text-sm font-semibold"
+            >
+              <BookOpen className="w-4 h-4 text-indigo-600" />
+              New Subject
+            </button>
+            <button
+              onClick={() => setIsModalOpen(true)}
+              className="glass-button-primary inline-flex items-center gap-2 text-sm font-semibold"
+            >
+              <Plus className="w-4 h-4" />
+              Add Period Slot
+            </button>
+          </div>
         </div>
 
-        <motion.button
-          onClick={() => setIsModalOpen(true)}
-          className="bg-primary-600 hover:bg-primary-700 text-white px-5 py-3 rounded-lg text-sm font-medium transition-all duration-300 shadow-lg shadow-primary-500/20 hover:shadow-primary-500/40 flex items-center gap-2"
-        >
-          + Add Schedule
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m6 4h12m0 0l-4 4m4-4l-4-4m0-6H4"></path>
-          </svg>
-        </motion.button>
-      </motion.div>
-
-      {/* Error Message */}
-      {error && (
-        <motion.div
-          className="bg-red-50 text-red-700 border border-red-200 rounded-lg p-4 animate-bounce"
-        >
-          {error}
-        </motion.div>
-      )}
-
-      {/* The Grid with animated cells */}
-      <motion.div className="bg-white rounded-3xl border border-slate-200 overflow-hidden shadow-2xl">
-        <motion.table className="w-full animate-in" style={{ transitionProperty: 'all', transitionDuration: '0.2s' }}>
-          <motion.thead className="bg-slate-50 border-b border-slate-200">
-            <motion.tr className="border-b border-slate-200">
-              <motion.th className="p-3 border-r text-xs text-slate-500 uppercase font-medium">Time</motion.th>
-              {DAYS.map((d, i) => (
-                <motion.th
-                  key={d}
-                  className={`p-3 border-r text-sm font-bold text-slate-700 transition-transform duration-300 hover:bg-slate-50`}
-                  style={{ transform: `rotateX(${i % 2 === 0 ? 0 : -10}deg) translateY(${i * 2}px)` }}
-                >
-                  {d}
-                </motion.th>
+        {/* Class Selection & Quick Stats Bar */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mt-6 pt-6 border-t border-slate-200/60">
+          <div className="flex items-center gap-3">
+            <span className="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
+              <Filter className="w-3.5 h-3.5 text-indigo-600" /> Filter Class:
+            </span>
+            <select
+              value={selectedClassId}
+              onChange={(e) => setSelectedClassId(e.target.value)}
+              className="glass-input text-sm font-semibold text-slate-800 py-1.5 px-3 min-w-[200px]"
+            >
+              {classes.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name} - Section {c.section}
+                </option>
               ))}
-            </motion.tr>
-          </motion.thead>
-          <motion.tbody>
-            {PERIODS.map(period => (
-              <motion.tr
-                key={period}
-                className="border-b transition-colors hover:bg-slate-50"
-                style={{ animationDelay: `${PERIODS.indexOf(period)}0ms` }}
-              >
-                <motion.td
-                  key="time"
-                  className={`p-3 border-r bg-slate-50 text-xs font-semibold text-center text-slate-500 transition-colors`}
-                >
-                  {period}
-                </motion.td>
-                {[1, 2, 3, 4, 5].map(day => {
-                  const slot = getSlot(day, period);
-                  return (
-                    <motion.td
-                      key={day}
-                      className={`p-2 border-r h-20 align-top transition-all duration-300 ease-out`}
-                      style={{
-                        background: slot
-                          ? 'linear-gradient(135deg, #3b82f6, #1d4ed8)'
-                          : 'linear-gradient(135deg, #e2e8f0, #f1f5f9)'
-                      }}
-                    >
-                      {slot ? (
-                        <motion.div
-                          className="p-2 rounded-lg"
-                          whileHover={{ transform: 'translateY(-4)', boxShadow: '0 4px 20px rgba(59, 130, 246, 0.3)' }}
-                        >
-                          <p className="text-xs font-bold text-primary-600 mb-1">{slot.subject.name}</p>
-                          <p className="text-[10px] text-primary-400 mt-1">
-                            {slot.teacher.user.profile.firstName} {slot.teacher.user.profile.lastName}
-                          </p>
-                        </motion.div>
-                      ) : (
-                        <motion.div
-                          className="h-full rounded-lg border-2 border-transparent hover:border-slate-300 transition-colors"
-                          whileHover={{ borderColor: '#3b82f6', boxShadow: '0 2px 10px rgba(59, 130, 246, 0.15)' }}
-                        >
-                          <svg className="w-4 h-4 mx-auto my-4 text-slate-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
-                            <path d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m6 4h12m0 0l-4 4m4-4l-4-4m0-6H4"></path>
-                          </svg>
-                        </motion.div>
-                      )}
-                    </motion.td>
-                  );
-                })}
-              </motion.tr>
-            ))}
-          </motion.tbody>
-        </motion.table>
-      </motion.div>
+            </select>
+          </div>
 
-      {/* Add Modal */}
+          <div className="flex items-center gap-6 text-xs text-slate-600">
+            <div>
+              <span className="text-slate-400 block text-[11px]">Scheduled Slots</span>
+              <span className="font-bold text-slate-800 text-sm">{timetable.length} periods</span>
+            </div>
+            <div>
+              <span className="text-slate-400 block text-[11px]">Subjects In Roster</span>
+              <span className="font-bold text-indigo-600 text-sm">{subjects.length} subjects</span>
+            </div>
+            <div>
+              <span className="text-slate-400 block text-[11px]">Active Class</span>
+              <span className="font-bold text-emerald-600 text-sm">
+                {selectedClass ? `${selectedClass.name} (${selectedClass.section})` : 'None'}
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Timetable Grid */}
+      <div className="glass-panel rounded-3xl overflow-hidden border border-white/60 shadow-xl p-4 sm:p-6">
+        <div className="overflow-x-auto">
+          <table className="w-full border-collapse min-w-[700px]">
+            <thead>
+              <tr>
+                <th className="p-3 pb-4 text-xs font-bold text-slate-400 uppercase tracking-wider text-left border-b border-slate-200/70 w-28">
+                  Time
+                </th>
+                {DAYS.map((d) => (
+                  <th
+                    key={d.name}
+                    className="p-3 pb-4 text-sm font-bold text-slate-800 text-center border-b border-slate-200/70"
+                  >
+                    <span className="px-3 py-1 rounded-full bg-slate-100/70 text-slate-700 border border-slate-200/50">
+                      {d.name}
+                    </span>
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100/70">
+              {PERIODS.map((period) => (
+                <tr key={period.label} className="group hover:bg-slate-50/30 transition-colors">
+                  <td className="p-3 text-xs font-semibold text-slate-500 whitespace-nowrap align-top border-r border-slate-100/80">
+                    <div className="font-bold text-slate-700">{period.label}</div>
+                    <div className="text-[11px] text-slate-400 font-mono mt-0.5">
+                      {period.start} - {period.end}
+                    </div>
+                  </td>
+
+                  {DAYS.map((day) => {
+                    const slot = getSlot(day.index, period.start, period.end);
+                    return (
+                      <td
+                        key={day.name}
+                        className="p-2.5 align-top min-w-[150px] border-r border-slate-100/80 last:border-r-0"
+                      >
+                        {slot ? (
+                          <motion.div
+                            whileHover={{ y: -2 }}
+                            transition={{ duration: 0.15 }}
+                            className="glass-card rounded-2xl p-3 border border-indigo-200/60 shadow-sm hover:shadow-md bg-gradient-to-br from-indigo-50/80 to-white/90 relative overflow-hidden"
+                          >
+                            <div className="w-1.5 h-full absolute left-0 top-0 bg-indigo-600"></div>
+                            <div className="pl-1.5">
+                              <span className="text-[10px] font-bold text-indigo-700 uppercase tracking-wider block">
+                                {slot.subject?.code || 'SUBJ'}
+                              </span>
+                              <h4 className="text-sm font-bold text-slate-900 line-clamp-1 mt-0.5">
+                                {slot.subject?.name || 'Class Period'}
+                              </h4>
+                              <p className="text-[11px] text-slate-500 flex items-center gap-1 mt-1 font-medium">
+                                <User className="w-3 h-3 text-slate-400" />
+                                {slot.teacher?.user?.profile?.firstName}{' '}
+                                {slot.teacher?.user?.profile?.lastName}
+                              </p>
+                            </div>
+                          </motion.div>
+                        ) : (
+                          <button
+                            onClick={() => openCreateForSlot(day.index, period.start, period.end)}
+                            className="w-full h-20 rounded-2xl border-2 border-dashed border-slate-200 hover:border-indigo-400 hover:bg-indigo-50/20 transition-all flex flex-col items-center justify-center text-slate-300 hover:text-indigo-600 group/btn"
+                          >
+                            <Plus className="w-4 h-4 mb-0.5 transform group-hover/btn:scale-110 transition-transform" />
+                            <span className="text-[10px] font-semibold opacity-0 group-hover/btn:opacity-100 transition-opacity">
+                              Add Slot
+                            </span>
+                          </button>
+                        )}
+                      </td>
+                    );
+                  })}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Add Slot Modal */}
       {isModalOpen && (
-        <motion.div
-          className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50"
-          whileHover={{ opacity: 0.9 }}
-        >
-          <motion.div
-            className="bg-white rounded-3xl shadow-3xl w-full max-w-sm p-8 shadow-3xl"
-            initial={{ scale: 0.95, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            transition={{ type: "spring", stiffness: 400, damping: 30 }}
-          >
-            <h2 className="text-2xl font-bold text-slate-900 mb-6 flex items-center gap-3">
-              <svg className="w-5 h-5 text-primary-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m6 4h12m0 0l-4 4m4-4l-4-4m0-6H4"></path>
-              </svg>
-              Schedule Class
-            </h2>
+        <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="glass-panel w-full max-w-md rounded-3xl p-6 sm:p-8 border border-white/60 shadow-2xl space-y-6">
+            <div className="flex items-center justify-between border-b border-slate-200/60 pb-4">
+              <div>
+                <h3 className="text-xl font-bold text-slate-900">Schedule Class Slot</h3>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Class: {selectedClass ? `${selectedClass.name} (${selectedClass.section})` : 'Selected Class'}
+                </p>
+              </div>
+              <button
+                onClick={() => setIsModalOpen(false)}
+                className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-500"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
 
-            <form onSubmit={handleSubmit} className="space-y-6">
-              <motion.div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">Subject</label>
-                <select
-                  value={formData.subjectId}
-                  onChange={(e) => setFormData({...formData, subjectId: e.target.value})}
-                  className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 appearance-none bg-white pl-4 pr-12 cursor-pointer"
-                >
-                  {subjects.map(s => (
-                    <option key={s.id} value={s.id}>{s.name}</option>
-                  ))}
-                </select>
-              </motion.div>
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                  Subject
+                </label>
+                {subjects.length === 0 ? (
+                  <div className="text-xs text-amber-700 bg-amber-50 p-3 rounded-xl border border-amber-200">
+                    No subjects created yet. Click "New Subject" first!
+                  </div>
+                ) : (
+                  <select
+                    required
+                    value={formData.subjectId}
+                    onChange={(e) => setFormData({ ...formData, subjectId: e.target.value })}
+                    className="glass-input w-full"
+                  >
+                    {subjects.map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {s.name} ({s.code})
+                      </option>
+                    ))}
+                  </select>
+                )}
+              </div>
 
-              <motion.div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">Teacher</label>
-                <select
-                  value={formData.teacherId}
-                  onChange={(e) => setFormData({...formData, teacherId: e.target.value})}
-                  className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 appearance-none bg-white pl-4 pr-12 cursor-pointer"
-                >
-                  {teachers.map(t => (
-                    <option key={t.id} value={t.id}>
-                      {t.user.profile.firstName} {t.user.profile.lastName}
-                    </option>
-                  ))}
-                </select>
-              </motion.div>
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                  Teacher
+                </label>
+                {teachers.length === 0 ? (
+                  <div className="text-xs text-amber-700 bg-amber-50 p-3 rounded-xl border border-amber-200">
+                    No teachers registered. Add teachers in the Faculty directory first.
+                  </div>
+                ) : (
+                  <select
+                    required
+                    value={formData.teacherId}
+                    onChange={(e) => setFormData({ ...formData, teacherId: e.target.value })}
+                    className="glass-input w-full"
+                  >
+                    {teachers.map((t) => (
+                      <option key={t.id} value={t.id}>
+                        {t.user?.profile?.firstName} {t.user?.profile?.lastName} ({t.employeeId})
+                      </option>
+                    ))}
+                  </select>
+                )}
+              </div>
 
-              <motion.div className="grid grid-cols-2 gap-4">
-                <motion.div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Day</label>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                    Day of Week
+                  </label>
                   <select
                     value={formData.dayOfWeek}
-                    onChange={(e) => setFormData({...formData, dayOfWeek: Number(e.target.value)})}
-                    className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 appearance-none bg-white pl-4 pr-12 cursor-pointer"
+                    onChange={(e) => setFormData({ ...formData, dayOfWeek: Number(e.target.value) })}
+                    className="glass-input w-full"
                   >
-                    {DAYS.map((d, i) => (
-                      <option key={d} value={i + 1}>{d}</option>
+                    {DAYS.map((d) => (
+                      <option key={d.index} value={d.index}>
+                        {d.name}
+                      </option>
                     ))}
                   </select>
-                </motion.div>
-                <motion.div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Time Slot</label>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                    Time Period
+                  </label>
                   <select
+                    value={`${formData.startTime}-${formData.endTime}`}
                     onChange={(e) => {
                       const [start, end] = e.target.value.split('-');
-                      setFormData({...formData, startTime: start, endTime: end});
+                      setFormData({ ...formData, startTime: start, endTime: end });
                     }}
-                    className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 appearance-none bg-white pl-4 pr-12 cursor-pointer"
+                    className="glass-input w-full font-mono text-xs"
                   >
-                    {PERIODS.map(p => (
-                      <option key={p} value={p}>{p}</option>
+                    {PERIODS.map((p) => (
+                      <option key={p.label} value={`${p.start}-${p.end}`}>
+                        {p.start} - {p.end}
+                      </option>
                     ))}
                   </select>
-                </motion.div>
-              </motion.div>
+                </div>
+              </div>
 
-              <motion.div className="flex justify-end gap-3 pt-8 border-t">
-                <motion.button
+              <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-200/60">
+                <button
                   type="button"
                   onClick={() => setIsModalOpen(false)}
-                  className="px-5 py-3 text-sm font-medium text-slate-600 hover:text-slate-900 transition-all duration-300"
+                  className="glass-button-secondary text-sm font-semibold"
                 >
                   Cancel
-                </motion.button>
-                <motion.button
+                </button>
+                <button
                   type="submit"
-                  className="px-5 py-3 text-sm font-medium bg-primary-600 text-white rounded-xl transition-all"
+                  disabled={isSubmitting || subjects.length === 0 || teachers.length === 0}
+                  className="glass-button-primary text-sm font-semibold"
                 >
-                  Save Schedule
-                </motion.button>
-              </motion.div>
+                  {isSubmitting ? 'Scheduling...' : 'Save Slot'}
+                </button>
+              </div>
             </form>
-          </motion.div>
-        </motion.div>
+          </div>
+        </div>
       )}
-    </motion.div>
+
+      {/* Add Subject Modal */}
+      {isSubjectModalOpen && (
+        <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="glass-panel w-full max-w-sm rounded-3xl p-6 sm:p-8 border border-white/60 shadow-2xl space-y-5">
+            <div className="flex items-center justify-between border-b border-slate-200/60 pb-4">
+              <div>
+                <h3 className="text-xl font-bold text-slate-900">Create Subject</h3>
+                <p className="text-xs text-slate-500 mt-0.5">Add course to academic curriculum</p>
+              </div>
+              <button
+                onClick={() => setIsSubjectModalOpen(false)}
+                className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-500"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateSubject} className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                  Subject Name
+                </label>
+                <input
+                  required
+                  type="text"
+                  value={subjectData.name}
+                  onChange={(e) => setSubjectData({ ...subjectData, name: e.target.value })}
+                  placeholder="e.g. Pure Mathematics"
+                  className="glass-input w-full"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                  Subject Code
+                </label>
+                <input
+                  required
+                  type="text"
+                  value={subjectData.code}
+                  onChange={(e) => setSubjectData({ ...subjectData, code: e.target.value.toUpperCase() })}
+                  placeholder="e.g. MTH-101"
+                  className="glass-input w-full font-mono uppercase"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-200/60">
+                <button
+                  type="button"
+                  onClick={() => setIsSubjectModalOpen(false)}
+                  className="glass-button-secondary text-sm font-semibold"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="glass-button-primary text-sm font-semibold"
+                >
+                  {isSubmitting ? 'Creating...' : 'Create Subject'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+    </div>
   );
 }

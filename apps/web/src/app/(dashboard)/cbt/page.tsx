@@ -30,9 +30,13 @@ export default function CBTPage() {
     const isTeacher = meData.roles?.includes('TEACHER') || meData.roles?.includes('TENANT_ADMIN');
     setRole(isTeacher ? 'TEACHER' : 'STUDENT');
 
-    const classesData = await api.get<any[]>('/api/v1/classes');
-    setClasses(classesData);
-    if (classesData.length > 0 && !examData.classId) setExamData(prev => ({ ...prev, classId: classesData[0].id }));
+    const [classesData, examsData] = await Promise.all([
+      api.get<any[]>('/api/v1/classes').catch(() => []),
+      api.get<any[]>('/api/v1/cbt').catch(() => [])
+    ]);
+    setClasses(classesData || []);
+    setExams(examsData || []);
+    if (classesData?.length > 0 && !examData.classId) setExamData(prev => ({ ...prev, classId: classesData[0].id }));
   }
 
   useEffect(() => { loadData(); }, []);
@@ -123,6 +127,7 @@ export default function CBTPage() {
     try {
       await api.post('/api/v1/cbt', { ...examData, questions });
       setIsCreateOpen(false);
+      loadData();
       toast({
         title: 'Exam published',
         description: 'The exam has been successfully published.',

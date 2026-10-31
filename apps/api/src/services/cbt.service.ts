@@ -116,6 +116,22 @@ export async function submitExam(tenantId: string, attemptId: string, answers: {
   });
 }
 
+export async function listExams(tenantId: string) {
+  return prisma.cBTExam.findMany({
+    where: { tenantId },
+    include: {
+      class: true,
+      questions: true,
+      attempts: {
+        include: {
+          student: true,
+        },
+      },
+    },
+    orderBy: { createdAt: 'desc' },
+  });
+}
+
 export async function getExamResults(tenantId: string, examId: string) {
   return prisma.cBTAttempt.findMany({
     where: { tenantId, examId },
