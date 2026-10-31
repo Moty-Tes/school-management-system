@@ -1,206 +1,215 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, FormEvent } from 'react';
 import { api } from '@/lib/api';
 import { getMe } from '@/lib/auth';
-import Link from 'next/link';
 import { motion } from 'framer-motion';
-import {
-  Layout, Search,
-  CheckCircle2, X, UsersAdd
-} from 'lucide-react';
-import {
-  Card, KpiEmptyState, Skeleton, Table, TableHeadCell, TableRowCell,
-  EmptyState as KpiEmptyStateComponent
-} from '@/components/ui';
-import { use reducedMotion } from '@/hooks/use-reduced-motion';
+import { Monitor as Screen, Loader2, Info, Users } from 'lucide-react';
+import { useToast } from '@/components/ui/use-toast';
 
-interface PlatformMetric {
-  id: string;
-  name: string;
-  category: 'performance' | 'usage' | 'engagement' | 'reliability' | 'security';
-  value: string;
-  unit: string;
-  target: string | null;
-  trend: 'up' | 'down' | 'neutral';
-  lastUpdated: string;
-}
-
-interface FilterState {
-  search: string;
-  category: 'all' | 'performance' | 'usage' | 'engagement' | 'reliability' | 'security';
-}
+const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 
 export default function PlatformPage() {
-  const [role, setRole] = useState<'ADMIN' | 'TEACHER' | 'REGISTRAR'>('ADMIN');
-  const [metrics, setMetrics] = useState<PlatformMetric[]>([]);
+  const [dashboardStats, setDashboardStats] = useState<any[]>([]);
+  const [role, setRole] = useState<string>('');
   const [loading, setLoading] = useState(true);
-  const [filters, setFilters] = useState<FilterState>({ search: '', category: 'all' });
-  const reducedMotion = use_reducedMotion();
 
-  useEffect(() => {
-    getMe().then((me: any) => {
-      const userRoles: string[] = me.roles || [];
-      const isSuperAdmin = userRoles.includes('SUPER_ADMIN');
-      const isTenantAdmin = userRoles.includes('TENANT_ADMIN');
-      const isRegistrar = userRoles.includes('REGISTRAR');
+  const { toast } = useToast();
 
-      setRole(isSuperAdmin || isTenantAdmin ? 'ADMIN' : isRegistrar ? 'REGISTRAR' : 'TEACHER');
-    });
+  async function loadData() {
+    try {
+      const meData: any = await getMe();
+      const isAdmin = meData.roles?.includes('TENANT_ADMIN') || meData.roles?.includes('SUPER_ADMIN');
+      setRole(isAdmin ? 'ADMIN' : 'TEACHER');
 
-    // Load platform metrics
-    async function loadMetrics() {
       try {
-        const data = await api.get<any[]>('/api/v1/platform');
-        setMetrics(data || []);
+        if (isAdmin) {
+          const data = await api.get<any[]>('/api/v1/platform/dashboard-stats');
+          setDashboardStats(data);
+        } else {
+          const data = await api.get<any[]>('/api/v1/platform/me-stats');
+          setDashboardStats(data);
+        }
       } catch (err) {
-        setMetrics([]);
-      } finally {
-        setLoading(false);
+        toast({
+          title: 'Error',
+          description: 'Failed to load platform dashboard data.',
+          variant: 'destructive',
+        });
       }
+      setLoading(false);
+    } catch (err) {
+      setLoading(false);
     }
+  }
 
-    loadMetrics();
-  }, []);
-
-  const filteredMetrics = metrics.filter((metric: PlatformMetric) => {
-    const matchesSearch = filters.search
-      ? metric.name.toLowerCase().includes(filters.search.toLowerCase()) ||
-        metric.value.toLowerCase().includes(filters.search.toLowerCase())
-      : true;
-    const matchesCategory = filters.category === 'all' || metric.category === filters.category;
-
-    return matchesSearch && matchesCategory;
-  });
-
-  // Compute summary stats
-  const totalMetrics = filteredMetrics.length;
-  const performanceMetrics = filteredMetrics.filter(m => m.category === 'performance').length;
-  const engagementMetrics = filteredMetrics.filter(m => m.category === 'engagement').length;
+  useEffect(() => { loadData(); }, []);
 
   return (
-    <div className="bg-neutral-50 dark:bg-neutral-900 min-h-screen">
+    <motion.div className="min-h-screen bg-slate-50">
+      {/* Header */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        exit={{ opacity: 0, y: -20 }}
-        className="reduced-motion:transition-none"
+        transition={{ type: "spring", stiffness: 300, delay: 0.1 }}
+        className="bg-white border-b border-slate-200 px-6 py-4 shadow-sm"
       >
-        <div className="p-4 sm:p-6 lg:p-8">
-          {/* Platform Metrics Summary */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-            <Card>
-              <div className="p-4 text-center">
-                <div className="text-3xl font-extrabold text-neutral-900">{totalMetrics}</div>
-                <div className="text-sm text-neutral-500">Metrics</div>
-              </div>
-            </Card>
-
-            <Card>
-              <div className="p-4 text-center">
-                <div className="text-3xl font-extrabold text-neutral-500">{performanceMetrics}</div>
-                <div className="text-sm text-neutral-500">Performance</div>
-              </div>
-            </Card>
-
-            <Card>
-              <div className="p-4 text-center">
-                <div className="text-3xl font-extrabold text-neutral-500">{engagementMetrics}</div>
-                <div className="text-sm text-neutral-500">Engagement</div>
-              </div>
-            </Card>
-
-            <Card>
-              <div className="p-4 text-center">
-                <div className="text-3xl font-extrabold text-neutral-500">0</div>
-                <div className="text-sm text-neutral-500">Security</div>
-              </div>
-            </Card>
+        <div className="flex justify-between items-center">
+          <div>
+            <h1 className="text-2xl font-bold text-slate-900 tracking-tighter">
+              <Screen className="w-5 h-5 text-emerald-600 mr-2" /> Platform Dashboard
+            </h1>
+            <p className="text-slate-500 text-sm mt-1">
+              {role === 'ADMIN' ? 'System-wide analytics and management' : 'Your personal dashboard'}
+            </p>
           </div>
 
-          {/* Filters */}
-          <Card>
-            <div className="p-4 space-y-3">
-              <h3 className="text-sm font-medium text-neutral-600 uppercase tracking-wider mb-2">
-                Filters
-              </h3>
-              <div className="grid grid-cols-3 gap-3">
-                <div>
-                  <label className="block text-xs text-neutral-500 uppercase tracking-wider mb-1">Search</label>
-                  <input
-                    type="text"
-                    placeholder="Search metric name or value..."
-                    value={filters.search}
-                    onChange={(e) => setFilters({ ...filters, search: e.target.value })}
-                    className={`w-full rounded-lg border border-border dark:border-border-overlay px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-brand-primary/20 transition-colors ${reducedMotion ? 'transition-none' : ''}`}
-                    defaultValue=""
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs text-neutral-500 uppercase tracking-wider mb-1">Category</label>
-                  <select
-                    value={filters.category}
-                    onChange={(e) => setFilters({ ...filters, category: e.target.value } as any)}
-                    className={`w-full rounded-lg border border-border dark:border-border-overlay px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-brand-primary/20 ${reducedMotion ? 'transition-none' : ''}`}
-                  >
-                    <option value="all">All Categories</option>
-                    <option value="performance">Performance</option>
-                    <option value="usage">Usage</option>
-                    <option value="engagement">Engagement</option>
-                    <option value="reliability">Reliability</option>
-                    <option value="security">Security</option>
-                  </select>
-                </div>
-              </div>
-            </div>
-          </Card>
-
-          {/* Platform Metrics Table */}
-          {loading ? (
-            <Skeleton className="h-72 rounded-md animate-bounce" />
-          ) : filteredMetrics.length === 0 ? (
-            <KpiEmptyStateComponent
-              icon="Layout"
-              title="No platform metrics found"
-              description="Platform metrics will appear here"
-              actionLabel="View Analytics"
-            />
-          ) : (
-            <Table>
-              <TableSection.head>
-                <TableHeadCell style="primary">Metric</TableHeadCell>
-                <TableHeadCell style="primary">Value</TableHeadCell>
-                <TableHeadCell style="primary">Category</TableHeadCell>
-                <TableHeadCell style="primary">Trend</TableHeadCell>
-                <TableHeadCell style="primary">Last Updated</TableHeadCell>
-              </TableSection.head>
-              <TableSection.body>
-                {filteredMetrics.slice(0, 15).map((metric: PlatformMetric, index: number) => (
-                  <TableRowCell key={index} style="primary">
-                    <span className="font-medium text-neutral-700">{metric.name}</span>
-                    <span className="font-medium text-neutral-700">{metric.value} {metric.unit}</span>
-                    <span className="text-neutral-500 text-xs">{metric.category}</span>
-                    <span
-                      className={`inline-flex items-center gap-1 px-2 rounded text-xs font-medium ${metric.trend}`}>{metric.trend}</span>
-                    <span className="text-neutral-500 text-xs">{new Date(metric.lastUpdated).toLocaleDateString()}</span>
-                  </TableRowCell>
-                ))}
-              </TableSection.body>
-            </Table>
+          {role === 'ADMIN' && (
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              transition={{ type: "spring" }}
+              className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2 rounded-lg text-sm font-medium transition-all duration-300 shadow-lg shadow-indigo-500/20 hover:shadow-indigo-500/40 flex items-center gap-2"
+            >
+              <Loader2 className="w-4 h-4" /> Admin Tools
+            </motion.button>
           )}
+        </div>
+      </motion.div>
 
-          {/* Export & Reports */}
-          {filteredMetrics.length > 0 && (
-            <div className="mt-6 flex items-center justify-between text-sm text-neutral-500">
-              <span>Showing {filteredMetrics.length} of {metrics.length} metrics</span>
-              <div className="flex gap-2">
-                <Button variant="ghost" size="sm">Export Data</Button>
-                <Button variant="primary" size="sm">Generate Report</Button>
+      {/* Main Content */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ type: "spring", stiffness: 300, delay: 0.15 }}
+        className="px-6 py-8 lg:px-12"
+      >
+        {/* Stats Cards */}
+        <motion.div
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ type: "spring", stiffness: 300, delay: 0.1 }}
+          className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12"
+        >
+          {dashboardStats.map((stat) => (
+            <motion.div
+              key={stat.id}
+              initial={{ scale: 0, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              transition={{ type: "spring", stiffness: 400, damping: 30 }}
+              className="bg-white rounded-3xl border border-slate-200 p-6 shadow-3xl shadow-slate-50/30 transform transition-all duration-500 hover:shadow-4xl hover:shadow-slate-50/40 group"
+              style={{ background: 'linear-gradient(135deg, var(--bg), var(--bg-light))' }}
+            >
+              <div className="flex items-start justify-between mb-4">
+                <div>
+                  <h3 className="text-lg font-bold text-slate-900">{stat.title}</h3>
+                  <p className="text-sm text-slate-500">{stat.subtitle}</p>
+                </div>
+                <motion.div
+                  whileHover={{ rotate: 5, scale: 1.1 }}
+                  transition={{ type: "spring" }}
+                  className="p-3 rounded-xl bg-indigo-50/50 backdrop-blur-sm"
+                >
+                  <Info className="w-4 h-4 text-indigo-400" />
+                </motion.div>
               </div>
-            </div>
-          )}
+
+              <p className="text-3xl font-bold text-emerald-600">{stat.value}</p>
+              <p className="text-sm text-slate-500">{stat.change} {stat.change >= 0 ? '↑' : '↓'}</p>
+            </motion.div>
+          ))}
         </motion.div>
-      </div>
-    </div>
+
+        {/* Recent Activity */}
+        <motion.div
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ type: "spring", stiffness: 300, delay: 0.1 }}
+          className="bg-white rounded-3xl border border-slate-200 overflow-shadow-3xl shadow-slate-50/30"
+          style={{ background: 'linear-gradient(135deg, var(--bg), var(--bg-light))' }}
+        >
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ type: "spring", stiffness: 300, delay: 0.1 }}
+            className="border-b border-slate-200 px-6 py-4"
+          >
+            <h2 className="text-sm font-medium text-slate-700 uppercase tracking-wider">Recent Activity</h2>
+          </motion.div>
+          <motion.div className="px-6 py-4 text-sm text-slate-500">
+            <p>No recent activity.</p>
+          </motion.div>
+        </motion.div>
+
+        {/* Quick Actions */}
+        {role === 'ADMIN' && (
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ type: "spring", stiffness: 300, delay: 0.1 }}
+            className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12"
+          >
+            <motion.div
+              whileHover={{ y: -6, scale: 1.03 }}
+              transition={{ type: "spring", stiffness: 400, damping: 30 }}
+              className="bg-white rounded-3xl border border-slate-200 p-6 shadow-3xl shadow-slate-50/30 transform transition-all duration-500 hover:shadow-4xl hover:shadow-slate-50/40 group"
+              style={{ background: 'linear-gradient(135deg, var(--bg), var(--bg-light))' }}
+            >
+              <div className="p-4 rounded-xl bg-indigo-50/50 backdrop-blur-sm">
+                <Users className="w-6 h-6 text-indigo-400" />
+                <div>
+                  <p className="text-sm font-medium text-slate-800">Manage Users</p>
+                  <p className="text-xs text-slate-500">Add, edit, or remove staff and students</p>
+                </div>
+              </div>
+            </motion.div>
+
+            <motion.div
+              whileHover={{ y: -6, scale: 1.03 }}
+              transition={{ type: "spring", stiffness: 400, damping: 30 }}
+              className="bg-white rounded-3xl border border-slate-200 p-6 shadow-3xl shadow-slate-50/30 transform transition-all duration-500 hover:shadow-4xl hover:shadow-slate-50/40 group"
+              style={{ background: 'linear-gradient(135deg, var(--bg), var(--bg-light))' }}
+            >
+              <div className="p-4 rounded-xl bg-emerald-50/50 backdrop-blur-sm">
+                <Users className="w-6 h-6 text-emerald-400" />
+                <div>
+                  <p className="text-sm font-medium text-slate-800">View Reports</p>
+                  <p className="text-xs text-slate-500">Generate academic and operational reports</p>
+                </div>
+              </div>
+            </motion.div>
+
+            <motion.div
+              whileHover={{ y: -6, scale: 1.03 }}
+              transition={{ type: "spring", stiffness: 400, damping: 30 }}
+              className="bg-white rounded-3xl border border-slate-200 p-6 shadow-3xl shadow-slate-50/30 transform transition-all duration-500 hover:shadow-4xl hover:shadow-slate-50/40 group"
+              style={{ background: 'linear-gradient(135deg, var(--bg), var(--bg-light))' }}
+            >
+              <div className="p-4 rounded-xl bg-amber-50/50 backdrop-blur-sm">
+                <Users className="w-6 h-6 text-amber-400" />
+                <div>
+                  <p className="text-sm font-medium text-slate-800">Settings</p>
+                  <p className="text-xs text-slate-500">Configure system preferences</p>
+                </div>
+              </div>
+            </motion.div>
+
+            <motion.div
+              whileHover={{ y: -6, scale: 1.03 }}
+              transition={{ type: "spring", stiffness: 400, damping: 30 }}
+              className="bg-white rounded-3xl border border-slate-200 p-6 shadow-3xl shadow-slate-50/30 transform transition-all duration-500 hover:shadow-4xl hover:shadow-slate-50/40 group"
+              style={{ background: 'linear-gradient(135deg, var(--bg), var(--bg-light))' }}
+            >
+              <div className="p-4 rounded-xl bg-red-50/50 backdrop-blur-sm">
+                <Users className="w-6 h-6 text-red-400" />
+                <div>
+                  <p className="text-sm font-medium text-slate-800">Security</p>
+                  <p className="text-xs text-slate-500">Manage access and permissions</p>
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </motion.div>
+    </motion.div>
   );
 }

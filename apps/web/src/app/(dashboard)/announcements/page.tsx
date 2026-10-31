@@ -1,239 +1,243 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, FormEvent } from 'react';
 import { api } from '@/lib/api';
-import { getMe } from '@/lib/auth';
-import Link from 'next/link';
 import { motion } from 'framer-motion';
-import {
-  Megaphone, Search,
-  CheckCircle2, X, UsersAdd, Clock
-} from 'lucide-react';
-import {
-  Card, KpiEmptyState, Skeleton, Table, TableHeadCell, TableRowCell,
-  EmptyState as KpiEmptyStateComponent
-} from '@/components/ui';
-import { use reducedMotion } from '@/hooks/use-reduced-motion';
+import { Mail, Plus, Trash, Calendar } from 'lucide-react';
 
 interface Announcement {
   id: string;
   title: string;
   content: string;
-  category: 'academic' | 'event' | 'holiday' | 'urgent' | 'general';
-  author: string;
+  class?: { name: string; section: string };
   createdAt: string;
-  targetAudience: 'all' | 'students' | 'parents' | 'teachers' | 'staff';
-  expiryDate: string | null;
-  priority: 'low' | 'medium' | 'high';
-}
-
-interface FilterState {
-  search: string;
-  category: 'all' | 'academic' | 'event' | 'holiday' | 'urgent' | 'general';
-  priority: 'all' | 'low' | 'medium' | 'high';
-  audience: 'all' | 'students' | 'parents' | 'teachers' | 'staff';
 }
 
 export default function AnnouncementsPage() {
-  const [role, setRole] = useState<'ADMIN' | 'TEACHER' | 'PARENT' | 'REGISTRAR'>('ADMIN');
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [filters, setFilters] = useState<FilterState>({ search: '', category: 'all', priority: 'all', audience: 'all' });
-  const reducedMotion = use_reducedMotion();
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [formData, setFormData] = useState({ title: '', content: '', classId: '' });
+  const [classes, setClasses] = useState<{ id: string; name: string; section: string }[]>([]);
 
-  useEffect(() => {
-    getMe().then((me: any) => {
-      const userRoles: string[] = me.roles || [];
-      const isSuperAdmin = userRoles.includes('SUPER_ADMIN');
-      const isTenantAdmin = userRoles.includes('TENANT_ADMIN');
-      const isRegistrar = userRoles.includes('REGISTRAR');
-      const isParent = userRoles.includes('PARENT');
+  async function loadData() {
+    const [announcementsData, meData, classesData] = await Promise.all([
+      api.get<Announcement[]>('/api/v1/announcements'),
+      getMe(),
+      api.get<any[]>('/api/v1/classes')
+    ]);
+    setAnnouncements(announcementsData);
+    setClasses(classesData);
+    setIsAdmin((meData as any).roles?.includes('TENANT_ADMIN') || (meData as any).roles?.includes('SUPER_ADMIN'));
+  }
 
-      setRole(isSuperAdmin || isTenantAdmin ? 'ADMIN' : isRegistrar ? 'REGISTRAR' : isParent ? 'PARENT' : 'ADMIN');
+  useEffect(() => { loadData(); }, []);
+
+  async function handleSubmit(e: FormEvent) {
+    e.preventDefault();
+    await api.post('/api/v1/announcements', {
+      title: formData.title,
+      content: formData.content,
+      classId: formData.classId || null
     });
+    showSuccessToast('Announcement published successfully!');
+    setIsModalOpen(false);
+    setFormData({ title: '', content: '', classId: '' });
+    loadData();
+  }
 
-    // Load announcements
-    async function loadAnnouncements() {
-      try {
-        const data = await api.get<any[]>('/api/v1/announcements');
-        setAnnouncements(data || []);
-      } catch (err) {
-        setAnnouncements([]);
-      } finally {
-        setLoading(false);
-      }
-    }
+  async function handleDelete(id: string) {
+    if (!window.confirm("Delete this announcement?")) return;
+    await api.delete(`/api/v1/announcements/${id}`);
+    showSuccessToast('Announcement deleted!');
+    loadData();
+  }
 
-    loadAnnouncements();
-  }, []);
+  // --- Toast & Feedback System ---
+  function showSuccessToast(message: string) {
+    const toastContainer = document.createElement('div');
+    toastContainer.className = 'fixed top-4 right-4 z-50 space-y-3';
+    toastContainer.innerHTML = `
+      <div className="bg-emerald-600 text-white px-6 py-4 rounded-3xl shadow-2xl shadow-emerald-500/20 transform translate-y-0 transition-transform duration-500 ease-out">
+        <svg className="w-5 h-5 -mr-2 inline-block" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path></svg>
+        <span>${message}</span>
+      </div>
+    `;
+    document.body.appendChild(toastContainer);
 
-  const filteredAnnouncements = announcements.filter((ann: Announcement) => {
-    const matchesSearch = filters.search
-      ? ann.title.toLowerCase().includes(filters.search.toLowerCase()) ||
-        ann.content.toLowerCase().includes(filters.search.toLowerCase())
-      : true;
-    const matchesCategory = filters.category === 'all' || ann.category === filters.category;
-    const matchesPriority = filters.priority === 'all' || ann.priority === filters.priority;
-    const matchesAudience = filters.audience === 'all' || ann.targetAudience === filters.audience;
+    setTimeout(() => {
+      toastContainer.querySelector('div')!.className = 'bg-emerald-600 text-white px-6 py-4 rounded-3xl shadow-2xl shadow-emerald-500/20 transform translate-y-0 transition-transform duration-500 ease-out';
+    }, 10);
 
-    return matchesSearch && matchesCategory && matchesPriority && matchesAudience;
-  });
+    setTimeout(() => {
+      toastContainer.style.transform = 'translateY(-100%)';
+      toastContainer.style.opacity = '0';
+      setTimeout(() => toastContainer.remove(), 300);
+    }, 3000);
+  }
 
-  // Compute summary stats
-  const totalAnnouncements = filteredAnnouncements.length;
-  const highPriority = filteredAnnouncements.filter(a => a.priority === 'high').length;
-  const urgentCount = filteredAnnouncements.filter(a => a.category === 'urgent').length;
+  function showErrorToast(message: string) {
+    const toastContainer = document.createElement('div');
+    toastContainer.className = 'fixed top-4 right-4 z-50 space-y-3';
+    toastContainer.innerHTML = `
+      <div className="bg-red-600 text-white px-6 py-4 rounded-3xl shadow-2xl shadow-red-500/20 transform translate-y-0 transition-transform duration-500 ease-out">
+        <svg className="w-5 h-5 -mr-2 inline-block" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116 21H8a2 2 0 01-2-1.858L5 7"></path></svg>
+        <span>${message}</span>
+      </div>
+    `;
+    document.body.appendChild(toastContainer);
+
+    setTimeout(() => {
+      toastContainer.style.transform = 'translateY(-100%)';
+      toastContainer.style.opacity = '0';
+      setTimeout(() => toastContainer.remove(), 300);
+    }, 3000);
+  }
 
   return (
-    <div className="bg-neutral-50 dark:bg-neutral-900 min-h-screen">
+    <motion.div className="space-y-6 max-w-4xl mx-auto px-4">
+      {/* Page Header */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        exit={{ opacity: 0, y: -20 }}
-        className="reduced-motion:transition-none"
+        transition={{ type: "spring", stiffness: 300, delay: 0.1 }}
+        className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4"
       >
-        <div className="p-4 sm:p-6 lg:p-8">
-          {/* Announcements Summary */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-            <Card>
-              <div className="p-4 text-center">
-                <div className="text-3xl font-extrabold text-neutral-900">{totalAnnouncements}</div>
-                <div className="text-sm text-neutral-500">Announcements</div>
-              </div>
-            </Card>
+        <div>
+          <h1 className="text-2xl font-bold text-slate-900">Announcements</h1>
+          <p className="text-slate-500 text-sm mt-1">School-wide and class-specific news</p>
+        </div>
 
-            <Card>
-              <div className="p-4 text-center">
-                <div className="text-3xl font-extrabold text-red-600">{highPriority}</div>
-                <div className="text-sm text-neutral-500">High Priority</div>
-              </div>
-            </Card>
+        {isAdmin && (
+          <motion.button
+            onClick={() => setIsModalOpen(true)}
+            className="bg-primary-600 hover:bg-primary-700 text-white px-5 py-3 rounded-lg text-sm font-medium transition-all duration-300 shadow-lg shadow-primary-500/20 hover:shadow-primary-500/40 flex items-center gap-2"
+          >
+            <Plus className="w-4 h-4" /> New Announcement
+          </motion.button>
+        )}
+      </motion.div>
 
-            <Card>
-              <div className="p-4 text-center">
-                <div className="text-3xl font-extrabold text-neutral-500">{urgentCount}</div>
-                <div className="text-sm text-neutral-500">Urgent</div>
-              </div>
-            </Card>
-
-            <Card>
-              <div className="p-4 text-center">
-                <div className="text-3xl font-extrabold text-neutral-500">0</div>
-                <div className="text-sm text-neutral-500">Drafts</div>
-              </div>
-            </Card>
-          </div>
-
-          {/* Filters */}
-          <Card>
-            <div className="p-4 space-y-3">
-              <h3 className="text-sm font-medium text-neutral-600 uppercase tracking-wider mb-2">
-                Filters
-              </h3>
-              <div className="grid grid-cols-4 gap-3">
+      {/* Announcements List */}
+      <motion.div className="bg-white rounded-3xl border border-slate-200 overflow-hidden shadow-lg shadow-slate-50/30">
+        <motion.div className="animate-in" style={{ transitionProperty: 'all', transitionDuration: '0.2s' }}>
+          {announcements.length === 0 ? (
+            <motion.div
+              className="p-8 text-center text-slate-500 animate-bounce"
+              initial={{ opacity: 0, y: -20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ type: "spring", stiffness: 300 }}
+            >
+              No announcements yet.
+            </motion.div>
+          ) : announcements.map(announcement => (
+            <motion.div
+              key={announcement.id}
+              initial={{ opacity: 0, y: -20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ type: "spring", stiffness: 300, delay: Math.random() * 0.1 }}
+              className="bg-white p-6 rounded-2xl border border-slate-200 hover:bg-slate-50 transition-all duration-300 group-hover:shadow-lg group-hover:shadow-slate-50/30 cursor-pointer"
+              style={{ borderColor: '#e5e7eb' }}
+            >
+              <div className="flex justify-between items-start mb-4">
                 <div>
-                  <label className="block text-xs text-neutral-500 uppercase tracking-wider mb-1">Search</label>
-                  <input
-                    type="text"
-                    placeholder="Search title or content..."
-                    value={filters.search}
-                    onChange={(e) => setFilters({ ...filters, search: e.target.value })}
-                    className={`w-full rounded-lg border border-border dark:border-border-overlay px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-brand-primary/20 transition-colors ${reducedMotion ? 'transition-none' : ''}`}
-                    defaultValue=""
-                  />
+                  <h2 className="text-lg font-bold text-slate-900">{announcement.title}</h2>
+                  <p className="text-sm text-slate-500">
+                    {new Date(announcement.createdAt).toLocaleDateString()} • {announcement.class ? `Class: ${announcement.class.name} ${announcement.class.section}` : 'Whole School'}
+                  </p>
                 </div>
-                <div>
-                  <label className="block text-xs text-neutral-500 uppercase tracking-wider mb-1">Category</label>
-                  <select
-                    value={filters.category}
-                    onChange={(e) => setFilters({ ...filters, category: e.target.value } as any)}
-                    className={`w-full rounded-lg border border-border dark:border-border-overlay px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-brand-primary/20 ${reducedMotion ? 'transition-none' : ''}`}
+                {isAdmin && (
+                  <motion.button
+                    onClick={() => handleDelete(announcement.id)}
+                    className="text-red-600 hover:text-red-800 text-sm font-medium hover:underline transition-colors"
                   >
-                    <option value="all">All Categories</option>
-                    <option value="academic">Academic</option>
-                    <option value="event">Event</option>
-                    <option value="holiday">Holiday</option>
-                    <option value="urgent">Urgent</option>
-                    <option value="general">General</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-xs text-neutral-500 uppercase tracking-wider mb-1">Priority</label>
-                  <select
-                    value={filters.priority}
-                    onChange={(e) => setFilters({ ...filters, priority: e.target.value } as any)}
-                    className={`w-full rounded-lg border border-border dark:border-border-overlay px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-brand-primary/20 ${reducedMotion ? 'transition-none' : ''}`}
-                  >
-                    <option value="all">All Priorities</option>
-                    <option value="low">Low</option>
-                    <option value="medium">Medium</option>
-                    <option value="high">High</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-xs text-neutral-500 uppercase tracking-wider mb-1">Audience</label>
-                  <select
-                    value={filters.audience}
-                    onChange={(e) => setFilters({ ...filters, audience: e.target.value } as any)}
-                    className={`w-full rounded-lg border border-border dark:border-border-overlay px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-brand-primary/20 ${reducedMotion ? 'transition-none' : ''}`}
-                  >
-                    <option value="all">All Audiences</option>
-                    <option value="students">Students</option>
-                    <option value="parents">Parents</option>
-                    <option value="teachers">Teachers</option>
-                    <option value="staff">Staff</option>
-                  </select>
-                </div>
+                    <Trash className="w-4 h-4" /> Delete
+                  </motion.button>
+                )}
               </div>
-            </div>
-          </Card>
-
-          {/* Announcements Table */}
-          {loading ? (
-            <Skeleton className="h-72 rounded-md animate-bounce" />
-          ) : filteredAnnouncements.length === 0 ? (
-            <KpiEmptyStateComponent
-              icon="Megaphone"
-              title="No announcements found"
-              description="Post announcements to get started"
-              actionLabel="Post Announcement"
-            />
-          ) : (
-            <Table>
-              <TableSection.head>
-                <TableHeadCell style="primary">Title</TableHeadCell>
-                <TableHeadCell style="primary">Category</TableHeadCell>
-                <TableHeadCell style="primary">Priority</TableHeadCell>
-                <TableHeadCell style="primary">Audience</TableHeadCell>
-                <TableHeadCell style="primary">Created</TableHeadCell>
-              </TableSection.head>
-              <TableSection.body>
-                {filteredAnnouncements.slice(0, 15).map((ann: Announcement, index: number) => (
-                  <TableRowCell key={index} style="primary">
-                    <span className="font-medium text-neutral-700">{ann.title}</span>
-                    <span className="text-neutral-500 text-xs">{ann.category}</span>
-                    <span
-                      className={`inline-flex items-center gap-1 px-2 rounded text-xs font-medium ${ann.priority}`}>{ann.priority}</span>
-                    <span className="text-neutral-500 text-xs">{ann.targetAudience}</span>
-                    <span className="text-neutral-500 text-xs">{new Date(ann.createdAt).toLocaleDateString()}</span>
-                  </TableRowCell>
-                ))}
-              </TableSection.body>
-            </Table>
-          )}
-
-          {/* Export & Reports */}
-          {filteredAnnouncements.length > 0 && (
-            <div className="mt-6 flex items-center justify-between text-sm text-neutral-500">
-              <span>Showing {filteredAnnouncements.length} of {announcements.length} announcements</span>
-              <div className="flex gap-2">
-                <Button variant="ghost" size="sm">Export List</Button>
-                <Button variant="primary" size="sm">Generate Report</Button>
-              </div>
-            </div>
-          )}
+              <p className="text-sm text-slate-600 whitespace-pre-wrap line-clamp-4">{announcement.content}</p>
+            </motion.div>
+          ))}
         </motion.div>
-      </div>
-    </div>
+      </motion.div>
+
+      {/* CREATE MODAL */}
+      {isModalOpen && (
+        <motion.div
+          className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50"
+          whileHover={{ opacity: 0.9 }}
+        >
+          <motion.div
+            className="bg-white rounded-3xl shadow-3xl w-full max-w-md p-8 shadow-3xl"
+            initial={{ scale: 0.95, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            transition={{ type: "spring", stiffness: 400, damping: 30 }}
+          >
+            <h2 className="text-2xl font-bold text-slate-900 mb-6 flex items-center gap-3">
+              <svg className="w-5 h-5 text-primary-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m6 4h12m0 0l-4 4m4-4l-4-4m0-6H4"></path>
+              </svg>
+              Create Announcement
+            </h2>
+
+            <form onSubmit={handleSubmit} className="space-y-5">
+              <motion.div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">Title</label>
+                <input
+                  required
+                  type="text"
+                  value={formData.title}
+                  onChange={(e) => setFormData({...formData, title: e.target.value})}
+                  className="w-full px-4 py-3 rounded-xl border border-slate-200 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all"
+                  placeholder="e.g. School closed for holidays"
+                />
+              </motion.div>
+
+              <motion.div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">Content</label>
+                <textarea
+                  rows={4}
+                  value={formData.content}
+                  onChange={(e) => setFormData({...formData, content: e.target.value})}
+                  className="w-full px-4 py-3 rounded-xl border border-slate-200 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all"
+                />
+              </motion.div>
+
+              <motion.div className="grid grid-cols-2 gap-4">
+                <motion.div>
+                  <label className="block text-sm font-medium mb-1">Target Audience</label>
+                  <select
+                    value={formData.classId}
+                    onChange={(e) => setFormData({...formData, classId: e.target.value})}
+                    className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 appearance-none bg-white pl-4 pr-12 cursor-pointer"
+                  >
+                    <option value="">All Classes (Whole School)</option>
+                    {classes.map(c => (
+                      <option key={c.id} value={c.id}>{c.name} - {c.section}</option>
+                    ))}
+                  </select>
+                </motion.div>
+              </motion.div>
+
+              <motion.div className="flex justify-end gap-3 pt-8 border-t">
+                <motion.button
+                  type="button"
+                  onClick={() => setIsModalOpen(false)}
+                  className="px-5 py-3 text-sm font-medium text-slate-600 hover:text-slate-900 transition-all duration-300"
+                >
+                  Cancel
+                </motion.button>
+                <motion.button
+                  type="submit"
+                  className="px-5 py-3 text-sm font-medium bg-primary-600 text-white rounded-xl transition-all"
+                >
+                  Publish
+                </motion.button>
+              </motion.div>
+            </form>
+          </motion.div>
+        </motion.div>
+      )}
+    </motion.div>
   );
 }

@@ -1,223 +1,184 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, FormEvent } from 'react';
 import { api } from '@/lib/api';
-import { getMe } from '@/lib/auth';
-import Link from 'next/link';
 import { motion } from 'framer-motion';
-import {
-  Globe, Search,
-  CheckCircle2, X, UsersAdd
-} from 'lucide-react';
-import {
-  Card, KpiEmptyState, Skeleton, Table, TableHeadCell, TableRowCell,
-  EmptyState as KpiEmptyStateComponent
-} from '@/components/ui';
-import { use reducedMotion } from '@/hooks/use-reduced-motion';
+import { UseToast } from '@/components/ui/use-toast';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
+import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
+import { Loader2, FolderPlus as FolderAdd, Menu, CheckCircle, AlertCircle, Shield, Settings as SettingsIcon, FileText, TrendingUp, Wrench, Palette, Globe, Layout, Calendar as CalendarIcon, Mail, PlayCircle } from 'lucide-react';
 
-interface WebsitePage {
-  id: string;
-  title: string;
-  slug: string;
-  type: 'blog' | 'landing' | 'about' | 'contact' | 'privacy' | 'terms';
-  status: 'draft' | 'published' | 'archived';
-  publishedAt: string | null;
-  metaTitle: string;
-  metaDescription: string;
-  viewCount: number;
-}
-
-interface FilterState {
-  search: string;
-  type: 'all' | 'blog' | 'landing' | 'about' | 'contact' | 'privacy' | 'terms';
-  status: 'all' | 'draft' | 'published' | 'archived';
-}
-
-export default function WebsitePage() {
-  const [role, setRole] = useState<'ADMIN' | 'TEACHER' | 'REGISTRAR'>('ADMIN');
-  const [pages, setPages] = useState<WebsitePage[]>([]);
+export default function WebsiteBuilderPage() {
+  const [settings, setSettings] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [filters, setFilters] = useState<FilterState>({ search: '', type: 'all', status: 'all' });
-  const reducedMotion = use_reducedMotion();
+  const [isSaving, setIsSaving] = useState(false);
+  const [message, setMessage] = useState('');
 
   useEffect(() => {
-    getMe().then((me: any) => {
-      const userRoles: string[] = me.roles || [];
-      const isSuperAdmin = userRoles.includes('SUPER_ADMIN');
-      const isTenantAdmin = userRoles.includes('TENANT_ADMIN');
-      const isRegistrar = userRoles.includes('REGISTRAR');
-
-      setRole(isSuperAdmin || isTenantAdmin ? 'ADMIN' : isRegistrar ? 'REGISTRAR' : 'TEACHER');
+    api.get<any>('/api/v1/website/settings').then(data => {
+      setSettings(data);
+      setLoading(false);
     });
-
-    // Load website pages
-    async function loadPages() {
-      try {
-        const data = await api.get<any[]>('/api/v1/website');
-        setPages(data || []);
-      } catch (err) {
-        setPages([]);
-      } finally {
-        setLoading(false);
-      }
-    }
-
-    loadPages();
   }, []);
 
-  const filteredPages = pages.filter((page: WebsitePage) => {
-    const matchesSearch = filters.search
-      ? page.title.toLowerCase().includes(filters.search.toLowerCase()) ||
-        page.slug.toLowerCase().includes(filters.search.toLowerCase())
-      : true;
-    const matchesType = filters.type === 'all' || page.type === filters.type;
-    const matchesStatus = filters.status === 'all' || page.status === filters.status;
+  async function handleSave(e: FormEvent) {
+    e.preventDefault();
+    setIsSaving(true);
+    setMessage('');
+    try {
+      await api.patch('/api/v1/website/settings', settings);
+      setMessage('Website updated successfully!');
+    } catch {
+      setMessage('Failed to save settings.');
+    } finally {
+      setIsSaving(false);
+    }
+  }
 
-    return matchesSearch && matchesType && matchesStatus;
-  });
-
-  // Compute summary stats
-  const totalPages = filteredPages.length;
-  const publishedCount = filteredPages.filter(p => p.status === 'published').length;
-  const draftCount = filteredPages.filter(p => p.status === 'draft').length;
+  if (loading) return (
+    <motion.div className="min-h-screen flex flex-col items-center justify-center p-8">
+      <Loader2 className="w-12 h-12 mx-auto opacity-50 animate-spin text-emerald-600" />
+      <p className="text-slate-500 mt-4">Loading...</p>
+    </motion.div>
+  );
 
   return (
-    <div className="bg-neutral-50 dark:bg-neutral-900 min-h-screen">
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        exit={{ opacity: 0, y: -20 }}
-        className="reduced-motion:transition-none"
-      >
-        <div className="p-4 sm:p-6 lg:p-8">
-          {/* Website Summary */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-            <Card>
-              <div className="p-4 text-center">
-                <div className="text-3xl font-extrabold text-neutral-900">{totalPages}</div>
-                <div className="text-sm text-neutral-500">Website Pages</div>
-              </div>
-            </Card>
+    <motion.div className="min-h-screen bg-gradient-to-b from-slate-50 via-slate-100 to-slate-50 p-4">
+      <div className="max-w-4xl mx-auto">
+        {/* Header */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ type: "spring", stiffness: 300, delay: 0.1 }}
+          className="bg-white rounded-3xl border border-slate-200 p-6 shadow-3xl shadow-slate-50/30 mb-8"
+        >
+          <div className="flex justify-between items-center">
+            <div>
+              <h1 className="text-3xl font-bold text-slate-900 tracking-tighter">
+                <FolderAdd className="w-6 h-6 text-emerald-600 mr-2" /> School Website Builder
+              </h1>
+              <p className="text-slate-500 text-sm mt-1">Customize your public-facing landing page</p>
+            </div>
 
-            <Card>
-              <div className="p-4 text-center">
-                <div className="text-3xl font-extrabold text-green-600">{publishedCount}</div>
-                <div className="text-sm text-neutral-500">Published</div>
-              </div>
-            </Card>
-
-            <Card>
-              <div className="p-4 text-center">
-                <div className="text-3xl font-extrabold text-amber-600">{draftCount}</div>
-                <div className="text-sm text-neutral-500">Drafts</div>
-              </div>
-            </Card>
-
-            <Card>
-              <div className="p-4 text-center">
-                <div className="text-3xl font-extrabold text-neutral-500">0</div>
-                <div className="text-sm text-neutral-500">Archived</div>
-              </div>
-            </Card>
+            <Button
+              variant="outline"
+              className="px-4 py-2 text-sm font-medium text-slate-600 hover:text-slate-900 transition-colors"
+            >
+              <SettingsIcon className="w-4 h-4 mr-2" /> Settings
+            </Button>
           </div>
 
-          {/* Filters */}
-          <Card>
-            <div className="p-4 space-y-3">
-              <h3 className="text-sm font-medium text-neutral-600 uppercase tracking-wider mb-2">
-                Filters
-              </h3>
-              <div className="grid grid-cols-3 gap-3">
-                <div>
-                  <label className="block text-xs text-neutral-500 uppercase tracking-wider mb-1">Search</label>
-                  <input
-                    type="text"
-                    placeholder="Search page title or slug..."
-                    value={filters.search}
-                    onChange={(e) => setFilters({ ...filters, search: e.target.value })}
-                    className={`w-full rounded-lg border border-border dark:border-border-overlay px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-brand-primary/20 transition-colors ${reducedMotion ? 'transition-none' : ''}`}
-                    defaultValue=""
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs text-neutral-500 uppercase tracking-wider mb-1">Type</label>
-                  <select
-                    value={filters.type}
-                    onChange={(e) => setFilters({ ...filters, type: e.target.value } as any)}
-                    className={`w-full rounded-lg border border-border dark:border-border-overlay px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-brand-primary/20 ${reducedMotion ? 'transition-none' : ''}`}
-                  >
-                    <option value="all">All Types</option>
-                    <option value="blog">Blog</option>
-                    <option value="landing">Landing</option>
-                    <option value="about">About</option>
-                    <option value="contact">Contact</option>
-                    <option value="privacy">Privacy</option>
-                    <option value="terms">Terms</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-xs text-neutral-500 uppercase tracking-wider mb-1">Status</label>
-                  <select
-                    value={filters.status}
-                    onChange={(e) => setFilters({ ...filters, status: e.target.value } as any)}
-                    className={`w-full rounded-lg border border-border dark:border-border-overlay px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-brand-primary/20 ${reducedMotion ? 'transition-none' : ''}`}
-                  >
-                    <option value="all">All Statuses</option>
-                    <option value="draft">Draft</option>
-                    <option value="published">Published</option>
-                    <option value="archived">Archived</option>
-                  </select>
-                </div>
-              </div>
-            </div>
-          </Card>
-
-          {/* Website Pages Table */}
-          {loading ? (
-            <Skeleton className="h-72 rounded-md animate-bounce" />
-          ) : filteredPages.length === 0 ? (
-            <KpiEmptyStateComponent
-              icon="Globe"
-              title="No website pages found"
-              description="Create website pages to get started"
-              actionLabel="Create Page"
-            />
-          ) : (
-            <Table>
-              <TableSection.head>
-                <TableHeadCell style="primary">Title</TableHeadCell>
-                <TableHeadCell style="primary">Type</TableHeadCell>
-                <TableHeadCell style="primary">Status</TableHeadCell>
-                <TableHeadCell style="primary">Views</TableHeadCell>
-                <TableHeadCell style="primary">Last Published</TableHeadCell>
-              </TableSection.head>
-              <TableSection.body>
-                {filteredPages.slice(0, 15).map((page: WebsitePage, index: number) => (
-                  <TableRowCell key={index} style="primary">
-                    <span className="font-medium text-neutral-700">{page.title}</span>
-                    <span className="text-neutral-500 text-xs">{page.type}</span>
-                    <span
-                      className={`inline-flex items-center gap-1 px-2 rounded text-xs font-medium ${page.status}`}>{page.status}</span>
-                    <span className="text-neutral-500 text-xs">{page.viewCount}</span>
-                    <span className="text-neutral-500 text-xs">{page.publishedAt ? new Date(page.publishedAt).toLocaleDateString() : '—'}</span>
-                  </TableRowCell>
-                ))}
-              </TableSection.body>
-            </Table>
-          )}
-
-          {/* Export & Reports */}
-          {filteredPages.length > 0 && (
-            <div className="mt-6 flex items-center justify-between text-sm text-neutral-500">
-              <span>Showing {filteredPages.length} of {pages.length} pages</span>
-              <div className="flex gap-2">
-                <Button variant="ghost" size="sm">Export List</Button>
-                <Button variant="primary" size="sm">Generate Report</Button>
-              </div>
-            </div>
+          {/* Live Preview */}
+          {settings?.tenant?.slug && settings?.isPublished && (
+            <motion.div className="mt-6">
+              <h2 className="text-sm font-medium text-slate-700 uppercase tracking-wider mb-2">Live Preview</h2>
+              <a href={`/${settings.tenant.slug}`} target="_blank" className="bg-emerald-600 hover:bg-emerald-700 text-white px-6 py-3 rounded-xl text-sm font-medium transition-all duration-300 shadow-lg shadow-emerald-500/20 hover:shadow-emerald-500/40">
+                View Live Website ↗
+              </a>
+            </motion.div>
           )}
         </motion.div>
-      </div>
-    </div>
+
+          {message && (
+            <motion.div
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ type: "spring", stiffness: 300 }}
+              className="mb-6 p-4 bg-emerald-50 border border-emerald-200 rounded-xl text-emerald-700 text-sm font-medium animate-in"
+            >
+              {message}
+            </motion.div>
+          )}
+
+          <form onSubmit={handleSave} className="bg-white rounded-3xl border border-slate-200 p-8 shadow-3xl shadow-slate-50/30">
+            <div className="flex items-center justify-between mb-8">
+              <div>
+                <h2 className="text-2xl font-bold text-slate-900">Publish Website</h2>
+                <p className="text-slate-500 text-sm mt-1">Make your website visible to the public.</p>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <label className="relative inline-flex items-center cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={settings?.isPublished ?? false}
+                    onChange={e => setSettings({...settings, isPublished: e.target.checked})}
+                    className="sr-only peer"
+                  />
+                  <div
+                    className="w-11 h-6 bg-slate-200 rounded-full peer-focus:outline-none peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-500"
+                  />
+                </label>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-6 mb-8">
+              <div>
+                <label className="block text-sm font-bold text-slate-700 mb-2">Hero Title</label>
+                <input
+                  type="text"
+                  value={settings?.heroTitle || ''}
+                  onChange={e => setSettings({...settings, heroTitle: e.target.value})}
+                  className="w-full px-4 py-3 rounded-xl border border-slate-200 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-bold text-slate-700 mb-2">Hero Subtitle</label>
+                <input
+                  type="text"
+                  value={settings?.heroSubtitle || ''}
+                  onChange={e => setSettings({...settings, heroSubtitle: e.target.value})}
+                  className="w-full px-4 py-3 rounded-xl border border-slate-200 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-bold text-slate-700 mb-2">About Us</label>
+              <textarea
+                rows={4}
+                value={settings?.aboutText || ''}
+                onChange={e => setSettings({...settings, aboutText: e.target.value})}
+                className="w-full px-4 py-3 rounded-xl border border-slate-200 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all resize-y"
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-6 mb-8">
+              <div>
+                <label className="block text-sm font-bold text-slate-700 mb-2">Contact Email</label>
+                <input
+                  type="email"
+                  value={settings?.contactEmail || ''}
+                  onChange={e => setSettings({...settings, contactEmail: e.target.value})}
+                  className="w-full px-4 py-3 rounded-xl border border-slate-200 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-bold text-slate-700 mb-2">Contact Phone</label>
+                <input
+                  type="text"
+                  value={settings?.contactPhone || ''}
+                  onChange={e => setSettings({...settings, contactPhone: e.target.value})}
+                  className="w-full px-4 py-3 rounded-xl border border-slate-200 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all"
+                />
+              </div>
+            </div>
+
+            <div>
+              <Button
+                type="submit"
+                disabled={isSaving}
+                className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-4 px-8 rounded-xl disabled:opacity-50 transition-all duration-300"
+              >
+                {isSaving ? 'Saving...' : 'Save & Publish'}
+              </Button>
+            </div>
+          </form>
+        </div>
+    </motion.div>
   );
 }

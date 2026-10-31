@@ -1,226 +1,383 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, FormEvent } from 'react';
 import { api } from '@/lib/api';
-import { getMe } from '@/lib/auth';
-import Link from 'next/link';
 import { motion } from 'framer-motion';
-import {
-  Users, Star, Music, Film, PaintBrush,
-  Search, CheckCircle2, X, UsersAdd, Trophy
-} from 'lucide-react';
-import {
-  Card, KpiEmptyState, Skeleton, Table, TableHeadCell, TableRowCell,
-  EmptyState as KpiEmptyStateComponent
-} from '@/components/ui';
-import { use reducedMotion } from '@/hooks/use-reduced-motion';
-
-interface Club {
-  id: string;
-  name: string;
-  description: string;
-  category: 'academic' | 'arts' | 'sports' | 'technical' | 'cultural';
-  sponsorTeacher: string;
-  memberCount: number;
-  meetingFrequency: 'weekly' | 'bi-weekly' | 'monthly';
-  status: 'active' | 'inactive' | 'pending';
-}
-
-interface FilterState {
-  search: string;
-  category: 'all' | 'academic' | 'arts' | 'sports' | 'technical' | 'cultural';
-  status: 'all' | 'active' | 'inactive' | 'pending';
-}
+import { CheckCircle, X, Loader2, FolderPlus as FolderAdd, Menu, Shield, Users, UserPlus, LogOut, Circle, Trash2, Edit2, RefreshCw } from 'lucide-react';
+import { useToast } from '@/components/ui/use-toast';
 
 export default function ClubsPage() {
-  const [role, setRole] = useState<'ADMIN' | 'TEACHER' | 'REGISTRAR'>('ADMIN');
-  const [clubs, setClubs] = useState<Club[]>([]);
+  const [clubs, setClubs] = useState<any[]>([]);
+  const [students, setStudents] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filters, setFilters] = useState<FilterState>({ search: '', category: 'all', status: 'all' });
-  const reducedMotion = use_reducedMotion();
+  const [selectedClub, setSelectedClub] = useState<any | null>(null);
+  const [members, setMembers] = useState<any[]>([]);
+  const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [categories, setCategories] = useState<string[]>(['ACADEMIC', 'SPORTS', 'ARTS', 'COMMUNITY']);
 
-  useEffect(() => {
-    getMe().then((me: any) => {
-      const userRoles: string[] = me.roles || [];
-      const isSuperAdmin = userRoles.includes('SUPER_ADMIN');
-      const isTenantAdmin = userRoles.includes('TENANT_ADMIN');
-      const isRegistrar = userRoles.includes('REGISTRAR');
+  const { toast } = useToast();
 
-      setRole(isSuperAdmin || isTenantAdmin ? 'ADMIN' : isRegistrar ? 'REGISTRAR' : 'TEACHER');
-    });
+  async function loadData() {
+    const [clubsData, studentsData] = await Promise.all([
+      api.get<any[]>('/api/v1/clubs'),
+      api.get<any[]>('/api/v1/students')
+    ]);
+    setClubs(clubsData);
+    setStudents(studentsData);
+    setLoading(false);
+  }
 
-    // Load clubs
-    async function loadClubs() {
-      try {
-        const data = await api.get<any[]>('/api/v1/clubs');
-        setClubs(data || []);
-      } catch (err) {
-        setClubs([]);
-      } finally {
-        setLoading(false);
-      }
+  useEffect(() => { loadData(); }, []);
+
+  async function handleCreateClub(e: FormEvent) {
+    e.preventDefault();
+    try {
+      await api.post('/api/v1/clubs', {
+        name: selectedClub?.name || '',
+        description: selectedClub?.description || '',
+        category: selectedClub?.category || 'ACADEMIC',
+        advisorName: selectedClub?.advisorName || ''
+      });
+      setIsCreateOpen(false);
+      setSelectedClub(null);
+      loadData();
+      toast({
+        title: 'Club created',
+        description: 'The club has been successfully created.',
+        variant: 'success',
+      });
+    } catch (err) {
+      toast({
+        title: 'Error',
+        description: 'Failed to create club. Please try again.',
+        variant: 'destructive',
+      });
     }
+  }
 
-    loadClubs();
-  }, []);
+  async function openClub(club: any) {
+    setSelectedClub(club);
+    const membersData = await api.get<any[]>(`/api/v1/clubs/${club.id}/members`);
+    setMembers(membersData);
+  }
 
-  const filteredClubs = clubs.filter((club: Club) => {
-    const matchesSearch = filters.search
-      ? club.name.toLowerCase().includes(filters.search.toLowerCase()) ||
-        club.description.toLowerCase().includes(filters.search.toLowerCase())
-      : true;
-    const matchesCategory = filters.category === 'all' || club.category === filters.category;
-    const matchesStatus = filters.status === 'all' || club.status === filters.status;
+  async function handleAddMember(e: FormEvent) {
+    e.preventDefault();
+    if (!selectedClub) return;
+    try {
+      await api.post(`/api/v1/clubs/${selectedClub.id}/members`, { studentId: addMemberForm.studentId, role: addMemberForm.role });
+      openClub(selectedClub);
+      loadData();
+      toast({
+        title: 'Member added',
+        description: `${addMemberForm.studentFirstName} has been added to the club.`,
+        variant: 'success',
+      });
+    } catch (err: any) {
+      toast({
+        title: 'Error',
+        description: err.message || 'Failed to add member.',
+        variant: 'destructive',
+      });
+    }
+  }
 
-    return matchesSearch && matchesCategory && matchesStatus;
-  });
-
-  // Compute summary stats
-  const totalClubs = filteredClubs.length;
-  const activeCount = filteredClubs.filter(c => c.status === 'active').length;
-  const pendingCount = filteredClubs.filter(c => c.status === 'pending').length;
+  async function handleRemoveMember(membershipId: string) {
+    if (!window.confirm('Are you sure you want to remove this student from the club?')) return;
+    try {
+      await api.delete(`/api/v1/clubs/members/${membershipId}`);
+      openClub(selectedClub);
+      loadData();
+      toast({
+        title: 'Member removed',
+        description: 'The student has been removed from the club.',
+        variant: 'success',
+      });
+    } catch (err) {
+      toast({
+        title: 'Error',
+        description: 'Failed to remove member. Please try again.',
+        variant: 'destructive',
+      });
+    }
+  }
 
   return (
-    <div className="bg-neutral-50 dark:bg-neutral-900 min-h-screen">
+    <motion.div className="min-h-screen bg-slate-50">
+      {/* Header */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        exit={{ opacity: 0, y: -20 }}
-        className="reduced-motion:transition-none"
+        transition={{ type: "spring", stiffness: 300, delay: 0.1 }}
+        className="bg-white border-b border-slate-200 px-6 py-4 shadow-sm"
       >
-        <div className="p-4 sm:p-6 lg:p-8">
-          {/* Clubs Summary */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-            <Card>
-              <div className="p-4 text-center">
-                <div className="text-3xl font-extrabold text-neutral-900">{totalClubs}</div>
-                <div className="text-sm text-neutral-500">Clubs</div>
-              </div>
-            </Card>
-
-            <Card>
-              <div className="p-4 text-center">
-                <div className="text-3xl font-extrabold text-green-600">{activeCount}</div>
-                <div className="text-sm text-neutral-500">Active</div>
-              </div>
-            </Card>
-
-            <Card>
-              <div className="p-4 text-center">
-                <div className="text-3xl font-extrabold text-amber-600">{pendingCount}</div>
-                <div className="text-sm text-neutral-500">Pending</div>
-              </div>
-            </Card>
-
-            <Card>
-              <div className="p-4 text-center">
-                <div className="text-3xl font-extrabold text-neutral-500">0</div>
-                <div className="text-sm text-neutral-500">Inactive</div>
-              </div>
-            </Card>
+        <div className="flex justify-between items-center">
+          <div>
+            <h1 className="text-2xl font-bold text-slate-900 tracking-tighter">
+              <Users className="w-5 h-5 text-indigo-600 mr-2" /> Clubs & Activities
+            </h1>
+            <p className="text-slate-500 text-sm mt-1">Manage extracurriculars, sports, and academic societies</p>
           </div>
 
-          {/* Filters */}
-          <Card>
-            <div className="p-4 space-y-3">
-              <h3 className="text-sm font-medium text-neutral-600 uppercase tracking-wider mb-2">
-                Filters
-              </h3>
-              <div className="grid grid-cols-3 gap-3">
-                <div>
-                  <label className="block text-xs text-neutral-500 uppercase tracking-wider mb-1">Search</label>
-                  <input
-                    type="text"
-                    placeholder="Search club name or description..."
-                    value={filters.search}
-                    onChange={(e) => setFilters({ ...filters, search: e.target.value })}
-                    className={`w-full rounded-lg border border-border dark:border-border-overlay px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-brand-primary/20 transition-colors ${reducedMotion ? 'transition-none' : ''}`}
-                    defaultValue=""
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs text-neutral-500 uppercase tracking-wider mb-1">Category</label>
-                  <select
-                    value={filters.category}
-                    onChange={(e) => setFilters({ ...filters, category: e.target.value } as any)}
-                    className={`w-full rounded-lg border border-border dark:border-border-overlay px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-brand-primary/20 ${reducedMotion ? 'transition-none' : ''}`}
-                  >
-                    <option value="all">All Categories</option>
-                    <option value="academic">Academic</option>
-                    <option value="arts">Arts</option>
-                    <option value="sports">Sports</option>
-                    <option value="technical">Technical</option>
-                    <option value="cultural">Cultural</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-xs text-neutral-500 uppercase tracking-wider mb-1">Status</label>
-                  <select
-                    value={filters.status}
-                    onChange={(e) => setFilters({ ...filters, status: e.target.value } as any)}
-                    className={`w-full rounded-lg border border-border dark:border-border-overlay px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-brand-primary/20 ${reducedMotion ? 'transition-none' : ''}`}
-                  >
-                    <option value="all">All Statuses</option>
-                    <option value="active">Active</option>
-                    <option value="inactive">Inactive</option>
-                    <option value="pending">Pending</option>
-                  </select>
-                </div>
-              </div>
-            </div>
-          </Card>
+          <motion.button
+            onClick={() => setIsCreateOpen(true)}
+            whileHover={{ scale: 1.05 }}
+            transition={{ type: "spring" }}
+            className="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-3 rounded-xl text-sm font-medium transition-all duration-300 shadow-lg shadow-indigo-500/20 hover:shadow-indigo-500/40 flex items-center gap-2"
+          >
+            <FolderAdd className="w-4 h-4" /> Create Club
+          </motion.button>
+        </div>
+      </motion.div>
 
-          {/* Clubs Table */}
-          {loading ? (
-            <Skeleton className="h-64 rounded-md animate-bounce" />
-          ) : filteredClubs.length === 0 ? (
-            <KpiEmptyStateComponent
-              icon="Users"
-              title="No clubs found"
-              description="Start a club to get involved"
-              actionLabel="Create Club"
-            />
-          ) : (
-            <Table>
-              <TableSection.head>
-                <TableHeadCell style="primary">Club Name</TableHeadCell>
-                <TableHeadCell style="primary">Category</TableHeadCell>
-                <TableHeadCell style="primary">Sponsor</TableHeadCell>
-                <TableHeadCell style="primary">Members</TableHeadCell>
-                <TableHeadCell style="primary">Meetings</TableHeadCell>
-                <TableHeadCell style="primary">Status</TableHeadCell>
-              </TableSection.head>
-              <TableSection.body>
-                {filteredClubs.slice(0, 15).map((club: Club, index: number) => (
-                  <TableRowCell key={index} style="primary">
-                    <span className="font-medium text-neutral-700">{club.name}</span>
-                    <span className="text-neutral-500 text-xs">{club.category}</span>
-                    <span className="text-neutral-500 text-xs">{club.sponsorTeacher}</span>
-                    <span className="text-neutral-500 text-xs">{club.memberCount}</span>
-                    <span className="text-neutral-500 text-xs">{club.meetingFrequency}</span>
-                    <span
-                      className={`inline-flex items-center gap-1 px-2 rounded text-xs font-medium ${club.status}`}
-                    >
-                      {club.status}
-                    </span>
-                  </TableRowCell>
-                ))}
-              </TableSection.body>
-            </Table>
-          )}
+      {/* Clubs Grid */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ type: "spring", stiffness: 300, delay: 0.15 }}
+        className="px-6 py-4"
+      >
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {clubs.map(c => (
+            <motion.div
+              key={c.id}
+              whileHover={{ y: -8, scale: 1.03 }}
+              transition={{ type: "spring", stiffness: 400, damping: 30 }}
+              className="group bg-white rounded-3xl border border-slate-200 p-6 shadow-3xl shadow-slate-50/30 transform transition-all duration-500 hover:shadow-4xl hover:shadow-slate-50/40"
+              style={{ background: 'linear-gradient(135deg, var(--bg), var(--bg-light))' }}
+            >
+              <div className="flex items-start justify-between">
+                <div>
+                  <h3 className="text-xl font-bold text-slate-900">{c.name}</h3>
+                  <p className="text-sm text-slate-500 line-clamp-2">{c.description}</p>
+                  <div className="mt-3 flex gap-2">
+                    <span className="text-xs font-bold bg-indigo-50 text-indigo-600 px-2 py-1 rounded">{c.category}</span>
+                    <span className="text-xs text-slate-400">|</span>
+                    <span className="text-xs font-medium text-indigo-500">{c._count.memberships} Members</span>
+                  </div>
+                </div>
 
-          {/* Export & Reports */}
-          {filteredClubs.length > 0 && (
-            <div className="mt-6 flex items-center justify-between text-sm text-neutral-500">
-              <span>Showing {filteredClubs.length} of {clubs.length} clubs</span>
-              <div className="flex gap-2">
-                <Button variant="ghost" size="sm">Export List</Button>
-                <Button variant="primary" size="sm">Generate Report</Button>
+                <motion.div className="p-3 rounded-xl bg-indigo-50/50 backdrop-blur-sm">
+                  <Users className="w-4 h-4 text-indigo-400" />
+                  <p className="text-xs text-indigo-600">{c._count.memberships} enrolled</p>
+                </motion.div>
               </div>
+            </motion.div>
+          ))}
+        </div>
+
+        {/* Empty state */}
+        {clubs.length === 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ type: "spring", stiffness: 300 }}
+            className="col-span-3 p-12 text-center text-slate-500"
+          >
+            <Loader2 className="w-12 h-12 mx-auto mb-4 opacity-50 animate-spin" />
+            <p>No clubs found. Create one to get started!</p>
+          </motion.div>
+        )}
+      </motion.div>
+
+      {/* CLUB DETAILS & MEMBERS SIDE PANEL */}
+      {selectedClub && (
+        <motion.div
+          className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-end z-50"
+          whileHover={{ opacity: 0.9 }}
+        >
+          <motion.div
+            className="bg-white w-full max-w-md h-full shadow-2xl flex flex-col animate-in slide-in-from-right duration-300"
+            initial={{ opacity: 0, translateX: 20 }}
+            animate={{ opacity: 1, translateX: 0 }}
+            transition={{ type: "spring", stiffness: 400, damping: 30 }}
+          >
+            <div className="p-6 border-b bg-slate-50 flex justify-between items-center">
+              <div>
+                <h2 className="text-xl font-bold text-slate-900">{selectedClub.name}</h2>
+                <p className="text-xs text-slate-500">Manage Members</p>
+              </div>
+              <button
+                onClick={() => setSelectedClub(null)}
+                whileHover={{ scale: 1.02 }}
+                transition={{ type: "spring" }}
+                className="text-slate-400 hover:text-slate-900 rounded-lg p-2 transition-all duration-200"
+              >
+                <X className="w-5 h-5" /> Close
+              </button>
             </div>
-          )}
+
+            {/* Add Member Form */}
+            <div className="p-4 border-b bg-white">
+              <form onSubmit={handleAddMember} className="flex gap-3">
+                <select
+                  onChange={(e: any) => setAddMemberForm(prev => ({ ...prev, studentId: e.target.value }))}
+                  className="flex-1 px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 appearance-none bg-white pl-3 pr-12 cursor-pointer"
+                >
+                  {students.map(s => <option key={s.id} value={s.id}>{s.firstName} {s.lastName}</option>)}
+                </select>
+
+                <select
+                  onChange={(e: any) => setAddMemberForm(prev => ({ ...prev, role: e.target.value }))}
+                  className="w-32 px-2 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 appearance-none bg-white cursor-pointer"
+                >
+                  <option value="MEMBER">Member</option>
+                  <option value="LEADER">Leader</option>
+                  <option value="CAPTAIN">Captain</option>
+                </select>
+
+                <motion.button
+                  type="submit"
+                  whileHover={{ scale: 1.05 }}
+                  transition={{ type: "spring" }}
+                  className="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-bold transition-colors"
+                >
+                  Add Member
+                </motion.button>
+              </form>
+            </div>
+
+            {/* Members List */}
+            <div className="flex-1 overflow-y-auto p-4 space-y-4">
+              {members.length === 0 ? (
+                <motion.div
+                  initial={{ opacity: 0, y: -20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ type: "spring", stiffness: 300 }}
+                  className="p-8 text-center text-slate-500"
+                >
+                  <Users className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                  <p>No members yet. Add students to get started.</p>
+                </motion.div>
+              ) : (
+                members.map((m: any) => (
+                  <motion.div
+                    key={m.id}
+                    initial={{ opacity: 0, y: -10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ type: "spring", stiffness: 300, delay: Math.random() * 0.1 }}
+                    className="flex items-center justify-between p-4 border rounded-lg bg-slate-50 transition-all duration-300"
+                    style={{ transition: 'all 0.2s ease' }}
+                  >
+                    <div>
+                      <p className="font-bold text-slate-900 text-sm">{m.student.firstName} {m.student.lastName}</p>
+                      <p className="text-xs text-slate-500">{m.student.class?.name || 'No Class'} • <span className="font-semibold text-indigo-600">{m.role}</span></p>
+                    </div>
+
+                    <div className="flex gap-2">
+                      <motion.button
+                        onClick={() => handleRemoveMember(m.id)}
+                        whileHover={{ scale: 1.02 }}
+                        transition={{ type: "spring" }}
+                        className="text-red-600 hover:text-red-800 text-xs font-bold hover:underline transition-colors"
+                      >
+                        <Trash2 className="w-4 h-4" /> Remove
+                      </motion.button>
+
+                      {m.role !== 'CAPTAIN' && (
+                        <motion.button
+                          onClick={() => {}}
+                          whileHover={{ scale: 1.02 }}
+                          transition={{ type: "spring" }}
+                          className="text-emerald-600 hover:text-emerald-800 text-xs font-bold hover:underline transition-colors"
+                        >
+                          <Circle className="w-4 h-4" /> Promote
+                        </motion.button>
+                      )}
+                    </div>
+                  </motion.div>
+                ))
+              )}
+            </div>
+          </motion.div>
         </motion.div>
-      </div>
-    </div>
+      )}
+
+      {/* CREATE CLUB MODAL */}
+      {isCreateOpen && (
+        <motion.div
+          className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50"
+          whileHover={{ opacity: 0.9 }}
+        >
+          <motion.div
+            className="bg-white rounded-3xl shadow-3xl w-full max-w-md p-8 shadow-3xl"
+            initial={{ scale: 0.95, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            transition={{ type: "spring", stiffness: 400, damping: 30 }}
+          >
+            <h2 className="text-2xl font-bold text-slate-900 mb-6 flex items-center gap-3">
+              <FolderAdd className="w-5 h-5 text-indigo-500" /> Create New Club
+            </h2>
+
+            <form onSubmit={handleCreateClub} className="space-y-6">
+              <motion.div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">Club Name</label>
+                <input
+                  required
+                  placeholder="e.g. Chess Club"
+                  value={selectedClub?.name || ''}
+                  onChange={(e) => setSelectedClub(prev => prev ? {...prev, name: e.target.value} : { name: e.target.value })}
+                  className="w-full px-4 py-3 rounded-xl border border-slate-200 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all"
+                />
+              </motion.div>
+
+              <motion.div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">Category</label>
+                <select
+                  value={selectedClub?.category || 'ACADEMIC'}
+                  onChange={(e) => setSelectedClub(prev => prev ? {...prev, category: e.target.value} : { category: e.target.value })}
+                  className="w-full px-4 py-3 rounded-xl border border-slate-200 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 appearance-none bg-white pl-4 pr-12 cursor-pointer"
+                >
+                  {categories.map(cat => (
+                    <option key={cat} value={cat}>
+                      {cat === 'ACADEMIC' ? 'Academic' : cat === 'SPORTS' ? 'Sports' : cat === 'ARTS' ? 'Arts & Music' : 'Community Service'}
+                    </option>
+                  ))}
+                </select>
+              </motion.div>
+
+              <motion.div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">Description (Optional)</label>
+                <textarea
+                  rows={3}
+                  placeholder="Describe the club's purpose and activities..."
+                  value={selectedClub?.description || ''}
+                  onChange={(e) => setSelectedClub(prev => prev ? {...prev, description: e.target.value} : { description: e.target.value })}
+                  className="w-full px-4 py-3 rounded-xl border border-slate-200 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all"
+                />
+              </motion.div>
+
+              <motion.div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">Teacher Advisor</label>
+                <input
+                  placeholder="e.g. Mr. Smith"
+                  value={selectedClub?.advisorName || ''}
+                  onChange={(e) => setSelectedClub(prev => prev ? {...prev, advisorName: e.target.value} : { advisorName: e.target.value })}
+                  className="w-full px-4 py-3 rounded-xl border border-slate-200 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all"
+                />
+              </motion.div>
+
+              <motion.div className="flex justify-end gap-3 pt-6 border-t">
+                <motion.button
+                  type="button"
+                  onClick={() => setIsCreateOpen(false)}
+                  whileHover={{ scale: 1.02 }}
+                  transition={{ type: "spring" }}
+                  className="px-5 py-3 text-sm font-medium text-slate-600 hover:text-slate-900 transition-all duration-300"
+                >
+                  Cancel
+                </motion.button>
+                <motion.button
+                  type="submit"
+                  className="px-5 py-3 text-sm font-medium bg-indigo-600 text-white rounded-xl transition-all"
+                >
+                  Create Club
+                </motion.button>
+              </motion.div>
+            </form>
+          </motion.div>
+        </motion.div>
+      )}
+    </motion.div>
   );
 }

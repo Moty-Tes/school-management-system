@@ -2,201 +2,190 @@
 
 import { useEffect, useState } from 'react';
 import { api } from '@/lib/api';
-import { getMe } from '@/lib/auth';
-import Link from 'next/link';
 import { motion } from 'framer-motion';
-import {
-  Users, Shield, Search,
-  CheckCircle2, X, UsersAdd
-} from 'lucide-react';
-import {
-  Card, KpiEmptyState, Skeleton, Table, TableHeadCell, TableRowCell,
-  EmptyState as KpiEmptyStateComponent
-} from '@/components/ui';
-import { use reducedMotion } from '@/hooks/use-reduced-motion';
-
-interface Role {
-  id: string;
-  name: 'SUPER_ADMIN' | 'TENANT_ADMIN' | 'ACCOUNTANT' | 'TEACHER' | 'PARENT' | 'STUDENT' | 'REGISTRAR';
-  displayName: string;
-  description: string;
-  permissions: string[];
-  status: 'active' | 'inactive';
-  createdAt: string;
-}
-
-interface FilterState {
-  search: string;
-  status: 'all' | 'active' | 'inactive';
-}
+import { ShieldCheck, Loader2 } from 'lucide-react';
+import { useToast } from '@/components/ui/use-toast';
 
 export default function RolesPage() {
-  const [role, setRole] = useState<'ADMIN' | 'TEACHER' | 'REGISTRAR'>('ADMIN');
-  const [roles, setRoles] = useState<Role[]>([]);
+  const [users, setUsers] = useState<any[]>([]);
+  const [role, setRole] = useState<string>('');
   const [loading, setLoading] = useState(true);
-  const [filters, setFilters] = useState<FilterState>({ search: '', status: 'all' });
-  const reducedMotion = use_reducedMotion();
 
-  useEffect(() => {
-    getMe().then((me: any) => {
-      const userRoles: string[] = me.roles || [];
-      const isSuperAdmin = userRoles.includes('SUPER_ADMIN');
-      const isTenantAdmin = userRoles.includes('TENANT_ADMIN');
-      const isRegistrar = userRoles.includes('REGISTRAR');
+  const { toast } = useToast();
 
-      setRole(isSuperAdmin || isTenantAdmin ? 'ADMIN' : isRegistrar ? 'REGISTRAR' : 'TEACHER');
-    });
+  async function loadData() {
+    try {
+      const meData: any = await getMe();
+      const isAdmin = meData.roles?.includes('TENANT_ADMIN') || meData.roles?.includes('SUPER_ADMIN');
+      setRole(isAdmin ? 'ADMIN' : 'TEACHER');
 
-    // Load roles
-    async function loadRoles() {
       try {
-        const data = await api.get<any[]>('/api/v1/roles');
-        setRoles(data || []);
+        if (isAdmin) {
+          const data = await api.get<any[]>('/api/v1/roles/all');
+          setUsers(data);
+        } else {
+          const data = await api.get<any[]>('/api/v1/roles/me');
+          setUsers(data);
+        }
       } catch (err) {
-        setRoles([]);
-      } finally {
-        setLoading(false);
+        toast({
+          title: 'Error',
+          description: 'Failed to load roles data.',
+          variant: 'destructive',
+        });
       }
+      setLoading(false);
+    } catch (err) {
+      setLoading(false);
     }
+  }
 
-    loadRoles();
-  }, []);
-
-  const filteredRoles = roles.filter((r: Role) => {
-    const matchesSearch = filters.search
-      ? r.name.toLowerCase().includes(filters.search.toLowerCase()) ||
-        r.displayName.toLowerCase().includes(filters.search.toLowerCase())
-      : true;
-    const matchesStatus = filters.status === 'all' || r.status === filters.status;
-
-    return matchesSearch && matchesStatus;
-  });
-
-  // Compute summary stats
-  const totalRoles = filteredRoles.length;
-  const activeCount = filteredRoles.filter(r => r.status === 'active').length;
-  const inactiveCount = filteredRoles.filter(r => r.status === 'inactive').length;
+  useEffect(() => { loadData(); }, []);
 
   return (
-    <div className="bg-neutral-50 dark:bg-neutral-900 min-h-screen">
+    <motion.div className="min-h-screen bg-slate-50">
+      {/* Header */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        exit={{ opacity: 0, y: -20 }}
-        className="reduced-motion:transition-none"
+        transition={{ type: "spring", stiffness: 300, delay: 0.1 }}
+        className="bg-white border-b border-slate-200 px-6 py-4 shadow-sm"
       >
-        <div className="p-4 sm:p-6 lg:p-8">
-          {/* Roles Summary */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-            <Card>
-              <div className="p-4 text-center">
-                <div className="text-3xl font-extrabold text-neutral-900">{totalRoles}</div>
-                <div className="text-sm text-neutral-500">Roles</div>
-              </div>
-            </Card>
-
-            <Card>
-              <div className="p-4 text-center">
-                <div className="text-3xl font-extrabold text-green-600">{activeCount}</div>
-                <div className="text-sm text-neutral-500">Active</div>
-              </div>
-            </Card>
-
-            <Card>
-              <div className="p-4 text-center">
-                <div className="text-3xl font-extrabold text-amber-600">{inactiveCount}</div>
-                <div className="text-sm text-neutral-500">Inactive</div>
-              </div>
-            </Card>
-
-            <Card>
-              <div className="p-4 text-center">
-                <div className="text-3xl font-extrabold text-neutral-500">0</div>
-                <div className="text-sm text-neutral-500">Pending</div>
-              </div>
-            </Card>
+        <div className="flex justify-between items-center">
+          <div>
+            <h1 className="text-2xl font-bold text-slate-900 tracking-tighter">
+              <ShieldCheck className="w-5 h-5 text-emerald-600 mr-2" /> Roles & Permissions
+            </h1>
+            <p className="text-slate-500 text-sm mt-1">
+              {role === 'ADMIN' ? 'Manage user roles and permissions' : 'View your role and permissions'}
+            </p>
           </div>
 
-          {/* Filters */}
-          <Card>
-            <div className="p-4 space-y-3">
-              <h3 className="text-sm font-medium text-neutral-600 uppercase tracking-wider mb-2">
-                Filters
-              </h3>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs text-neutral-500 uppercase tracking-wider mb-1">Search</label>
-                  <input
-                    type="text"
-                    placeholder="Search role name or display name..."
-                    value={filters.search}
-                    onChange={(e) => setFilters({ ...filters, search: e.target.value })}
-                    className={`w-full rounded-lg border border-border dark:border-border-overlay px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-brand-primary/20 transition-colors ${reducedMotion ? 'transition-none' : ''}`}
-                    defaultValue=""
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs text-neutral-500 uppercase tracking-wider mb-1">Status</label>
-                  <select
-                    value={filters.status}
-                    onChange={(e) => setFilters({ ...filters, status: e.target.value } as any)}
-                    className={`w-full rounded-lg border border-border dark:border-border-overlay px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-brand-primary/20 ${reducedMotion ? 'transition-none' : ''}`}
-                  >
-                    <option value="all">All Statuses</option>
-                    <option value="active">Active</option>
-                    <option value="inactive">Inactive</option>
-                  </select>
-                </div>
-              </div>
-            </div>
-          </Card>
-
-          {/* Roles Table */}
-          {loading ? (
-            <Skeleton className="h-64 rounded-md animate-bounce" />
-          ) : filteredRoles.length === 0 ? (
-            <KpiEmptyStateComponent
-              icon="Users"
-              title="No roles found"
-              description="Roles will appear here"
-              actionLabel="Manage Roles"
-            />
-          ) : (
-            <Table>
-              <TableSection.head>
-                <TableHeadCell style="primary">Role</TableHeadCell>
-                <TableHeadCell style="primary">Display Name</TableHeadCell>
-                <TableHeadCell style="primary">Permissions</TableHeadCell>
-                <TableHeadCell style="primary">Status</TableHeadCell>
-                <TableHeadCell style="primary">Created</TableHeadCell>
-              </TableSection.head>
-              <TableSection.body>
-                {filteredRoles.slice(0, 15).map((r: Role, index: number) => (
-                  <TableRowCell key={index} style="primary">
-                    <span className="font-medium text-neutral-700">{r.name}</span>
-                    <span className="text-neutral-500 text-xs">{r.displayName}</span>
-                    <span className="text-neutral-500 text-xs line-clamp-2">{r.permissions.join(', ')}</span>
-                    <span
-                      className={`inline-flex items-center gap-1 px-2 rounded text-xs font-medium ${r.status}`}>{r.status}</span>
-                    <span className="text-neutral-500 text-xs">{new Date(r.createdAt).toLocaleDateString()}</span>
-                  </TableRowCell>
-                ))}
-              </TableSection.body>
-            </Table>
+          {role === 'ADMIN' && (
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              transition={{ type: "spring" }}
+              className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2 rounded-lg text-sm font-medium transition-all duration-300 shadow-lg shadow-indigo-500/20 hover:shadow-indigo-500/40 flex items-center gap-2"
+            >
+              <Loader2 className="w-4 h-4" /> Manage Roles
+            </motion.button>
           )}
+        </div>
+      </motion.div>
 
-          {/* Export & Reports */}
-          {filteredRoles.length > 0 && (
-            <div className="mt-6 flex items-center justify-between text-sm text-neutral-500">
-              <span>Showing {filteredRoles.length} of {roles.length} roles</span>
-              <div className="flex gap-2">
-                <Button variant="ghost" size="sm">Export List</Button>
-                <Button variant="primary" size="sm">Generate Report</Button>
-              </div>
-            </div>
-          )}
+      {/* Main Content */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ type: "spring", stiffness: 300, delay: 0.15 }}
+        className="px-6 py-8 lg:px-12"
+      >
+        {/* Users Table */}
+        <motion.div
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ type: "spring", stiffness: 300, delay: 0.1 }}
+          className="bg-white rounded-3xl border border-slate-200 overflow-hidden shadow-3xl shadow-slate-50/30"
+          style={{ background: 'linear-gradient(135deg, var(--bg), var(--bg-light))' }}
+        >
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ type: "spring", stiffness: 300, delay: 0.1 }}
+            className="border-b border-slate-200"
+          >
+            <table className="w-full text-left">
+              <thead className="bg-slate-50 border-b text-xs font-semibold text-slate-500 uppercase">
+                <tr>
+                  {role === 'ADMIN' && (
+                    <th className="py-4 px-6">Username</th>
+                  )}
+                  <th className="py-4 px-4">Full Name</th>
+                  <th className="py-4 px-4">Email</th>
+                  <th className="py-4 px-4">Role</th>
+                  <th className="py-4 px-4">Status</th>
+                  {role === 'ADMIN' && (
+                    <th className="py-4 px-4 text-right">Actions</th>
+                  )}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 text-sm">
+                {loading ? (
+                  <motion.tr>
+                    <motion.td colSpan={role === 'ADMIN' ? 6 : 4} className="py-8 text-center text-slate-400">
+                      Loading roles data...
+                    </motion.td>
+                  </motion.tr>
+                ) : users.length === 0 ? (
+                  <motion.tr>
+                    <motion.td colSpan={role === 'ADMIN' ? 6 : 4} className="py-8 text-center text-slate-500">
+                      No users found.
+                    </motion.td>
+                  </motion.tr>
+                ) : (
+                  users.map((u) => (
+                    <motion.tr
+                      key={u.id}
+                      initial={{ opacity: 0, y: -10, x: -20 }}
+                      animate={{ opacity: 1, y: 0, x: 0 }}
+                      transition={{ type: "spring", stiffness: 300, delay: Math.random() * 0.1 }}
+                      className="hover:bg-slate-50 transition-colors"
+                    >
+                      {role === 'ADMIN' && (
+                        <motion.td className="py-4 px-4 font-medium text-slate-900">
+                          {u.username}
+                        </motion.td>
+                      )}
+
+                      <motion.td className="py-4 px-4 font-medium text-slate-900">
+                        {u.profile?.firstName} {u.profile?.lastName}
+                      </motion.td>
+
+                      <motion.td className="py-4 px-4">
+                        {u.email}
+                      </motion.td>
+
+                      <motion.td className="py-4 px-4">
+                        <span className={`
+                          px-2 py-1 rounded text-xs font-bold
+                          ${u.role === 'ADMIN' ? 'bg-red-100 text-red-800' : 'bg-indigo-100 text-indigo-800'}
+                        `}>
+                          {u.role}
+                        </span>
+                      </motion.td>
+
+                      {role === 'ADMIN' && (
+                        <motion.td className="py-4 px-4 text-right">
+                          <motion.button
+                            whileHover={{ scale: 1.02 }}
+                            transition={{ type: "spring" }}
+                            className="text-indigo-600 font-semibold text-xs hover:underline transition-colors"
+                          >
+                            Edit
+                          </motion.button>
+                        </motion.td>
+                      )}
+                    </motion.tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </motion.div>
         </motion.div>
-      </div>
-    </div>
+
+        {/* No users state */}
+        {role === 'ADMIN' && loading && (
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ type: "spring", stiffness: 300 }}
+            className="p-8 text-center text-slate-500"
+          >
+            <Loader2 className="w-12 h-12 mx-auto mb-4 opacity-50 animate-spin" />
+            <p>Loading roles data...</p>
+          </motion.div>
+        )}
+      </motion.div>
+    </motion.div>
   );
 }
