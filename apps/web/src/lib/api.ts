@@ -16,7 +16,7 @@ interface RequestOptions extends Omit<RequestInit, 'body'> {
   body?: unknown;
 }
 
-async function request<T>(endpoint: string, options: RequestOptions = {}, retries = 4, delay = 1500): Promise<T> {
+async function request<T>(endpoint: string, options: RequestOptions = {}, retries = 7, delay = 3000): Promise<T> {
   const { body, headers: customHeaders, ...rest } = options;
 
   let token: string | null = null;

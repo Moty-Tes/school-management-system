@@ -21,6 +21,7 @@ export default function LoginPage() {
   const [password, setPassword] = useState('DemoAdmin123!');
   const [tenantCode, setTenantCode] = useState('demo-school');
   const [loading, setLoading] = useState(false);
+  const [loadingText, setLoadingText] = useState('Connecting to School Server...');
   const [error, setError] = useState<string | null>(null);
   const [personas, setPersonas] = useState<any[]>(DEFAULT_PERSONAS);
 
@@ -40,16 +41,25 @@ export default function LoginPage() {
   async function performLogin(loginEmail: string, loginPassword: string) {
     setError(null);
     setLoading(true);
+    setLoadingText('Connecting to School Server...');
+
+    const wakeTimer = setTimeout(() => {
+      setLoadingText('Waking up server on Render (~30s)... Almost ready!');
+    }, 4000);
+
     try {
       await login({ email: loginEmail, password: loginPassword, tenantCode });
+      clearTimeout(wakeTimer);
       router.push('/dashboard');
     } catch (err) {
-      if (err instanceof ApiError && err.status === 502) {
-        setError('Server is waking up on Render. Please click Sign In again in a few seconds.');
+      clearTimeout(wakeTimer);
+      if (err instanceof ApiError && (err.status === 502 || err.status === 503 || err.status === 504)) {
+        setError('Server is finishing waking up on Render. Please click Sign In once more to enter!');
       } else {
         setError(err instanceof ApiError ? err.message : 'Invalid credentials or server unavailable.');
       }
     } finally {
+      clearTimeout(wakeTimer);
       setLoading(false);
     }
   }
@@ -133,8 +143,8 @@ export default function LoginPage() {
             >
               {loading ? (
                 <>
-                  <Loader2 className="w-4 h-4 animate-spin text-slate-900" />
-                  <span>Connecting to School Server...</span>
+                  <Loader2 className="w-4 h-4 animate-spin text-slate-900 shrink-0" />
+                  <span className="truncate">{loadingText}</span>
                 </>
               ) : (
                 <>
