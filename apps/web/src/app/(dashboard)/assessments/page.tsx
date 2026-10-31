@@ -1,331 +1,229 @@
 'use client';
 
-import { useEffect, useState, FormEvent } from 'react';
+import { useEffect, useState } from 'react';
 import { api } from '@/lib/api';
+import { getMe } from '@/lib/auth';
+import Link from 'next/link';
 import { motion } from 'framer-motion';
-import { CalendarPlus, Clipboard, Plus, CheckCircle, AlertCircle } from 'lucide-react';
-import { toast } from 'sonner';
+import {
+  Users, Clipboard, TrendingUp, AlertCircle, FileText,
+  Calendar, CheckCircle2, X, Search, Shield, GraduationCap
+} from 'lucide-react';
+import {
+  Card, KpiEmptyState, Skeleton, Table, TableHeadCell, TableRowCell,
+  EmptyState as KpiEmptyStateComponent
+} from '@/components/ui';
+import { use reducedMotion } from '@/hooks/use-reduced-motion';
 
-interface ClassItem { id: string; name: string; section: string; }
-interface Assessment { id: string; title: string; maxScore: number; date: string; class: ClassItem; _count: { grades: number } }
-interface Student { id: string; firstName: string; lastName: string; admissionNumber: string; score?: number | string; }
+interface Assessment {
+  id: string;
+  name: string;
+  type: 'quiz' | 'test' | 'exam' | 'project';
+  course: string;
+  grade: string;
+  totalStudents: number;
+  studentsCompleted: number;
+  averageScore: number;
+  date: string;
+  maxScore: number;
+}
+
+interface FilterState {
+  search: string;
+  type: 'all' | 'quiz' | 'test' | 'exam' | 'project';
+  course: string;
+}
 
 export default function AssessmentsPage() {
-  const [classes, setClasses] = useState<ClassItem[]>([]);
+  const [role, setRole] = useState<'ADMIN' | 'TEACHER' | 'REGISTRAR'>('ADMIN');
   const [assessments, setAssessments] = useState<Assessment[]>([]);
-  const [selectedClassId, setSelectedClassId] = useState<string>('');
+  const [loading, setLoading] = useState(true);
+  const [filters, setFilters] = useState<FilterState>({ search: '', type: 'all', course: '' });
+  const reducedMotion = use_reducedMotion();
 
-  // Create Modal
-  const [isCreateOpen, setIsCreateOpen] = useState(false);
-  const [formData, setFormData] = useState({ title: '', maxScore: 100, date: new Date().toISOString().split('T')[0], classId: '' });
+  useEffect(() => {
+    getMe().then((me: any) => {
+      const userRoles: string[] = me.roles || [];
+      const isSuperAdmin = userRoles.includes('SUPER_ADMIN');
+      const isTenantAdmin = userRoles.includes('TENANT_ADMIN');
+      const isRegistrar = userRoles.includes('REGISTRAR');
 
-  // Grade Modal
-  const [gradingAssessment, setGradingAssessment] = useState<Assessment | null>(null);
-  const [students, setStudents] = useState<Student[]>([]);
-  const [savingGrades, setSavingGrades] = useState(false);
-
-  async function loadData() {
-    const [classesData, assessmentsData] = await Promise.all([
-      api.get<ClassItem[]>('/api/v1/classes'),
-      api.get<Assessment[]>(`/api/v1/assessments${selectedClassId ? `?classId=${selectedClassId}` : ''}`)
-    ]);
-    setClasses(classesData);
-    setAssessments(assessmentsData);
-    if (classesData.length > 0 && !formData.classId) setFormData(prev => ({ ...prev, classId: classesData[0].id }));
-  }
-
-  useEffect(() => { loadData(); }, [selectedClassId]);
-
-  async function handleCreate(e: FormEvent) {
-    e.preventDefault();
-    await api.post('/api/v1/assessments', formData);
-    toast.success('Assessment created successfully!');
-    setIsCreateOpen(false);
-    loadData();
-  }
-
-  async function openGrading(assessment: Assessment) {
-    setGradingAssessment(assessment);
-    // Fetch students in this class
-    const allStudents = await api.get<Student[]>('/api/v1/students');
-    const classStudents = allStudents.filter((s: any) => s.classId === assessment.class.id);
-
-    // Fetch existing grades
-    const existingGrades = await api.get<{ studentId: string, score: number }[]>(`/api/v1/assessments/${assessment.id}/grades`);
-
-    const merged = classStudents.map(s => {
-      const grade = existingGrades.find(g => g.studentId === s.id);
-      return { ...s, score: grade ? grade.score : '' };
+      setRole(isSuperAdmin || isTenantAdmin ? 'ADMIN' : isRegistrar ? 'REGISTRAR' : 'TEACHER');
     });
-    setStudents(merged);
-  }
 
-  async function handleSaveGrades() {
-    if (!gradingAssessment) return;
-    setSavingGrades(true);
-    try {
-      await api.post('/api/v1/assessments/grades', {
-        assessmentId: gradingAssessment.id,
-        records: students.filter(s => s.score !== '').map(s => ({ studentId: s.id, score: Number(s.score) }))
-      });
-      toast.success('Grades saved successfully!');
-      setGradingAssessment(null);
-      loadData();
-    } catch (err) {
-      toast.error('Failed to save grades. Please try again.');
-    } finally {
-      setSavingGrades(false);
+    // Load assessments
+    async function loadAssessments() {
+      try {
+        const data = await api.get<any[]>('/api/v1/assessments');
+        setAssessments(data || []);
+      } catch (err) {
+        setAssessments([]);
+      } finally {
+        setLoading(false);
+      }
     }
-  }
+
+    loadAssessments();
+  }, []);
+
+  const filteredAssessments = assessments.filter((assessment: Assessment) => {
+    const matchesSearch = filters.search
+      ? assessment.name.toLowerCase().includes(filters.search.toLowerCase()) ||
+        assessment.course.toLowerCase().includes(filters.search.toLowerCase())
+      : true;
+    const matchesType = filters.type === 'all' || assessment.type === filters.type;
+
+    return matchesSearch && matchesType;
+  });
+
+  // Compute summary stats
+  const totalAssessments = filteredAssessments.length;
+  const totalStudentsAssessed = filteredAssessments.reduce((s: number, a: Assessment) => s + a.studentsCompleted, 0);
+  const overallAverage = totalAssessments > 0
+    ? (filteredAssessments.reduce((s: number, a: Assessment) => s + a.averageScore, 0) / totalAssessments).toFixed(1)
+    : '0';
 
   return (
-    <motion.div className="space-y-6">
-      {/* Page Header */}
+    <div className="bg-neutral-50 dark:bg-neutral-900 min-h-screen">
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ type: "spring", stiffness: 300, delay: 0.1 }}
-        className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4"
+        exit={{ opacity: 0, y: -20 }}
+        className="reduced-motion:transition-none"
       >
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900">Assessments & Grades</h1>
-          <p className="text-slate-500 text-sm mt-1">Create exams and enter student scores</p>
-        </div>
+        <div className="p-4 sm:p-6 lg:p-8">
+          {/* Summary Section */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+            <Card>
+              <div className="p-4 text-center">
+                <div className="text-3xl font-extrabold text-neutral-900">{totalAssessments}</div>
+                <div className="text-sm text-neutral-500">Assessments</div>
+              </div>
+            </Card>
 
-        <motion.button
-          onClick={() => setIsCreateOpen(true)}
-          className="bg-primary-600 hover:bg-primary-700 text-white px-5 py-3 rounded-lg text-sm font-medium transition-all duration-300 shadow-lg shadow-primary-500/20 hover:shadow-primary-500/40 flex items-center gap-2"
-        >
-          <Plus className="w-4 h-4" /> New Assessment
-        </motion.button>
-      </motion.div>
+            <Card>
+              <div className="p-4 text-center">
+                <div className="text-3xl font-extrabold text-neutral-700">{totalStudentsAssessed}</div>
+                <div className="text-sm text-neutral-500">Students Assessed</div>
+              </div>
+            </Card>
 
-      {/* Filters */}
-      <motion.div
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ type: "spring", stiffness: 300, delay: 0.15 }}
-        className="bg-white rounded-2xl border border-slate-200 p-6 sm:p-8 shadow-lg shadow-slate-50/30 mb-8"
-      >
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-2">Filter by Class</label>
-            <select
-              value={selectedClassId}
-              onChange={(e) => setSelectedClassId(e.target.value)}
-              className="w-full px-4 py-3 rounded-xl border border-slate-200 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 appearance-none bg-white pl-4 pr-12 cursor-pointer"
-            >
-              <option value="">All Classes</option>
-              {classes.map(c => (
-                <option key={c.id} value={c.id}>{c.name} - {c.section}</option>
-              ))}
-            </select>
+            <Card>
+              <div className="p-4 text-center">
+                <div className="text-3xl font-extrabold text-brand-primary">{overallAverage}</div>
+                <div className="text-sm text-neutral-500">Avg Score</div>
+              </div>
+            </Card>
+
+            <Card>
+              <div className="p-4 text-center">
+                <div className="text-3xl font-extrabold text-neutral-700">0</div>
+                <div className="text-sm text-neutral-500">Max Score</div>
+              </div>
+            </Card>
           </div>
-        </div>
-      </motion.div>
 
-      {/* Assessments Table */}
-      <motion.div className="bg-white rounded-3xl border border-slate-200 overflow-hidden shadow-lg shadow-slate-50/30">
-        <motion.table className="w-full text-left animate-in" style={{ transitionProperty: 'all', transitionDuration: '0.2s' }}>
-          <motion.thead className="bg-slate-50 border-b border-slate-200 text-xs font-semibold text-slate-500 uppercase">
-            <motion.tr>
-              <motion.th className="py-3 px-4">Title</motion.th>
-              <motion.th className="py-3 px-4">Class</motion.th>
-              <motion.th className="py-3 px-4">Date</motion.th>
-              <motion.th className="py-3 px-4">Max Score</motion.th>
-              <motion.th className="py-3 px-4">Graded</motion.th>
-              <motion.th className="py-3 px-4 text-right">Actions</motion.th>
-            </motion.tr>
-          </motion.thead>
-          <motion.tbody className="divide-y divide-slate-100 text-sm">
-            {assessments.map(a => (
-              <motion.tr
-                key={a.id}
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ type: "spring", stiffness: 300, delay: Math.random() * 0.1 }}
-                className="hover:bg-slate-50"
-              >
-                <motion.td className="py-3 px-4 font-medium text-slate-900">{a.title}</motion.td>
-                <motion.td className="py-3 px-4">{a.class.name} - {a.class.section}</motion.td>
-                <motion.td className="py-3 px-4">{new Date(a.date).toLocaleDateString()}</motion.td>
-                <motion.td className="py-3 px-4 font-mono text-primary-600">{a.maxScore}</motion.td>
-                <motion.td className="py-3 px-4 text-emerald-600 font-medium">{a._count.grades} Students</motion.td>
-                <motion.td className="py-3 px-4 text-right">
-                  <motion.button
-                    onClick={() => openGrading(a)}
-                    className="text-primary-600 font-semibold text-xs hover:underline transition-colors"
+          {/* Filters */}
+          <Card>
+            <div className="p-4 space-y-3">
+              <h3 className="text-sm font-medium text-neutral-600 uppercase tracking-wider mb-2">
+                Filters
+              </h3>
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <label className="block text-xs text-neutral-500 uppercase tracking-wider mb-1">Search</label>
+                  <input
+                    type="text"
+                    placeholder="Search assessment name or course..."
+                    value={filters.search}
+                    onChange={(e) => setFilters({ ...filters, search: e.target.value })}
+                    className={`w-full rounded-lg border border-border dark:border-border-overlay px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-brand-primary/20 transition-colors ${reducedMotion ? 'transition-none' : ''}`}
+                    defaultValue=""
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs text-neutral-500 uppercase tracking-wider mb-1">Type</label>
+                  <select
+                    value={filters.type}
+                    onChange={(e) => setFilters({ ...filters, type: e.target.value } as any)}
+                    className={`w-full rounded-lg border border-border dark:border-border-overlay px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-brand-primary/20 ${reducedMotion ? 'transition-none' : ''}`}
                   >
-                    Enter Grades
-                  </motion.button>
-                </motion.td>
-              </motion.tr>
-            ))}
-          </motion.tbody>
-        </motion.table>
-      </motion.div>
+                    <option value="all">All Types</option>
+                    <option value="quiz">Quiz</option>
+                    <option value="test">Test</option>
+                    <option value="exam">Exam</option>
+                    <option value="project">Project</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs text-neutral-500 uppercase tracking-wider mb-1">Course</label>
+                  <select
+                    value={filters.course}
+                    onChange={(e) => setFilters({ ...filters, course: e.target.value } as any)}
+                    className={`w-full rounded-lg border border-border dark:border-border-overlay px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-brand-primary/20 ${reducedMotion ? 'transition-none' : ''}`}
+                  >
+                    <option value="">All Courses</option>
+                    <option value="mathematics">Mathematics</option>
+                    <option value="science">Science</option>
+                    <option value="english">English</option>
+                    <option value="history">History</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+          </Card>
 
-      {/* CREATE MODAL */}
-      {isCreateOpen && (
-        <motion.div
-          className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50"
-          whileHover={{ opacity: 0.9 }}
-        >
-          <motion.div
-            className="bg-white rounded-3xl shadow-3xl w-full max-w-sm p-8 shadow-3xl"
-            initial={{ scale: 0.95, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            transition={{ type: "spring", stiffness: 400, damping: 30 }}
-          >
-            <h2 className="text-2xl font-bold text-slate-900 mb-6 flex items-center gap-3">
-              <svg className="w-5 h-5 text-primary-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m6 4h12m0 0l-4 4m4-4l-4-4m0-6H4"></path>
-              </svg>
-              New Assessment
-            </h2>
+          {/* Assessments Table */}
+          {loading ? (
+            <Skeleton className="h-80 rounded-md animate-bounce" />
+          ) : filteredAssessments.length === 0 ? (
+            <KpiEmptyStateComponent
+              icon="FileText"
+              title="No assessments found"
+              description="Create your first assessment to get started"
+              actionLabel="Create Assessment"
+            />
+          ) : (
+            <Table>
+              <TableSection.head>
+                <TableHeadCell style="primary">Assessment</TableHeadCell>
+                <TableHeadCell style="primary">Type</TableHeadCell>
+                <TableHeadCell style="primary">Course</TableHeadCell>
+                <TableHeadCell style="primary">Students</TableHeadCell>
+                <TableHeadCell style="primary">Average Score</TableHeadCell>
+                <TableHeadCell style="primary">Date</TableHeadCell>
+              </TableSection.head>
+              <TableSection.body>
+                {filteredAssessments.slice(0, 15).map((assessment: Assessment, index: number) => (
+                  <TableRowCell key={index} style="primary">
+                    <span className="font-medium text-neutral-700">{assessment.name}</span>
+                    <span
+                      className={`inline-flex items-center gap-1 px-2 rounded text-xs font-medium ${assessment.type}`}
+                    >
+                      {assessment.type}
+                    </span>
+                    <span className="text-neutral-500 text-xs">{assessment.course}</span>
+                    <span className="font-medium text-neutral-700">{assessment.studentsCompleted}</span>
+                    <span className="text-neutral-500 text-xs">{assessment.averageScore}%</span>
+                    <span className="text-neutral-500 text-xs">{new Date(assessment.date).toLocaleDateString()}</span>
+                  </TableRowCell>
+                ))}
+              </TableSection.body>
+            </Table>
+          )}
 
-            <form onSubmit={handleCreate} className="space-y-5">
-              <motion.div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">Title</label>
-                <input
-                  required
-                  type="text"
-                  value={formData.title}
-                  onChange={(e) => setFormData({...formData, title: e.target.value})}
-                  className="w-full px-4 py-3 rounded-xl border border-slate-200 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all"
-                  placeholder="e.g. Midterm Exam"
-                />
-              </motion.div>
-
-              <motion.div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Class</label>
-                <select
-                  required
-                  value={formData.classId}
-                  onChange={(e) => setFormData({...formData, classId: e.target.value})}
-                  className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 appearance-none bg-white pl-4 pr-12 cursor-pointer"
-                >
-                  {classes.map(c => (
-                    <option key={c.id} value={c.id}>{c.name} - {c.section}</option>
-                  ))}
-                </select>
-              </motion.div>
-
-              <motion.div className="grid grid-cols-2 gap-4">
-                <motion.div>
-                  <label className="block text-sm font-medium mb-1">Max Score</label>
-                  <input
-                    required
-                    type="number"
-                    value={formData.maxScore}
-                    onChange={(e) => setFormData({...formData, maxScore: Number(e.target.value)})}
-                    className="w-full px-4 py-3 rounded-xl border border-slate-200 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all"
-                  />
-                </motion.div>
-                <motion.div>
-                  <label className="block text-sm font-medium mb-1">Date</label>
-                  <input
-                    required
-                    type="date"
-                    value={formData.date}
-                    onChange={(e) => setFormData({...formData, date: e.target.value})}
-                    className="w-full px-4 py-3 rounded-xl border border-slate-200 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all"
-                  />
-                </motion.div>
-              </motion.div>
-
-              <motion.div className="flex justify-end gap-3 pt-6 border-t">
-                <motion.button
-                  type="button"
-                  onClick={() => setIsCreateOpen(false)}
-                  className="px-5 py-3 text-sm font-medium text-slate-600 hover:text-slate-900 transition-all duration-300"
-                >
-                  Cancel
-                </motion.button>
-                <motion.button
-                  type="submit"
-                  className="px-5 py-3 text-sm font-medium bg-primary-600 text-white rounded-xl transition-all"
-                >
-                  Save
-                </motion.button>
-              </motion.div>
-            </form>
-          </motion.div>
+          {/* Export & Analytics */}
+          {filteredAssessments.length > 0 && (
+            <div className="mt-6 flex items-center justify-between text-sm text-neutral-500">
+              <span>Showing {filteredAssessments.length} of {assessments.length} assessments</span>
+              <div className="flex gap-2">
+                <Button variant="ghost" size="sm">Export Data</Button>
+                <Button variant="primary" size="sm">View Analytics</Button>
+              </div>
+            </div>
+          )}
         </motion.div>
-      )}
-
-      {/* GRADING MODAL */}
-      {gradingAssessment && (
-        <motion.div
-          className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50"
-          whileHover={{ opacity: 0.9 }}
-        >
-          <motion.div
-            className="bg-white rounded-3xl shadow-3xl w-full max-w-2xl p-8 shadow-3xl"
-            initial={{ scale: 0.95, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            transition={{ type: "spring", stiffness: 400, damping: 30 }}
-          >
-            <div className="mb-4">
-              <h2 className="text-xl font-bold text-slate-900 flex items-center gap-2">
-                <svg className="w-5 h-5 text-primary-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m6 4h12m0 0l-4 4m4-4l-4-4m0-6H4"></path>
-                </svg>
-                Enter Grades: {gradingAssessment.title}
-              </h2>
-              <p className="text-sm text-slate-500">Max Score: {gradingAssessment.maxScore}</p>
-            </div>
-
-            <div className="overflow-y-auto flex-1 border rounded-lg my-4">
-              <table className="w-full text-left text-sm">
-                <thead className="bg-slate-50 sticky top-0 border-b">
-                  <tr>
-                    <th className="py-2 px-4">Student</th>
-                    <th className="py-2 px-4 w-32 text-right">Score</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y">
-                  {students.map((s, idx) => (
-                    <tr key={s.id}>
-                      <td className="py-2 px-4 font-medium">{s.firstName} {s.lastName}</td>
-                      <td className="py-2 px-4 text-right">
-                        <input
-                          type="number"
-                          min="0"
-                          max={gradingAssessment.maxScore}
-                          value={s.score || ''}
-                          onChange={(e) => {
-                            const newStudents = [...students];
-                            newStudents[idx].score = e.target.value;
-                            setStudents(newStudents);
-                          }}
-                          className="w-24 px-2 py-1 border rounded text-right"
-                        />
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-
-            <div className="flex justify-end gap-3 pt-4 border-t mt-4">
-              <motion.button
-                onClick={() => setGradingAssessment(null)}
-                className="px-5 py-3 text-sm font-medium text-slate-600 hover:text-slate-900 transition-all duration-300"
-              >
-                Cancel
-              </motion.button>
-              <motion.button
-                onClick={handleSaveGrades}
-                disabled={savingGrades}
-                className="px-5 py-3 text-sm font-medium bg-primary-600 text-white rounded-xl transition-all"
-              >
-                {savingGrades ? 'Saving...' : 'Save Grades'}
-              </motion.button>
-            </div>
-          </motion.div>
-        </motion.div>
-      )}
-    </motion.div>
+      </div>
+    </div>
   );
 }

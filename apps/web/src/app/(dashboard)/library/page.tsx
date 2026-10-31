@@ -1,424 +1,231 @@
 'use client';
 
-import { useEffect, useState, FormEvent } from 'react';
-import { motion } from 'framer-motion';
+import { useEffect, useState } from 'react';
 import { api } from '@/lib/api';
-import { sonner } from '@/components/sonner';
+import { getMe } from '@/lib/auth';
+import Link from 'next/link';
+import { motion } from 'framer-motion';
+import {
+  Users, BookOpen, Library, Search,
+  FileText, TrendingUp, CheckCircle2, X, UsersAdd
+} from 'lucide-react';
+import {
+  Card, KpiEmptyState, Skeleton, Table, TableHeadCell, TableRowCell,
+  EmptyState as KpiEmptyStateComponent
+} from '@/components/ui';
+import { use reducedMotion } from '@/hooks/use-reduced-motion';
+
+interface Book {
+  id: string;
+  title: string;
+  author: string;
+  isbn: string;
+  category: 'textbook' | 'reference' | 'fiction' | 'non-fiction' | 'children';
+  availableCopies: number;
+  totalCopies: number;
+  status: 'available' | 'borrowed' | 'lost' | 'maintenance';
+  studentId: string | null;
+  borrowDate: string | null;
+  dueDate: string | null;
+}
+
+interface FilterState {
+  search: string;
+  category: 'all' | 'textbook' | 'reference' | 'fiction' | 'non-fiction' | 'children';
+  status: 'all' | 'available' | 'borrowed' | 'lost' | 'maintenance';
+}
 
 export default function LibraryPage() {
-  const [activeTab, setActiveTab] = useState<'catalog' | 'loans'>('catalog');
-  const [books, setBooks] = useState<any[]>([]);
-  const [loans, setLoans] = useState<any[]>([]);
-  const [students, setStudents] = useState<any[]>([]);
+  const [role, setRole] = useState<'ADMIN' | 'TEACHER' | 'REGISTRAR'>('ADMIN');
+  const [books, setBooks] = useState<Book[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [filters, setFilters] = useState<FilterState>({ search: '', category: 'all', status: 'all' });
+  const reducedMotion = use_reducedMotion();
 
-  // Modals
-  const [isBookModalOpen, setIsBookModalOpen] = useState(false);
-  const [isIssueModalOpen, setIsIssueModalOpen] = useState(false);
+  useEffect(() => {
+    getMe().then((me: any) => {
+      const userRoles: string[] = me.roles || [];
+      const isSuperAdmin = userRoles.includes('SUPER_ADMIN');
+      const isTenantAdmin = userRoles.includes('TENANT_ADMIN');
+      const isRegistrar = userRoles.includes('REGISTRAR');
 
-  // Forms
-  const [bookData, setBookData] = useState({ title: '', author: '', isbn: '', category: 'General', totalCopies: 1 });
-  const [issueData, setIssueData] = useState({ bookId: '', studentId: '', dueDate: '' });
+      setRole(isSuperAdmin || isTenantAdmin ? 'ADMIN' : isRegistrar ? 'REGISTRAR' : 'TEACHER');
+    });
 
-  async function loadData() {
-    const [booksData, loansData, studentsData] = await Promise.all([
-      api.get<any[]>('/api/v1/library/books'),
-      api.get<any[]>('/api/v1/library/loans'),
-      api.get<any[]>('/api/v1/students')
-    ]);
-    setBooks(booksData);
-    setLoans(loansData);
-    setStudents(studentsData);
-
-    if (booksData.length > 0) setIssueData(prev => ({...prev, bookId: booksData[0].id}));
-    if (studentsData.length > 0) setIssueData(prev => ({...prev, studentId: studentsData[0].id}));
-  }
-
-  useEffect(() => { loadData(); }, []);
-
-  async function handleAddBook(e: FormEvent) {
-    e.preventDefault();
-    await api.post('/api/v1/library/books', { ...bookData, totalCopies: Number(bookData.totalCopies) });
-    showSuccessToast('Book added successfully!');
-    setIsBookModalOpen(false);
-    setBookData({ title: '', author: '', isbn: '', category: 'General', totalCopies: 1 });
-    loadData();
-  }
-
-  async function handleIssueBook(e: FormEvent) {
-    e.preventDefault();
-    try {
-      await api.post('/api/v1/library/issue', issueData);
-      showSuccessToast('Book issued successfully!');
-      setIsIssueModalOpen(false);
-      loadData();
-      sonner.success('Book issued successfully!');
-    } catch (err: any) {
-      showErrorToast(err.message || 'No copies available');
-      sonner.error(err.message || 'No copies available');
+    // Load books
+    async function loadBooks() {
+      try {
+        const data = await api.get<any[]>('/api/v1/library');
+        setBooks(data || []);
+      } catch (err) {
+        setBooks([]);
+      } finally {
+        setLoading(false);
+      }
     }
-  }
 
-  async function handleReturnBook(loanId: string) {
-    if (!window.confirm("Mark this book as returned?")) return;
-    try {
-      const res = await api.patch<{ fine: number }>(`/api/v1/library/return/${loanId}`);
-      showSuccessToast(res.fine > 0 ? `Book returned. Late fine applied: ${res.fine} ETB` : 'Book returned on time.');
-      loadData();
-    } catch (err) {
-      showErrorToast('Failed to return book');
-      sonner.error('Failed to return book');
-    }
-  }
+    loadBooks();
+  }, []);
 
-  // --- Toast & Feedback System ---
-  function showSuccessToast(message: string) {
-    const toastContainer = document.createElement('div');
-    toastContainer.className = 'fixed top-4 right-4 z-50 space-y-3';
-    toastContainer.innerHTML = `
-      <div className="bg-emerald-600 text-white px-6 py-4 rounded-3xl shadow-2xl shadow-emerald-500/20 transform translate-y-0 transition-transform duration-500 ease-out">
-        <svg className="w-5 h-5 -mr-2 inline-block" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path></svg>
-        <span>${message}</span>
-      </div>
-    `;
-    document.body.appendChild(toastContainer);
+  const filteredBooks = books.filter((book: Book) => {
+    const matchesSearch = filters.search
+      ? book.title.toLowerCase().includes(filters.search.toLowerCase()) ||
+        book.author.toLowerCase().includes(filters.search.toLowerCase()) ||
+        book.isbn.toLowerCase().includes(filters.search.toLowerCase())
+      : true;
+    const matchesCategory = filters.category === 'all' || book.category === filters.category;
+    const matchesStatus = filters.status === 'all' || book.status === filters.status;
 
-    setTimeout(() => {
-      toastContainer.querySelector('div')!.className = 'bg-emerald-600 text-white px-6 py-4 rounded-3xl shadow-2xl shadow-emerald-500/20 transform translate-y-0 transition-transform duration-500 ease-out';
-    }, 10);
+    return matchesSearch && matchesCategory && matchesStatus;
+  });
 
-    setTimeout(() => {
-      toastContainer.style.transform = 'translateY(-100%)';
-      toastContainer.style.opacity = '0';
-      setTimeout(() => toastContainer.remove(), 300);
-    }, 3000);
-  }
-
-  function showErrorToast(message: string) {
-    const toastContainer = document.createElement('div');
-    toastContainer.className = 'fixed top-4 right-4 z-50 space-y-3';
-    toastContainer.innerHTML = `
-      <div className="bg-red-600 text-white px-6 py-4 rounded-3xl shadow-2xl shadow-red-500/20 transform translate-y-0 transition-transform duration-500 ease-out">
-        <svg className="w-5 h-5 -mr-2 inline-block" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116 21H8a2 2 0 01-2-1.858L5 7"></path></svg>
-        <span>${message}</span>
-      </div>
-    `;
-    document.body.appendChild(toastContainer);
-
-    setTimeout(() => {
-      toastContainer.style.transform = 'translateY(-100%)';
-      toastContainer.style.opacity = '0';
-      setTimeout(() => toastContainer.remove(), 300);
-    }, 3000);
-  }
+  // Compute summary stats
+  const totalBooks = filteredBooks.length;
+  const availableCount = filteredBooks.filter(b => b.status === 'available').length;
+  const borrowedCount = filteredBooks.filter(b => b.status === 'borrowed').length;
 
   return (
-    <motion.div className="space-y-6">
-      {/* Header */}
+    <div className="bg-neutral-50 dark:bg-neutral-900 min-h-screen">
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ type: "spring", stiffness: 300, delay: 0.1 }}
-        className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4"
+        exit={{ opacity: 0, y: -20 }}
+        className="reduced-motion:transition-none"
       >
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900">Library</h1>
-          <p className="text-slate-500 text-sm mt-1">Manage books and student loans</p>
-        </div>
+        <div className="p-4 sm:p-6 lg:p-8">
+          {/* Library Summary */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+            <Card>
+              <div className="p-4 text-center">
+                <div className="text-3xl font-extrabold text-neutral-900">{totalBooks}</div>
+                <div className="text-sm text-neutral-500">Books</div>
+              </div>
+            </Card>
 
-        <motion.button
-          onClick={() => setActiveTab('catalog') ? setIsBookModalOpen(true) : setIsIssueModalOpen(true)}
-          className="bg-primary-600 hover:bg-primary-700 text-white px-5 py-3 rounded-lg text-sm font-medium transition-all duration-300 shadow-lg shadow-primary-500/20 hover:shadow-primary-500/40 flex items-center gap-2"
-        >
-          {activeTab === 'catalog' ? '+ Add Book' : '📖 Issue Book'}
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m6 4h12m0 0l-4 4m4-4l-4-4m0-6H4"></path>
-          </svg>
-        </motion.button>
-      </motion.div>
+            <Card>
+              <div className="p-4 text-center">
+                <div className="text-3xl font-extrabold text-green-600">{availableCount}</div>
+                <div className="text-sm text-neutral-500">Available</div>
+              </div>
+            </Card>
 
-      {/* Tabs */}
-      <motion.div className="flex gap-4 border-b">
-        <motion.button
-          onClick={() => setActiveTab('catalog')}
-          className={`pb-2 px-2 text-sm font-medium ${
-            activeTab === 'catalog'
-              ? 'border-b-2 border-primary-600 text-primary-600'
-              : 'text-slate-500'
-          } transition-colors`}
-        >
-          Book Catalog
-        </motion.button>
-        <motion.button
-          onClick={() => setActiveTab('loans')}
-          className={`pb-2 px-2 text-sm font-medium ${
-            activeTab === 'loans'
-              ? 'border-b-2 border-primary-600 text-primary-600'
-              : 'text-slate-500'
-          } transition-colors`}
-        >
-          Active Loans
-        </motion.button>
-      </motion.div>
+            <Card>
+              <div className="p-4 text-center">
+                <div className="text-3xl font-extrabold text-amber-600">{borrowedCount}</div>
+                <div className="text-sm text-neutral-500">Borrowed</div>
+              </div>
+            </Card>
 
-      {/* CATALOG TAB */}
-      {activeTab === 'catalog' && (
-        <motion.div className="bg-white rounded-3xl border border-slate-200 overflow-hidden shadow-lg shadow-slate-50/30">
-          <motion.div className="animate-in" style={{ transitionProperty: 'all', transitionDuration: '0.2s' }}>
-            <motion.table className="w-full text-left">
-              <motion.thead className="bg-slate-50 border-b border-slate-200 text-xs font-semibold text-slate-500 uppercase">
-                <motion.tr>
-                  <motion.th className="py-3 px-4">Title</motion.th>
-                  <motion.th className="py-3 px-4">Author</motion.th>
-                  <motion.th className="py-3 px-4">Category</motion.th>
-                  <motion.th className="py-3 px-4">Available</motion.th>
-                  <motion.th className="py-3 px-4 text-right">Actions</motion.th>
-                </motion.tr>
-              </motion.thead>
-              <motion.tbody className="divide-y divide-slate-100 text-sm">
-                {books.map(b => (
-                  <motion.tr
-                    key={b.id}
-                    initial={{ opacity: 0, x: -20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ type: "spring", stiffness: 300, delay: Math.random() * 0.1 }}
-                    className="hover:bg-slate-50"
-                  >
-                    <motion.td className="py-3 px-4 font-medium text-slate-900">{b.title}</motion.td>
-                    <motion.td className="py-3 px-4">{b.author}</motion.td>
-                    <motion.td className="py-3 px-4"><span className="bg-slate-100 text-slate-600 px-2 py-1 rounded text-xs">{b.category}</span></motion.td>
-                    <motion.td className="py-3 px-4 font-bold text-emerald-600">{b.availableCopies} / {b.totalCopies}</motion.td>
-                    <motion.td className="py-3 px-4 text-right">
-                      <motion.button
-                        onClick={() => { setIssueData({ ...issueData, bookId: b.id }); setIsIssueModalOpen(true); }}
-                        className="text-primary-600 font-semibold text-xs hover:underline transition-colors"
-                      >
-                        Issue
-                      </motion.button>
-                    </motion.td>
-                  </motion.tr>
-                ))}
-              </motion.tbody>
-            </motion.table>
-          </motion.div>
-        </motion.div>
-      )}
+            <Card>
+              <div className="p-4 text-center">
+                <div className="text-3xl font-extrabold text-neutral-500">0</div>
+                <div className="text-sm text-neutral-500">Maintenance</div>
+              </div>
+            </Card>
+          </div>
 
-      {/* LOANS TAB */}
-      {activeTab === 'loans' && (
-        <motion.div className="bg-white rounded-3xl border border-slate-200 overflow-hidden shadow-lg shadow-slate-50/30">
-          <motion.div className="animate-in" style={{ transitionProperty: 'all', transitionDuration: '0.2s' }}>
-            <motion.table className="w-full text-left">
-              <motion.thead className="bg-slate-50 border-b border-slate-200 text-xs font-semibold text-slate-500 uppercase">
-                <motion.tr>
-                  <motion.th className="py-3 px-4">Book</motion.th>
-                  <motion.th className="py-3 px-4">Student</motion.th>
-                  <motion.th className="py-3 px-4">Due Date</motion.th>
-                  <motion.th className="py-3 px-4 text-right">Actions</motion.th>
-                </motion.tr>
-              </motion.thead>
-              <motion.tbody className="divide-y divide-slate-100 text-sm">
-                {loans.map(l => {
-                  const isOverdue = new Date(l.dueDate) < new Date();
-                  return (
-                    <motion.tr
-                      key={l.id}
-                      initial={{ opacity: 0, y: -20 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ type: "spring", stiffness: 300, delay: Math.random() * 0.1 }}
-                      className="hover:bg-slate-50"
-                    >
-                      <motion.td className="py-3 px-4 font-medium text-slate-900">{l.book.title}</motion.td>
-                      <motion.td className="py-3 px-4">{l.student.firstName} {l.student.lastName}</motion.td>
-                      <motion.td className="py-3 px-4 font-mono">
-                        <span className={isOverdue ? 'text-red-600 font-bold' : 'text-slate-600'}>
-                          {new Date(l.dueDate).toLocaleDateString()}
-                        </span>
-                      </motion.td>
-                      <motion.td className="py-3 px-4 text-right">
-                        <motion.button
-                          onClick={() => handleReturnBook(l.id)}
-                          className="bg-slate-900 text-white px-4 py-2 rounded text-xs font-semibold hover:bg-slate-800 transition-colors"
-                        >
-                          Return
-                        </motion.button>
-                      </motion.td>
-                    </motion.tr>
-                  )
-                })}
-              </motion.tbody>
-            </motion.table>
-          </motion.div>
-        </motion.div>
-      )}
-
-      {/* ADD BOOK MODAL */}
-      {isBookModalOpen && (
-        <motion.div
-          className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50"
-          whileHover={{ opacity: 0.9 }}
-        >
-          <motion.div
-            className="bg-white rounded-3xl shadow-3xl w-full max-w-sm p-8 shadow-3xl"
-            initial={{ scale: 0.95, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            transition={{ type: "spring", stiffness: 400, damping: 30 }}
-          >
-            <h2 className="text-2xl font-bold text-slate-900 mb-6 flex items-center gap-3">
-              <svg className="w-5 h-5 text-primary-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m6 4h12m0 0l-4 4m4-4l-4-4m0-6H4"></path>
-              </svg>
-              Add New Book
-            </h2>
-
-            <form onSubmit={handleAddBook} className="space-y-5">
-              <motion.div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">Title</label>
-                <input
-                  required
-                  type="text"
-                  value={bookData.title}
-                  onChange={(e) => setBookData({...bookData, title: e.target.value})}
-                  className="w-full px-4 py-3 rounded-xl border border-slate-200 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all"
-                  placeholder="The Great Gatsby"
-                />
-              </motion.div>
-
-              <motion.div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">Author</label>
-                <input
-                  required
-                  type="text"
-                  value={bookData.author}
-                  onChange={(e) => setBookData({...bookData, author: e.target.value})}
-                  className="w-full px-4 py-3 rounded-xl border border-slate-200 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all"
-                  placeholder="F. Scott Fitzgerald"
-                />
-              </motion.div>
-
-              <motion.div className="grid grid-cols-2 gap-4">
-                <motion.div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Category</label>
+          {/* Filters */}
+          <Card>
+            <div className="p-4 space-y-3">
+              <h3 className="text-sm font-medium text-neutral-600 uppercase tracking-wider mb-2">
+                Filters
+              </h3>
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <label className="block text-xs text-neutral-500 uppercase tracking-wider mb-1">Search</label>
                   <input
-                    required
                     type="text"
-                    value={bookData.category}
-                    onChange={(e) => setBookData({...bookData, category: e.target.value})}
-                    className="w-full px-4 py-3 rounded-xl border border-slate-200 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all"
+                    placeholder="Search title, author, or ISBN..."
+                    value={filters.search}
+                    onChange={(e) => setFilters({ ...filters, search: e.target.value })}
+                    className={`w-full rounded-lg border border-border dark:border-border-overlay px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-brand-primary/20 transition-colors ${reducedMotion ? 'transition-none' : ''}`}
+                    defaultValue=""
                   />
-                </motion.div>
-                <motion.div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Total Copies</label>
-                  <input
-                    required
-                    type="number"
-                    min="1"
-                    value={bookData.totalCopies}
-                    onChange={(e) => setBookData({...bookData, totalCopies: Number(e.target.value)})}
-                    className="w-full px-4 py-3 rounded-xl border border-slate-200 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all"
-                  />
-                </motion.div>
-              </motion.div>
+                </div>
+                <div>
+                  <label className="block text-xs text-neutral-500 uppercase tracking-wider mb-1">Category</label>
+                  <select
+                    value={filters.category}
+                    onChange={(e) => setFilters({ ...filters, category: e.target.value } as any)}
+                    className={`w-full rounded-lg border border-border dark:border-border-overlay px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-brand-primary/20 ${reducedMotion ? 'transition-none' : ''}`}
+                  >
+                    <option value="all">All Categories</option>
+                    <option value="textbook">Textbook</option>
+                    <option value="reference">Reference</option>
+                    <option value="fiction">Fiction</option>
+                    <option value="non-fiction">Non-Fiction</option>
+                    <option value="children">Children</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs text-neutral-500 uppercase tracking-wider mb-1">Status</label>
+                  <select
+                    value={filters.status}
+                    onChange={(e) => setFilters({ ...filters, status: e.target.value } as any)}
+                    className={`w-full rounded-lg border border-border dark:border-border-overlay px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-brand-primary/20 ${reducedMotion ? 'transition-none' : ''}`}
+                  >
+                    <option value="all">All Statuses</option>
+                    <option value="available">Available</option>
+                    <option value="borrowed">Borrowed</option>
+                    <option value="lost">Lost</option>
+                    <option value="maintenance">Maintenance</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+          </Card>
 
-              <motion.div className="flex justify-end gap-3 pt-6 border-t">
-                <motion.button
-                  type="button"
-                  onClick={() => setIsBookModalOpen(false)}
-                  className="px-5 py-3 text-sm font-medium text-slate-600 hover:text-slate-900 transition-all duration-300"
-                >
-                  Cancel
-                </motion.button>
-                <motion.button
-                  type="submit"
-                  className="px-5 py-3 text-sm font-medium bg-primary-600 text-white rounded-xl transition-all"
-                >
-                  Add Book
-                </motion.button>
-              </motion.div>
-            </form>
-          </motion.div>
+          {/* Books Table */}
+          {loading ? (
+            <Skeleton className="h-72 rounded-md animate-bounce" />
+          ) : filteredBooks.length === 0 ? (
+            <KpiEmptyStateComponent
+              icon="BookOpen"
+              title="No books found"
+              description="Add books to the library to get started"
+              actionLabel="Add Book"
+            />
+          ) : (
+            <Table>
+              <TableSection.head>
+                <TableHeadCell style="primary">Title</TableHeadCell>
+                <TableHeadCell style="primary">Author</TableHeadCell>
+                <TableHeadCell style="primary">ISBN</TableHeadCell>
+                <TableHeadCell style="primary">Category</TableHeadCell>
+                <TableHeadCell style="primary">Status</TableHeadCell>
+                <TableHeadCell style="primary">Available</TableHeadCell>
+              </TableSection.head>
+              <TableSection.body>
+                {filteredBooks.slice(0, 15).map((book: Book, index: number) => (
+                  <TableRowCell key={index} style="primary">
+                    <span className="font-medium text-neutral-700">{book.title}</span>
+                    <span className="text-neutral-500 text-xs">{book.author}</span>
+                    <span className="text-neutral-500 text-xs">{book.isbn}</span>
+                    <span className="text-neutral-500 text-xs">{book.category}</span>
+                    <span
+                      className={`inline-flex items-center gap-1 px-2 rounded text-xs font-medium ${book.status}`}
+                    >
+                      {book.status}
+                    </span>
+                    <span className="text-neutral-500 text-xs">{book.availableCopies}/{book.totalCopies}</span>
+                  </TableRowCell>
+                ))}
+              </TableSection.body>
+            </Table>
+          )}
+
+          {/* Export & Reports */}
+          {filteredBooks.length > 0 && (
+            <div className="mt-6 flex items-center justify-between text-sm text-neutral-500">
+              <span>Showing {filteredBooks.length} of {books.length} books</span>
+              <div className="flex gap-2">
+                <Button variant="ghost" size="sm">Export Catalog</Button>
+                <Button variant="primary" size="sm">Generate Report</Button>
+              </div>
+            </div>
+          )}
         </motion.div>
-      )}
-
-      {/* ISSUE BOOK MODAL */}
-      {isIssueModalOpen && (
-        <motion.div
-          className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50"
-          whileHover={{ opacity: 0.9 }}
-        >
-          <motion.div
-            className="bg-white rounded-3xl shadow-3xl w-full max-w-sm p-8 shadow-3xl"
-            initial={{ scale: 0.95, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            transition={{ type: "spring", stiffness: 400, damping: 30 }}
-          >
-            <h2 className="text-2xl font-bold text-slate-900 mb-6 flex items-center gap-3">
-              <svg className="w-5 h-5 text-primary-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m6 4h12m0 0l-4 4m4-4l-4-4m0-6H4"></path>
-              </svg>
-              Issue Book
-            </h2>
-
-            <form onSubmit={handleIssueBook} className="space-y-5">
-              <motion.div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Book</label>
-                <select
-                  value={issueData.bookId}
-                  onChange={(e) => setIssueData({...issueData, bookId: e.target.value})}
-                  className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 appearance-none bg-white pl-4 pr-12 cursor-pointer"
-                >
-                  {books.filter(b => b.availableCopies > 0).map(b => (
-                    <option key={b.id} value={b.id}>
-                      {b.title} ({b.availableCopies} left)
-                    </option>
-                  ))}
-                </select>
-              </motion.div>
-
-              <motion.div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Student</label>
-                <select
-                  value={issueData.studentId}
-                  onChange={(e) => setIssueData({...issueData, studentId: e.target.value})}
-                  className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 appearance-none bg-white pl-4 pr-12 cursor-pointer"
-                >
-                  {students.map(s => (
-                    <option key={s.id} value={s.id}>
-                      {s.firstName} {s.lastName}
-                    </option>
-                  ))}
-                </select>
-              </motion.div>
-
-              <motion.div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Due Date</label>
-                <input
-                  required
-                  type="date"
-                  value={issueData.dueDate}
-                  onChange={(e) => setIssueData({...issueData, dueDate: e.target.value})}
-                  className="w-full px-4 py-3 rounded-xl border border-slate-200 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all"
-                />
-              </motion.div>
-
-              <motion.div className="flex justify-end gap-3 pt-6 border-t">
-                <motion.button
-                  type="button"
-                  onClick={() => setIsIssueModalOpen(false)}
-                  className="px-5 py-3 text-sm font-medium text-slate-600 hover:text-slate-900 transition-all duration-300"
-                >
-                  Cancel
-                </motion.button>
-                <motion.button
-                  type="submit"
-                  className="px-5 py-3 text-sm font-medium bg-primary-600 text-white rounded-xl transition-all"
-                >
-                  Issue Book
-                </motion.button>
-              </motion.div>
-            </form>
-          </motion.div>
-        </motion.div>
-      )}
-    </motion.div>
+      </div>
+    </div>
   );
 }

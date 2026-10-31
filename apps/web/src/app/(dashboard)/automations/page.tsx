@@ -1,83 +1,225 @@
 'use client';
 
+import { useEffect, useState } from 'react';
+import { api } from '@/lib/api';
+import { getMe } from '@/lib/auth';
+import Link from 'next/link';
+import { motion } from 'framer-motion';
+import {
+  Zap, Search,
+  CheckCircle2, X, UsersAdd, Clock
+} from 'lucide-react';
+import {
+  Card, KpiEmptyState, Skeleton, Table, TableHeadCell, TableRowCell,
+  EmptyState as KpiEmptyStateComponent
+} from '@/components/ui';
+import { use reducedMotion } from '@/hooks/use-reduced-motion';
+
+interface Automation {
+  id: string;
+  name: string;
+  type: 'attendance-notification' | 'grade-release' | 'fee-reminder' | 'absence-alert' | 'schedule-change' | 'general';
+  status: 'active' | 'inactive' | 'paused';
+  trigger: string;
+  schedule: string;
+  lastRun: string | null;
+  nextRun: string;
+  successCount: number;
+  failureCount: number;
+}
+
+interface FilterState {
+  search: string;
+  type: 'all' | 'attendance-notification' | 'grade-release' | 'fee-reminder' | 'absence-alert' | 'schedule-change' | 'general';
+  status: 'all' | 'active' | 'inactive' | 'paused';
+}
+
 export default function AutomationsPage() {
-  const automations = [
-    {
-      title: 'Daily Absence Alerts',
-      description: 'Pushes a real-time notification to parents if their child is marked absent.',
-      time: 'Every day at 10:00 AM',
-      status: 'ACTIVE',
-      icon: '⚠️',
-      color: 'bg-amber-50 text-amber-700 border-amber-200'
-    },
-    {
-      title: 'Fee Due Reminders',
-      description: 'Scans unpaid invoices and alerts parents 3 days before the due date.',
-      time: 'Every day at 8:00 AM',
-      status: 'ACTIVE',
-      icon: '💰',
-      color: 'bg-emerald-50 text-emerald-700 border-emerald-200'
-    },
-    {
-      title: 'Contract Expiry Alerts',
-      description: 'Notifies Admins 30 days before a teacher contract expires.',
-      time: 'Every day at 9:00 AM',
-      status: 'ACTIVE',
-      icon: '⏳',
-      color: 'bg-red-50 text-red-700 border-red-200'
-    },
-    {
-      title: 'Student Birthdays',
-      description: 'Sends a warm birthday wish to parents and students on their special day.',
-      time: 'Every day at 7:00 AM',
-      status: 'ACTIVE',
-      icon: '🎂',
-      color: 'bg-purple-50 text-purple-700 border-purple-200'
+  const [role, setRole] = useState<'ADMIN' | 'TEACHER' | 'REGISTRAR'>('ADMIN');
+  const [automations, setAutomations] = useState<Automation[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [filters, setFilters] = useState<FilterState>({ search: '', type: 'all', status: 'all' });
+  const reducedMotion = use_reducedMotion();
+
+  useEffect(() => {
+    getMe().then((me: any) => {
+      const userRoles: string[] = me.roles || [];
+      const isSuperAdmin = userRoles.includes('SUPER_ADMIN');
+      const isTenantAdmin = userRoles.includes('TENANT_ADMIN');
+      const isRegistrar = userRoles.includes('REGISTRAR');
+
+      setRole(isSuperAdmin || isTenantAdmin ? 'ADMIN' : isRegistrar ? 'REGISTRAR' : 'TEACHER');
+    });
+
+    // Load automations
+    async function loadAutomations() {
+      try {
+        const data = await api.get<any[]>('/api/v1/automations');
+        setAutomations(data || []);
+      } catch (err) {
+        setAutomations([]);
+      } finally {
+        setLoading(false);
+      }
     }
-  ];
+
+    loadAutomations();
+  }, []);
+
+  const filteredAutomations = automations.filter((aut: Automation) => {
+    const matchesSearch = filters.search
+      ? aut.name.toLowerCase().includes(filters.search.toLowerCase()) ||
+        aut.type.toLowerCase().includes(filters.search.toLowerCase())
+      : true;
+    const matchesType = filters.type === 'all' || aut.type === filters.type;
+    const matchesStatus = filters.status === 'all' || aut.status === filters.status;
+
+    return matchesSearch && matchesType && matchesStatus;
+  });
+
+  // Compute summary stats
+  const totalAutomations = filteredAutomations.length;
+  const activeCount = filteredAutomations.filter(a => a.status === 'active').length;
+  const pausedCount = filteredAutomations.filter(a => a.status === 'paused').length;
 
   return (
-    <div className="max-w-5xl mx-auto space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-slate-900">Automation Hub</h1>
-        <p className="text-slate-500 text-sm mt-1">Your background workers running silently on the server</p>
-      </div>
+    <div className="bg-neutral-50 dark:bg-neutral-900 min-h-screen">
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, y: -20 }}
+        className="reduced-motion:transition-none"
+      >
+        <div className="p-4 sm:p-6 lg:p-8">
+          {/* Automations Summary */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+            <Card>
+              <div className="p-4 text-center">
+                <div className="text-3xl font-extrabold text-neutral-900">{totalAutomations}</div>
+                <div className="text-sm text-neutral-500">Automations</div>
+              </div>
+            </Card>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {automations.map((auto, i) => (
-          <div key={i} className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden flex flex-col">
-            <div className={`p-4 border-b ${auto.color} flex items-center gap-3`}>
-              <div className="text-2xl">{auto.icon}</div>
-              <div>
-                <h3 className="font-bold">{auto.title}</h3>
-                <p className="text-xs font-semibold opacity-80">{auto.time}</p>
+            <Card>
+              <div className="p-4 text-center">
+                <div className="text-3xl font-extrabold text-green-600">{activeCount}</div>
+                <div className="text-sm text-neutral-500">Active</div>
               </div>
-            </div>
-            <div className="p-6 flex-1 flex flex-col justify-between">
-              <p className="text-sm text-slate-600 mb-6">{auto.description}</p>
-              <div className="flex justify-between items-center border-t pt-4">
-                <span className="flex items-center gap-2 text-xs font-bold text-emerald-600">
-                  <span className="relative flex h-3 w-3">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                    <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
-                  </span>
-                  {auto.status}
-                </span>
-                <span className="text-xs text-slate-400 font-mono">node-cron</span>
+            </Card>
+
+            <Card>
+              <div className="p-4 text-center">
+                <div className="text-3xl font-extrabold text-amber-600">{pausedCount}</div>
+                <div className="text-sm text-neutral-500">Paused</div>
               </div>
-            </div>
+            </Card>
+
+            <Card>
+              <div className="p-4 text-center">
+                <div className="text-3xl font-extrabold text-neutral-500">0</div>
+                <div className="text-sm text-neutral-500">Inactive</div>
+              </div>
+            </Card>
           </div>
-        ))}
-      </div>
 
-      <div className="bg-slate-900 rounded-2xl p-6 text-white shadow-lg mt-8">
-        <h3 className="text-lg font-bold mb-2 flex items-center gap-2">
-          <svg className="w-5 h-5 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
-          Enterprise Background Engine
-        </h3>
-        <p className="text-sm text-slate-300 leading-relaxed">
-          These tasks are executed via <strong>Cron Jobs</strong>. They run even when you are logged out. This saves your administrators hours of manual messaging and ensures no parent is left uninformed.
-        </p>
+          {/* Filters */}
+          <Card>
+            <div className="p-4 space-y-3">
+              <h3 className="text-sm font-medium text-neutral-600 uppercase tracking-wider mb-2">
+                Filters
+              </h3>
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <label className="block text-xs text-neutral-500 uppercase tracking-wider mb-1">Search</label>
+                  <input
+                    type="text"
+                    placeholder="Search automation name or type..."
+                    value={filters.search}
+                    onChange={(e) => setFilters({ ...filters, search: e.target.value })}
+                    className={`w-full rounded-lg border border-border dark:border-border-overlay px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-brand-primary/20 transition-colors ${reducedMotion ? 'transition-none' : ''}`}
+                    defaultValue=""
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs text-neutral-500 uppercase tracking-wider mb-1">Type</label>
+                  <select
+                    value={filters.type}
+                    onChange={(e) => setFilters({ ...filters, type: e.target.value } as any)}
+                    className={`w-full rounded-lg border border-border dark:border-border-overlay px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-brand-primary/20 ${reducedMotion ? 'transition-none' : ''}`}
+                  >
+                    <option value="all">All Types</option>
+                    <option value="attendance-notification">Attendance Notification</option>
+                    <option value="grade-release">Grade Release</option>
+                    <option value="fee-reminder">Fee Reminder</option>
+                    <option value="absence-alert">Absence Alert</option>
+                    <option value="schedule-change">Schedule Change</option>
+                    <option value="general">General</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs text-neutral-500 uppercase tracking-wider mb-1">Status</label>
+                  <select
+                    value={filters.status}
+                    onChange={(e) => setFilters({ ...filters, status: e.target.value } as any)}
+                    className={`w-full rounded-lg border border-border dark:border-border-overlay px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-brand-primary/20 ${reducedMotion ? 'transition-none' : ''}`}
+                  >
+                    <option value="all">All Statuses</option>
+                    <option value="active">Active</option>
+                    <option value="inactive">Inactive</option>
+                    <option value="paused">Paused</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+          </Card>
+
+          {/* Automations Table */}
+          {loading ? (
+            <Skeleton className="h-64 rounded-md animate-bounce" />
+          ) : filteredAutomations.length === 0 ? (
+            <KpiEmptyStateComponent
+              icon="Zap"
+              title="No automations found"
+              description="Set up automations to get started"
+              actionLabel="Create Automation"
+            />
+          ) : (
+            <Table>
+              <TableSection.head>
+                <TableHeadCell style="primary">Name</TableHeadCell>
+                <TableHeadCell style="primary">Type</TableHeadCell>
+                <TableHeadCell style="primary">Status</TableHeadCell>
+                <TableHeadCell style="primary">Trigger</TableHeadCell>
+                <TableHeadCell style="primary">Schedule</TableHeadCell>
+                <TableHeadCell style="primary">Success/Failure</TableHeadCell>
+              </TableSection.head>
+              <TableSection.body>
+                {filteredAutomations.slice(0, 15).map((aut: Automation, index: number) => (
+                  <TableRowCell key={index} style="primary">
+                    <span className="font-medium text-neutral-700">{aut.name}</span>
+                    <span className="text-neutral-500 text-xs">{aut.type}</span>
+                    <span
+                      className={`inline-flex items-center gap-1 px-2 rounded text-xs font-medium ${aut.status}`}>{aut.status}</span>
+                    <span className="text-neutral-500 text-xs">{aut.trigger}</span>
+                    <span className="text-neutral-500 text-xs">{aut.schedule}</span>
+                    <span className="text-neutral-500 text-xs">{aut.successCount}/{aut.failureCount}</span>
+                  </TableRowCell>
+                ))}
+              </TableSection.body>
+            </Table>
+          )}
+
+          {/* Export & Reports */}
+          {filteredAutomations.length > 0 && (
+            <div className="mt-6 flex items-center justify-between text-sm text-neutral-500">
+              <span>Showing {filteredAutomations.length} of {automations.length} automations</span>
+              <div className="flex gap-2">
+                <Button variant="ghost" size="sm">Export List</Button>
+                <Button variant="primary" size="sm">Generate Report</Button>
+              </div>
+            </div>
+          )}
+        </motion.div>
       </div>
     </div>
   );

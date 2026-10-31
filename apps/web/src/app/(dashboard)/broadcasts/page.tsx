@@ -1,132 +1,224 @@
 'use client';
 
-import { useEffect, useState, FormEvent } from 'react';
+import { useEffect, useState } from 'react';
 import { api } from '@/lib/api';
+import { getMe } from '@/lib/auth';
+import Link from 'next/link';
+import { motion } from 'framer-motion';
+import {
+  Broadcast, Search,
+  CheckCircle2, X, UsersAdd, Clock
+} from 'lucide-react';
+import {
+  Card, KpiEmptyState, Skeleton, Table, TableHeadCell, TableRowCell,
+  EmptyState as KpiEmptyStateComponent
+} from '@/components/ui';
+import { use reducedMotion } from '@/hooks/use-reduced-motion';
+
+interface Broadcast {
+  id: string;
+  title: string;
+  content: string;
+  category: 'system' | 'academic' | 'event' | 'urgent' | 'general';
+  targetAudience: 'all' | 'students' | 'parents' | 'teachers' | 'staff';
+  createdAt: string;
+  expiryDate: string | null;
+  status: 'draft' | 'scheduled' | 'live' | 'archived';
+  views: number;
+}
+
+interface FilterState {
+  search: string;
+  category: 'all' | 'system' | 'academic' | 'event' | 'urgent' | 'general';
+  status: 'all' | 'draft' | 'scheduled' | 'live' | 'archived';
+}
 
 export default function BroadcastsPage() {
-  const [broadcasts, setBroadcasts] = useState<any[]>([]);
-  const [isSending, setIsSending] = useState(false);
-  const [message, setMessage] = useState('');
+  const [role, setRole] = useState<'ADMIN' | 'TEACHER' | 'REGISTRAR'>('ADMIN');
+  const [broadcasts, setBroadcasts] = useState<Broadcast[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [filters, setFilters] = useState<FilterState>({ search: '', category: 'all', status: 'all' });
+  const reducedMotion = use_reducedMotion();
 
-  const [formData, setFormData] = useState({
-    title: '',
-    content: '',
-    targetGroup: 'ALL',
-    channel: 'SMS',
+  useEffect(() => {
+    getMe().then((me: any) => {
+      const userRoles: string[] = me.roles || [];
+      const isSuperAdmin = userRoles.includes('SUPER_ADMIN');
+      const isTenantAdmin = userRoles.includes('TENANT_ADMIN');
+      const isRegistrar = userRoles.includes('REGISTRAR');
+
+      setRole(isSuperAdmin || isTenantAdmin ? 'ADMIN' : isRegistrar ? 'REGISTRAR' : 'TEACHER');
+    });
+
+    // Load broadcasts
+    async function loadBroadcasts() {
+      try {
+        const data = await api.get<any[]>('/api/v1/broadcasts');
+        setBroadcasts(data || []);
+      } catch (err) {
+        setBroadcasts([]);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    loadBroadcasts();
+  }, []);
+
+  const filteredBroadcasts = broadcasts.filter((broadcast: Broadcast) => {
+    const matchesSearch = filters.search
+      ? broadcast.title.toLowerCase().includes(filters.search.toLowerCase()) ||
+        broadcast.content.toLowerCase().includes(filters.search.toLowerCase())
+      : true;
+    const matchesCategory = filters.category === 'all' || broadcast.category === filters.category;
+    const matchesStatus = filters.status === 'all' || broadcast.status === filters.status;
+
+    return matchesSearch && matchesCategory && matchesStatus;
   });
 
-  async function loadData() {
-    const data = await api.get<any[]>('/api/v1/broadcasts');
-    setBroadcasts(data);
-  }
-
-  useEffect(() => { loadData(); }, []);
-
-  async function handleSend(e: FormEvent) {
-    e.preventDefault();
-    setIsSending(true);
-    setMessage('');
-    
-    try {
-      const res = await api.post<any>('/api/v1/broadcasts', formData);
-      setMessage(`Successfully queued ${res.channel} broadcast to ${res.recipientCount} recipients!`);
-      setFormData({ title: '', content: '', targetGroup: 'ALL', channel: 'SMS' });
-      loadData();
-    } catch (err) {
-      setMessage('Failed to send broadcast.');
-    } finally {
-      setIsSending(false);
-    }
-  }
+  // Compute summary stats
+  const totalBroadcasts = filteredBroadcasts.length;
+  const liveCount = filteredBroadcasts.filter(b => b.status === 'live').length;
+  const scheduledCount = filteredBroadcasts.filter(b => b.status === 'scheduled').length;
 
   return (
-    <div className="space-y-6 max-w-6xl mx-auto">
-      <div>
-        <h1 className="text-2xl font-bold text-slate-900">Broadcast Center</h1>
-        <p className="text-slate-500 text-sm mt-1">Send instant SMS or Email alerts to parents and staff</p>
-      </div>
+    <div className="bg-neutral-50 dark:bg-neutral-900 min-h-screen">
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, y: -20 }}
+        className="reduced-motion:transition-none"
+      >
+        <div className="p-4 sm:p-6 lg:p-8">
+          {/* Broadcasts Summary */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+            <Card>
+              <div className="p-4 text-center">
+                <div className="text-3xl font-extrabold text-neutral-900">{totalBroadcasts}</div>
+                <div className="text-sm text-neutral-500">Broadcasts</div>
+              </div>
+            </Card>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        
-        {/* COMPOSE FORM */}
-        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
-          <h2 className="text-lg font-bold text-slate-900 mb-4">Compose Message</h2>
-          
-          {message && (
-            <div className={`p-3 mb-4 rounded-lg text-sm ${message.includes('Failed') ? 'bg-red-50 text-red-700' : 'bg-emerald-50 text-emerald-700'}`}>
-              {message}
-            </div>
-          )}
+            <Card>
+              <div className="p-4 text-center">
+                <div className="text-3xl font-extrabold text-brand-primary">{liveCount}</div>
+                <div className="text-sm text-neutral-500">Live</div>
+              </div>
+            </Card>
 
-          <form onSubmit={handleSend} className="space-y-4">
-            <div>
-              <label className="block text-xs font-medium text-slate-700 mb-1">Channel</label>
-              <div className="flex gap-4">
-                <label className="flex items-center gap-2 text-sm cursor-pointer">
-                  <input type="radio" checked={formData.channel === 'SMS'} onChange={() => setFormData({...formData, channel: 'SMS'})} />
-                  SMS (Text Message)
-                </label>
-                <label className="flex items-center gap-2 text-sm cursor-pointer">
-                  <input type="radio" checked={formData.channel === 'EMAIL'} onChange={() => setFormData({...formData, channel: 'EMAIL'})} />
-                  Email
-                </label>
+            <Card>
+              <div className="p-4 text-center">
+                <div className="text-3xl font-extrabold text-neutral-500">{scheduledCount}</div>
+                <div className="text-sm text-neutral-500">Scheduled</div>
+              </div>
+            </Card>
+
+            <Card>
+              <div className="p-4 text-center">
+                <div className="text-3xl font-extrabold text-neutral-500">0</div>
+                <div className="text-sm text-neutral-500">Drafts</div>
+              </div>
+            </Card>
+          </div>
+
+          {/* Filters */}
+          <Card>
+            <div className="p-4 space-y-3">
+              <h3 className="text-sm font-medium text-neutral-600 uppercase tracking-wider mb-2">
+                Filters
+              </h3>
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <label className="block text-xs text-neutral-500 uppercase tracking-wider mb-1">Search</label>
+                  <input
+                    type="text"
+                    placeholder="Search title or content..."
+                    value={filters.search}
+                    onChange={(e) => setFilters({ ...filters, search: e.target.value })}
+                    className={`w-full rounded-lg border border-border dark:border-border-overlay px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-brand-primary/20 transition-colors ${reducedMotion ? 'transition-none' : ''}`}
+                    defaultValue=""
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs text-neutral-500 uppercase tracking-wider mb-1">Category</label>
+                  <select
+                    value={filters.category}
+                    onChange={(e) => setFilters({ ...filters, category: e.target.value } as any)}
+                    className={`w-full rounded-lg border border-border dark:border-border-overlay px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-brand-primary/20 ${reducedMotion ? 'transition-none' : ''}`}
+                  >
+                    <option value="all">All Categories</option>
+                    <option value="system">System</option>
+                    <option value="academic">Academic</option>
+                    <option value="event">Event</option>
+                    <option value="urgent">Urgent</option>
+                    <option value="general">General</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs text-neutral-500 uppercase tracking-wider mb-1">Status</label>
+                  <select
+                    value={filters.status}
+                    onChange={(e) => setFilters({ ...filters, status: e.target.value } as any)}
+                    className={`w-full rounded-lg border border-border dark:border-border-overlay px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-brand-primary/20 ${reducedMotion ? 'transition-none' : ''}`}
+                  >
+                    <option value="all">All Statuses</option>
+                    <option value="draft">Draft</option>
+                    <option value="scheduled">Scheduled</option>
+                    <option value="live">Live</option>
+                    <option value="archived">Archived</option>
+                  </select>
+                </div>
               </div>
             </div>
+          </Card>
 
-            <div>
-              <label className="block text-xs font-medium text-slate-700 mb-1">Send To</label>
-              <select value={formData.targetGroup} onChange={e => setFormData({...formData, targetGroup: e.target.value})} className="w-full px-3 py-2 border rounded-lg text-sm">
-                <option value="ALL">Everyone (All Roles)</option>
-                <option value="PARENTS">All Parents</option>
-                <option value="TEACHERS">All Teachers & Staff</option>
-                <option value="STUDENTS">All Students</option>
-              </select>
+          {/* Broadcasts Table */}
+          {loading ? (
+            <Skeleton className="h-72 rounded-md animate-bounce" />
+          ) : filteredBroadcasts.length === 0 ? (
+            <KpiEmptyStateComponent
+              icon="Broadcast"
+              title="No broadcasts found"
+              description="Schedule broadcasts to get started"
+              actionLabel="Schedule Broadcast"
+            />
+          ) : (
+            <Table>
+              <TableSection.head>
+                <TableHeadCell style="primary">Title</TableHeadCell>
+                <TableHeadCell style="primary">Category</TableHeadCell>
+                <TableHeadCell style="primary">Status</TableHeadCell>
+                <TableHeadCell style="primary">Audience</TableHeadCell>
+                <TableHeadCell style="primary">Views</TableHeadCell>
+                <TableHeadCell style="primary">Created</TableHeadCell>
+              </TableSection.head>
+              <TableSection.body>
+                {filteredBroadcasts.slice(0, 15).map((broadcast: Broadcast, index: number) => (
+                  <TableRowCell key={index} style="primary">
+                    <span className="font-medium text-neutral-700">{broadcast.title}</span>
+                    <span className="text-neutral-500 text-xs">{broadcast.category}</span>
+                    <span
+                      className={`inline-flex items-center gap-1 px-2 rounded text-xs font-medium ${broadcast.status}`}>{broadcast.status}</span>
+                    <span className="text-neutral-500 text-xs">{broadcast.targetAudience}</span>
+                    <span className="text-neutral-500 text-xs">{broadcast.views}</span>
+                    <span className="text-neutral-500 text-xs">{new Date(broadcast.createdAt).toLocaleDateString()}</span>
+                  </TableRowCell>
+                ))}
+              </TableSection.body>
+            </Table>
+          )}
+
+          {/* Export & Reports */}
+          {filteredBroadcasts.length > 0 && (
+            <div className="mt-6 flex items-center justify-between text-sm text-neutral-500">
+              <span>Showing {filteredBroadcasts.length} of {broadcasts.length} broadcasts</span>
+              <div className="flex gap-2">
+                <Button variant="ghost" size="sm">Export List</Button>
+                <Button variant="primary" size="sm">Generate Report</Button>
+              </div>
             </div>
-
-            <div>
-              <label className="block text-xs font-medium text-slate-700 mb-1">Subject / Title</label>
-              <input required type="text" value={formData.title} onChange={e => setFormData({...formData, title: e.target.value})} className="w-full px-3 py-2 border rounded-lg text-sm" placeholder="e.g. School Closed Tomorrow" />
-            </div>
-
-            <div>
-              <label className="block text-xs font-medium text-slate-700 mb-1">Message Content</label>
-              <textarea required rows={5} value={formData.content} onChange={e => setFormData({...formData, content: e.target.value})} className="w-full px-3 py-2 border rounded-lg text-sm" placeholder="Type your message here..." />
-            </div>
-
-            <button type="submit" disabled={isSending} className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-lg disabled:opacity-50">
-              {isSending ? 'Sending Broadcast...' : '🚀 Send Broadcast Now'}
-            </button>
-          </form>
-        </div>
-
-        {/* HISTORY LOG */}
-        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden flex flex-col">
-          <div className="px-6 py-4 border-b bg-slate-50">
-            <h2 className="text-lg font-bold text-slate-900">Sent History</h2>
-          </div>
-          <div className="flex-1 overflow-y-auto p-4 space-y-4">
-            {broadcasts.length === 0 ? (
-              <p className="text-center text-slate-500 text-sm mt-10">No messages sent yet.</p>
-            ) : (
-              broadcasts.map(b => (
-                <div key={b.id} className="p-4 border rounded-xl bg-slate-50">
-                  <div className="flex justify-between items-start mb-2">
-                    <h3 className="font-bold text-slate-900">{b.title}</h3>
-                    <span className={`text-[10px] font-bold px-2 py-1 rounded-full ${b.channel === 'SMS' ? 'bg-blue-100 text-blue-700' : 'bg-purple-100 text-purple-700'}`}>
-                      {b.channel}
-                    </span>
-                  </div>
-                  <p className="text-sm text-slate-600 line-clamp-3">{b.content}</p>
-                  <div className="mt-3 pt-3 border-t flex justify-between items-center text-xs text-slate-500">
-                    <span>To: {b.targetGroup} ({b.recipientCount} people)</span>
-                    <span>{new Date(b.sentAt).toLocaleString()}</span>
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
-        </div>
-
+          )}
+        </motion.div>
       </div>
     </div>
   );
