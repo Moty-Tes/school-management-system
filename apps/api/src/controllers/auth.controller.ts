@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import * as authService from '../services/auth.service.js';
 import { registerSchema, loginSchema, refreshSchema } from '../schemas/auth.schema.js';
+import { prisma } from '../lib/prisma.js';
 
 const ACCESS_COOKIE_MAX_AGE = 15 * 60 * 1000;
 const REFRESH_COOKIE_MAX_AGE = 30 * 24 * 60 * 60 * 1000;
@@ -100,7 +101,34 @@ export async function meHandler(req: Request, res: Response, next: NextFunction)
       res.status(401).json({ success: false, error: { code: 'UNAUTHENTICATED', message: 'Not authenticated' } });
       return;
     }
-    res.status(200).json({ success: true, data: { userId: req.auth.sub, tenantId: req.auth.tenantId, sessionId: req.auth.sessionId } });
+    const userTenant = await prisma.userTenant.findUnique({
+      where: { userId_tenantId: { userId: req.auth.sub, tenantId: req.auth.tenantId } },
+      include: {
+        roles: {
+          include: { role: true },
+        },
+      },
+    });
+
+    const roles = userTenant ? userTenant.roles.map(r => r.role.slug) : [];
+
+    const user = await prisma.user.findUnique({
+      where: { id: req.auth.sub },
+      include: { profile: true },
+    });
+
+    res.status(200).json({
+      success: true,
+      data: {
+        userId: req.auth.sub,
+        tenantId: req.auth.tenantId,
+        sessionId: req.auth.sessionId,
+        roles,
+        email: user?.email,
+        firstName: user?.profile?.firstName ?? null,
+        lastName: user?.profile?.lastName ?? null,
+      },
+    });
   } catch (err) {
     next(err);
   }

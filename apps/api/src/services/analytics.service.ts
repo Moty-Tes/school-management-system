@@ -69,7 +69,13 @@ export async function getDashboardAnalytics(tenantId: string) {
   return {
     genderData,
     revenueData,
-    attendance: { present, absent, late, rate: attendanceRate }
+    attendance: { present, absent, late, rate: attendanceRate },
+    totalRevenue: (await prisma.payment.findMany({ where: { tenantId }, select: { amount: true } })).reduce((sum, p) => sum + Number(p.amount), 0),
+    pendingAmount: (await prisma.invoice.findMany({ where: { tenantId, status: { not: 'PAID' } }, select: { amount: true } })).reduce((sum, i) => sum + Number(i.amount), 0),
+    totalInvoiced: (await prisma.invoice.findMany({ where: { tenantId }, select: { amount: true } })).reduce((sum, i) => sum + Number(i.amount), 0),
+    invoiceCount: await prisma.invoice.count({ where: { tenantId } }),
+    totalStudents: await prisma.student.count({ where: { tenantId, deletedAt: null } }),
+    totalTeachers: await prisma.teacherProfile.count({ where: { tenantId } })
   };
 }
 export async function getPersonalDashboard(tenantId: string, userId: string) {

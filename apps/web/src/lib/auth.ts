@@ -34,6 +34,6 @@ export async function logout(): Promise<void> {
   await api.post('/api/v1/auth/logout');
 }
 
-export async function getMe(): Promise<{ userId: string; tenantId: string; sessionId: string }> {
+export async function getMe(): Promise<{ userId: string; tenantId: string; sessionId: string; roles: string[]; email?: string; firstName?: string | null; lastName?: string | null }> {
   return api.get('/api/v1/auth/me');
 }
