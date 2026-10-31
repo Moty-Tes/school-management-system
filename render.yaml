@@ -6,8 +6,8 @@ services:
     name: sms-backend-api
     env: node
     plan: free
-    buildCommand: pnpm install && pnpm run build
-    startCommand: pnpm --filter @sms/api run start
+    buildCommand: pnpm install && pnpm --filter @sms/database exec prisma db push --skip-generate && pnpm run build
+    startCommand: pnpm --filter @sms/database exec prisma db push --skip-generate && (pnpm --filter @sms/database db:seed || true) && pnpm --filter @sms/api run start
     healthCheckPath: /health
     envVars:
       - key: NODE_ENV

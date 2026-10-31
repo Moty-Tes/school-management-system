@@ -6,10 +6,22 @@ const nextConfig = {
     ignoreBuildErrors: true,
   },
   async rewrites() {
+    const rawApiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+    let apiUrl = rawApiUrl.trim();
+
+    if (!apiUrl.startsWith('http://') && !apiUrl.startsWith('https://')) {
+      // If it contains onrender.com, use HTTPS; otherwise (internal service name), use HTTP
+      if (apiUrl.includes('onrender.com')) {
+        apiUrl = `https://${apiUrl}`;
+      } else {
+        apiUrl = `http://${apiUrl}`;
+      }
+    }
+
     return [
       {
         source: '/api/:path*',
-        destination: `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'}/api/:path*`,
+        destination: `${apiUrl}/api/:path*`,
       },
     ];
   },

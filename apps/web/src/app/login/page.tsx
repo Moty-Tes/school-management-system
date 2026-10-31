@@ -4,6 +4,16 @@ import { useState, useEffect, FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import { login } from '@/lib/auth';
 import { api, ApiError } from '@/lib/api';
+import { Shield, Lock, School, ArrowRight, Loader2, Users } from 'lucide-react';
+
+const DEFAULT_PERSONAS = [
+  { role: 'TENANT_ADMIN', roleName: 'School Administrator', email: 'admin@demo-school.local', password: 'DemoAdmin123!', firstName: 'Alemayehu', title: 'Principal' },
+  { role: 'TEACHER', roleName: 'Senior Teacher', email: 'teacher@demo-school.local', password: 'Teacher123!', firstName: 'Abebe', title: 'Mathematics' },
+  { role: 'ACCOUNTANT', roleName: 'Bursar & Accountant', email: 'accountant@demo-school.local', password: 'Accountant123!', firstName: 'Sara', title: 'Finance' },
+  { role: 'STUDENT', roleName: 'Student', email: 'student@demo-school.local', password: 'Student123!', firstName: 'Almaz', title: 'Grade 10' },
+  { role: 'PARENT', roleName: 'Parent / Guardian', email: 'parent@demo-school.local', password: 'Parent123!', firstName: 'Mulugeta', title: 'Guardian' },
+  { role: 'REGISTRAR', roleName: 'Admissions Registrar', email: 'registrar@demo-school.local', password: 'Registrar123!', firstName: 'Dawit', title: 'Admissions' },
+];
 
 export default function LoginPage() {
   const router = useRouter();
@@ -12,20 +22,18 @@ export default function LoginPage() {
   const [tenantCode, setTenantCode] = useState('demo-school');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  
-  // State to hold the personas fetched from the backend
-  const [personas, setPersonas] = useState<any[]>([]);
+  const [personas, setPersonas] = useState<any[]>(DEFAULT_PERSONAS);
 
-  // Fetch the personas when the page loads
   useEffect(() => {
-    api.get('/api/v1/demo/info')
+    // Attempt to fetch fresh personas from backend, fallback to default personas if sleeping
+    api.get<any>('/api/v1/demo/info')
       .then((data: any) => {
-        if (data && data.personas) {
+        if (data && data.personas && data.personas.length > 0) {
           setPersonas(data.personas);
         }
       })
       .catch(() => {
-        // Ignore error, the user can still type manually
+        // Keep DEFAULT_PERSONAS on cold start
       });
   }, []);
 
@@ -36,7 +44,11 @@ export default function LoginPage() {
       await login({ email: loginEmail, password: loginPassword, tenantCode });
       router.push('/dashboard');
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Something went wrong');
+      if (err instanceof ApiError && err.status === 502) {
+        setError('Server is waking up on Render. Please click Sign In again in a few seconds.');
+      } else {
+        setError(err instanceof ApiError ? err.message : 'Invalid credentials or server unavailable.');
+      }
     } finally {
       setLoading(false);
     }
@@ -54,59 +66,112 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center px-4 py-12 bg-slate-50">
-      <div className="w-full max-w-lg space-y-6">
+    <div className="min-h-screen flex items-center justify-center p-4 bg-slate-900 text-slate-100 selection:bg-slate-700">
+      <div className="w-full max-w-md space-y-6">
         
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-indigo-600 text-white text-2xl font-bold mb-4">S</div>
-          <h1 className="text-2xl font-bold text-slate-900">Welcome back</h1>
-          <p className="text-slate-500 text-sm mt-1">Sign in to your school account</p>
+        {/* Header */}
+        <div className="text-center">
+          <div className="inline-flex items-center justify-center w-12 h-12 rounded-2xl bg-slate-800 border border-slate-700 text-slate-200 mb-3 shadow-lg">
+            <School className="w-6 h-6 text-slate-300" />
+          </div>
+          <h1 className="text-2xl font-bold tracking-tight text-white">School Management Portal</h1>
+          <p className="text-xs text-slate-400 mt-1">Sign in with your institutional credentials or demo accounts</p>
         </div>
 
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 sm:p-8">
-          <form onSubmit={handleSubmit} className="space-y-5">
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1.5">School code</label>
-              <input type="text" value={tenantCode} onChange={(e) => setTenantCode(e.target.value)} required className="w-full px-3.5 py-2.5 border border-slate-300 rounded-lg text-sm" />
+        {/* Login Form */}
+        <div className="bg-slate-800/90 border border-slate-700/80 rounded-2xl p-6 sm:p-8 shadow-2xl backdrop-blur-md">
+          {error && (
+            <div className="mb-5 p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-300 text-xs font-medium leading-relaxed">
+              {error}
             </div>
+          )}
+
+          <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1.5">Email</label>
-              <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required className="w-full px-3.5 py-2.5 border border-slate-300 rounded-lg text-sm" />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1.5">Password</label>
-              <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required className="w-full px-3.5 py-2.5 border border-slate-300 rounded-lg text-sm" />
+              <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
+                School Tenant Code
+              </label>
+              <input
+                type="text"
+                value={tenantCode}
+                onChange={(e) => setTenantCode(e.target.value)}
+                required
+                className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900/80 border border-slate-700 text-sm text-white focus:outline-none focus:ring-2 focus:ring-slate-500 font-mono"
+              />
             </div>
 
-            {error && <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">{error}</div>}
+            <div>
+              <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
+                Email Address
+              </label>
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+                className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900/80 border border-slate-700 text-sm text-white focus:outline-none focus:ring-2 focus:ring-slate-500"
+              />
+            </div>
 
-            <button type="submit" disabled={loading} className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2.5 rounded-lg disabled:opacity-50">
-              {loading ? 'Signing in...' : 'Sign in'}
+            <div>
+              <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
+                Password
+              </label>
+              <input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900/80 border border-slate-700 text-sm text-white focus:outline-none focus:ring-2 focus:ring-slate-500 font-mono"
+              />
+            </div>
+
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full mt-2 py-3 px-4 rounded-xl bg-white hover:bg-slate-100 text-slate-900 font-bold text-xs uppercase tracking-wider transition-all shadow-md flex items-center justify-center gap-2 disabled:opacity-50"
+            >
+              {loading ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin text-slate-900" />
+                  <span>Connecting to School Server...</span>
+                </>
+              ) : (
+                <>
+                  <span>Sign In</span>
+                  <ArrowRight className="w-4 h-4" />
+                </>
+              )}
             </button>
           </form>
         </div>
 
-        {/* DYNAMIC DEMO SWITCHER */}
-        {personas.length > 0 && (
-          <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
-            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider text-center mb-4">
-              Or explore the demo as
-            </p>
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-              {personas.map((persona) => (
-                <button
-                  key={persona.role}
-                  onClick={() => handleQuickLogin(persona)}
-                  disabled={loading}
-                  className="py-2 px-3 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-sm font-medium rounded-lg transition-colors disabled:opacity-50 text-left"
-                >
-                  <span className="block truncate">{persona.roleName}</span>
-                  <span className="block text-[10px] text-indigo-500 font-normal truncate">{persona.firstName}</span>
-                </button>
-              ))}
-            </div>
+        {/* One-Click Role Switcher */}
+        <div className="bg-slate-800/60 border border-slate-700/60 rounded-2xl p-5">
+          <div className="flex items-center gap-2 text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">
+            <Users className="w-4 h-4" />
+            <span>Instant Demo Role Switcher</span>
           </div>
-        )}
+
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+            {personas.map((persona) => (
+              <button
+                key={persona.role}
+                type="button"
+                onClick={() => handleQuickLogin(persona)}
+                disabled={loading}
+                className="p-2.5 rounded-xl bg-slate-900/70 hover:bg-slate-700/60 border border-slate-700/70 text-left transition-colors group disabled:opacity-50"
+              >
+                <div className="text-xs font-bold text-slate-200 group-hover:text-white truncate">
+                  {persona.roleName || persona.role}
+                </div>
+                <div className="text-[10px] text-slate-400 truncate mt-0.5">
+                  {persona.firstName}
+                </div>
+              </button>
+            ))}
+          </div>
+        </div>
 
       </div>
     </div>

@@ -16,7 +16,7 @@ interface RequestOptions extends Omit<RequestInit, 'body'> {
   body?: unknown;
 }
 
-async function request<T>(endpoint: string, options: RequestOptions = {}, retries = 2): Promise<T> {
+async function request<T>(endpoint: string, options: RequestOptions = {}, retries = 4, delay = 1500): Promise<T> {
   const { body, headers: customHeaders, ...rest } = options;
 
   const headers: HeadersInit = {
@@ -33,10 +33,11 @@ async function request<T>(endpoint: string, options: RequestOptions = {}, retrie
       body: body !== undefined ? JSON.stringify(body) : undefined,
     });
 
-    // Handle Render cold start / sleeping instance (502 / 503 / 504)
+    // Handle Render cold start / sleeping instance (502 Bad Gateway / 503 Service Unavailable / 504 Gateway Timeout)
     if ((response.status === 502 || response.status === 503 || response.status === 504) && retries > 0) {
-      await new Promise((r) => setTimeout(r, 1500));
-      return request<T>(endpoint, options, retries - 1);
+      console.warn(`[API] Received ${response.status} from ${endpoint}. Server may be waking up. Retrying in ${delay}ms... (${retries} left)`);
+      await new Promise((r) => setTimeout(r, delay));
+      return request<T>(endpoint, options, retries - 1, delay + 1000);
     }
 
     // Handle 204 No Content
@@ -53,38 +54,40 @@ async function request<T>(endpoint: string, options: RequestOptions = {}, retrie
     }
 
     if (!response.ok) {
-      const message = data?.error?.message || `Request failed (${response.status})`;
+      const message = data?.error?.message || data?.message || `Request failed (${response.status})`;
       const code = data?.error?.code || 'UNKNOWN_ERROR';
       throw new ApiError(message, response.status, code, data?.error?.details);
     }
 
-    // Unwrap { success, data } envelope
-    if (data && typeof data === 'object' && 'success' in data && 'data' in data) {
-      return data.data as T;
+    return (data?.data !== undefined ? data.data : data) as T;
+  } catch (error) {
+    if (error instanceof ApiError) {
+      throw error;
     }
-    return data as T;
-  } catch (err: any) {
-    if (retries > 0 && (err?.message?.includes('fetch failed') || err?.code === 'ECONNRESET' || err?.name === 'TypeError')) {
-      await new Promise((r) => setTimeout(r, 1500));
-      return request<T>(endpoint, options, retries - 1);
+
+    // Network error / connection reset / socket hang up during container spin-up
+    if (retries > 0) {
+      console.warn(`[API] Network error connecting to ${endpoint}. Retrying in ${delay}ms... (${retries} left)`);
+      await new Promise((r) => setTimeout(r, delay));
+      return request<T>(endpoint, options, retries - 1, delay + 1000);
     }
-    throw err;
+
+    throw new ApiError(
+      error instanceof Error ? error.message : 'Unable to connect to school server. Please verify your connection.',
+      0,
+      'NETWORK_ERROR'
+    );
   }
 }
 
 export const api = {
-  get: <T>(url: string, options?: RequestOptions) =>
-    request<T>(url, { ...options, method: 'GET' }),
-
-  post: <T>(url: string, body?: unknown, options?: RequestOptions) =>
-    request<T>(url, { ...options, method: 'POST', body }),
-
-  put: <T>(url: string, body?: unknown, options?: RequestOptions) =>
-    request<T>(url, { ...options, method: 'PUT', body }),
-
-  patch: <T>(url: string, body?: unknown, options?: RequestOptions) =>
-    request<T>(url, { ...options, method: 'PATCH', body }),
-
-  delete: <T>(url: string, options?: RequestOptions) =>
-    request<T>(url, { ...options, method: 'DELETE' }),
+  get: <T>(endpoint: string, options?: RequestOptions) => request<T>(endpoint, { ...options, method: 'GET' }),
+  post: <T>(endpoint: string, body?: unknown, options?: RequestOptions) =>
+    request<T>(endpoint, { ...options, method: 'POST', body }),
+  put: <T>(endpoint: string, body?: unknown, options?: RequestOptions) =>
+    request<T>(endpoint, { ...options, method: 'PUT', body }),
+  patch: <T>(endpoint: string, body?: unknown, options?: RequestOptions) =>
+    request<T>(endpoint, { ...options, method: 'PATCH', body }),
+  delete: <T>(endpoint: string, options?: RequestOptions) =>
+    request<T>(endpoint, { ...options, method: 'DELETE' }),
 };
