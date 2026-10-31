@@ -24,14 +24,16 @@ const buttonSizes = {
 };
 
 export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
-  ({ className = '', asChild, children, variant = 'primary', size = 'md', loading, disabled, type = 'button', ...props }, ref) => {
+  ({ className = '', asChild, children, variant = 'primary', size = 'md', loading, disabled, type = 'button', style, ...props }, ref) => {
     const variantClass = buttonVariants[variant] || buttonVariants.primary;
     const sizeClass = buttonSizes[size] || buttonSizes.md;
+    const domStyle = typeof style === 'object' && style !== null ? style : undefined;
 
     return (
       <button
         ref={ref}
         type={type}
+        style={domStyle}
         disabled={disabled || loading}
         className={`${variantClass} ${sizeClass} ${className}`}
         {...props}

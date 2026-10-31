@@ -41,7 +41,7 @@ const directionClass = {
 };
 
 export const Card = React.forwardRef<HTMLDivElement, CardProps>(
-  ({ className = '', children, elevation = 'md', shadow = 'md', radius = 'lg', border = false, borderColor, bg, padding = 'md', direction = 'vertical', ...props }, ref) => {
+  ({ className = '', children, elevation = 'md', shadow = 'md', radius = 'lg', border = false, borderColor, bg, padding = 'md', direction = 'vertical', style, ...props }, ref) => {
     const radiusClass = radiusMap[radius] || radiusMap.lg;
     const shadowClass = shadowMap[shadow] || shadowMap.md;
     const paddingClass = paddingMap[padding] || paddingMap.md;
@@ -50,10 +50,12 @@ export const Card = React.forwardRef<HTMLDivElement, CardProps>(
     const baseClasses = `overflow-hidden ${shadowClass} ${radiusClass} transition-all duration-200 hover:shadow-lg`;
     const borderClass = border ? `border ${borderColor || 'border-slate-200 dark:border-slate-800'}` : '';
     const bgClass = bg ? `bg-${bg}` : 'bg-white dark:bg-slate-900';
+    const domStyle = typeof style === 'object' && style !== null ? style : undefined;
 
     return (
       <div
         ref={ref}
+        style={domStyle}
         className={`${baseClasses} ${borderClass} ${bgClass} ${paddingClass} ${directionClassName} ${className}`}
         {...props}
       >

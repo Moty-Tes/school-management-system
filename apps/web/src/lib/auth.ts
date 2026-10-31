@@ -27,13 +27,37 @@ export interface LoginResponse {
 }
 
 export async function login(input: LoginInput): Promise<LoginResponse> {
-  return api.post<LoginResponse>('/api/v1/auth/login', input);
+  const res = await api.post<LoginResponse>('/api/v1/auth/login', input);
+  if (res && res.accessToken && typeof window !== 'undefined') {
+    try {
+      localStorage.setItem('sms_access_token', res.accessToken);
+      if (res.user) {
+        localStorage.setItem('sms_user', JSON.stringify(res.user));
+      }
+    } catch {
+      // Ignore storage errors
+    }
+  }
+  return res;
 }
 
 export async function logout(): Promise<void> {
-  await api.post('/api/v1/auth/logout');
+  try {
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('sms_access_token');
+      localStorage.removeItem('sms_user');
+    }
+    await api.post('/api/v1/auth/logout');
+  } catch {
+    // Ignore logout failure
+  }
 }
 
-export async function getMe(): Promise<{ userId: string; tenantId: string; sessionId: string; roles: string[]; email?: string; firstName?: string | null; lastName?: string | null }> {
-  return api.get('/api/v1/auth/me');
+export async function getMe(): Promise<{ userId: string; tenantId: string; sessionId: string; roles: string[]; email?: string; firstName?: string | null; lastName?: string | null } | null> {
+  try {
+    const res = await api.get<any>('/api/v1/auth/me');
+    return res || null;
+  } catch {
+    return null;
+  }
 }

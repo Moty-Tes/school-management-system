@@ -12,7 +12,7 @@ export interface KpiCardProps extends React.HTMLAttributes<HTMLDivElement> {
 }
 
 export const KpiCard = React.forwardRef<HTMLDivElement, KpiCardProps>(
-  ({ className = '', value, label, trend, trendValue, subtitle, variant = 'default', showBorder = true, ...props }, ref) => {
+  ({ className = '', value, label, trend, trendValue, subtitle, variant = 'default', showBorder = true, style, ...props }, ref) => {
     const variantBorder = {
       default: 'border-slate-200 dark:border-slate-800',
       primary: 'border-indigo-500',
@@ -27,9 +27,12 @@ export const KpiCard = React.forwardRef<HTMLDivElement, KpiCardProps>(
       neutral: 'text-slate-500 bg-slate-100 dark:bg-slate-800 dark:text-slate-400',
     }[trend || 'neutral'];
 
+    const domStyle = typeof style === 'object' && style !== null ? style : undefined;
+
     return (
       <div
         ref={ref}
+        style={domStyle}
         className={`flex flex-col bg-white dark:bg-slate-900 rounded-2xl p-5 border ${variantBorder} transition-all duration-200 hover:shadow-xl hover:-translate-y-0.5 ${className}`}
         {...props}
       >

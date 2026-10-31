@@ -41,7 +41,7 @@ export default function WebsitePage() {
 
   useEffect(() => {
     getMe().then((me: any) => {
-      const userRoles: string[] = me.roles || [];
+      const userRoles: string[] = me?.roles || [];
       const isSuperAdmin = userRoles.includes('SUPER_ADMIN');
       const isTenantAdmin = userRoles.includes('TENANT_ADMIN');
       const isRegistrar = userRoles.includes('REGISTRAR');

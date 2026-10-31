@@ -19,8 +19,18 @@ interface RequestOptions extends Omit<RequestInit, 'body'> {
 async function request<T>(endpoint: string, options: RequestOptions = {}, retries = 4, delay = 1500): Promise<T> {
   const { body, headers: customHeaders, ...rest } = options;
 
+  let token: string | null = null;
+  if (typeof window !== 'undefined') {
+    try {
+      token = localStorage.getItem('sms_access_token');
+    } catch {
+      // LocalStorage access restricted fallback
+    }
+  }
+
   const headers: HeadersInit = {
     Accept: 'application/json',
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
     ...(body !== undefined ? { 'Content-Type': 'application/json' } : {}),
     ...customHeaders,
   };

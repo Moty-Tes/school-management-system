@@ -138,14 +138,14 @@ function setAuthCookies(res: Response, accessToken: string, refreshToken: string
   res.cookie('access_token', accessToken, {
     httpOnly: true,
     secure: IS_PROD,
-    sameSite: 'lax',
+    sameSite: IS_PROD ? 'none' : 'lax',
     maxAge: ACCESS_COOKIE_MAX_AGE,
     path: '/',
   });
   res.cookie('refresh_token', refreshToken, {
     httpOnly: true,
     secure: IS_PROD,
-    sameSite: 'lax',
+    sameSite: IS_PROD ? 'none' : 'lax',
     maxAge: REFRESH_COOKIE_MAX_AGE,
     path: '/',
   });

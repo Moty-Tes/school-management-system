@@ -49,7 +49,7 @@ export default function FinancePage() {
 
   useEffect(() => {
     getMe().then((me: any) => {
-      const userRoles: string[] = me.roles || [];
+      const userRoles: string[] = me?.roles || [];
       const isSuperAdmin = userRoles.includes('SUPER_ADMIN');
       const isTenantAdmin = userRoles.includes('TENANT_ADMIN');
       const isAccountant = userRoles.includes('ACCOUNTANT');

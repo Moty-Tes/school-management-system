@@ -8,11 +8,13 @@ export interface TableHeadCellProps extends Omit<React.ThHTMLAttributes<HTMLTabl
 }
 
 export const TableHeadCell = React.forwardRef<HTMLTableCellElement, TableHeadCellProps>(
-  ({ children, className = '', styleType = 'primary', ...props }, ref) => {
-    const alignClass = styleType === 'numeric' ? 'text-right' : styleType === 'status' ? 'text-center' : 'text-left';
+  ({ children, className = '', styleType = 'primary', style, ...props }, ref) => {
+    const alignClass = (styleType === 'numeric' || style === 'numeric') ? 'text-right' : (styleType === 'status' || style === 'status') ? 'text-center' : 'text-left';
+    const domStyle = typeof style === 'object' && style !== null ? style : undefined;
     return (
       <th
         ref={ref}
+        style={domStyle}
         className={`px-4 py-3 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 bg-slate-50/75 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-800 ${alignClass} ${className}`}
         {...props}
       >
@@ -33,10 +35,12 @@ export interface TableRowCellProps extends Omit<React.HTMLAttributes<HTMLTableRo
 }
 
 export const TableRowCell = React.forwardRef<HTMLTableRowElement, TableRowCellProps>(
-  ({ children, className = '', styleType, align = 'start', ...props }, ref) => {
+  ({ children, className = '', styleType, style, align = 'start', ...props }, ref) => {
+    const domStyle = typeof style === 'object' && style !== null ? style : undefined;
     return (
       <tr
         ref={ref}
+        style={domStyle}
         className={`border-b border-slate-100 dark:border-slate-800/60 hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors ${className}`}
         {...props}
       >
