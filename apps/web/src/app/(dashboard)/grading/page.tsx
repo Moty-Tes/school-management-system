@@ -324,8 +324,8 @@ export default function GradingPage() {
   return (
     <div className="space-y-6 max-w-[1600px] mx-auto">
       {/* Top Banner Header */}
-      <div className="glass-card-dark rounded-3xl p-6 sm:p-8 text-white relative overflow-hidden">
-        <div className="absolute top-0 right-0 w-96 h-96 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none" />
+      <div className="rounded-3xl p-6 sm:p-8 text-white relative overflow-hidden shadow-2xl border border-white/20 bg-gradient-to-r from-slate-950 via-[#10142b] to-[#1e1336]">
+        <div className="absolute top-0 right-0 w-96 h-96 bg-purple-500/20 rounded-full blur-3xl pointer-events-none" />
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 relative z-10">
           <div>
             <div className="inline-flex items-center gap-2 px-3 py-1 bg-white/10 backdrop-blur-md rounded-full text-xs font-semibold mb-3 border border-white/10">

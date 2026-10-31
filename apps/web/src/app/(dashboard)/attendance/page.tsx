@@ -122,8 +122,8 @@ export default function AttendancePage() {
   return (
     <div className="space-y-6 max-w-[1600px] mx-auto">
       {/* Header Banner */}
-      <div className="glass-card-dark rounded-3xl p-6 sm:p-8 text-white relative overflow-hidden">
-        <div className="absolute top-0 right-0 w-96 h-96 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
+      <div className="rounded-3xl p-6 sm:p-8 text-white relative overflow-hidden shadow-2xl border border-white/20 bg-gradient-to-r from-slate-950 via-[#0d172c] to-[#122238]">
+        <div className="absolute top-0 right-0 w-96 h-96 bg-teal-500/20 rounded-full blur-3xl pointer-events-none" />
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 relative z-10">
           <div>
             <div className="inline-flex items-center gap-2 px-3 py-1 bg-white/10 backdrop-blur-md rounded-full text-xs font-semibold mb-3 border border-white/10">
@@ -211,40 +211,48 @@ export default function AttendancePage() {
 
         {/* Live Counters */}
         <div className="lg:col-span-2 grid grid-cols-2 sm:grid-cols-4 gap-4 items-stretch">
-          <div className="glass-card rounded-3xl p-5 flex flex-col justify-between">
-            <span className="text-xs font-bold uppercase tracking-wider text-slate-400">Total</span>
+          <div className="glow-card-indigo rounded-3xl p-5 flex flex-col justify-between transition-all duration-300">
+            <span className="text-xs font-black uppercase tracking-wider text-indigo-700">Total Enrolled</span>
             <div className="flex items-end justify-between mt-2">
-              <span className="text-3xl font-extrabold text-slate-900">{students.length}</span>
-              <Users className="w-5 h-5 text-slate-400" />
+              <span className="text-3xl font-black text-slate-900">{students.length}</span>
+              <div className="w-8 h-8 rounded-xl bg-indigo-500/20 text-indigo-600 flex items-center justify-center">
+                <Users className="w-4 h-4" />
+              </div>
             </div>
-            <span className="text-[11px] text-slate-400 mt-1">Students in class</span>
+            <span className="text-[11px] text-indigo-600/80 mt-1 font-semibold">Active students</span>
           </div>
 
-          <div className="glass-card rounded-3xl p-5 flex flex-col justify-between">
-            <span className="text-xs font-bold uppercase tracking-wider text-emerald-600">Present</span>
+          <div className="glow-card-emerald rounded-3xl p-5 flex flex-col justify-between transition-all duration-300">
+            <span className="text-xs font-black uppercase tracking-wider text-emerald-700">Present</span>
             <div className="flex items-end justify-between mt-2">
-              <span className="text-3xl font-extrabold text-emerald-600">{presentCount}</span>
-              <CheckCircle2 className="w-5 h-5 text-emerald-500" />
+              <span className="text-3xl font-black text-slate-900">{presentCount}</span>
+              <div className="w-8 h-8 rounded-xl bg-emerald-500/20 text-emerald-600 flex items-center justify-center">
+                <CheckCircle2 className="w-4 h-4" />
+              </div>
             </div>
-            <span className="text-[11px] text-emerald-600/80 mt-1 font-semibold">{attendanceRate}% Rate</span>
+            <span className="text-[11px] text-emerald-700 mt-1 font-bold">{attendanceRate}% Rate</span>
           </div>
 
-          <div className="glass-card rounded-3xl p-5 flex flex-col justify-between">
-            <span className="text-xs font-bold uppercase tracking-wider text-rose-600">Absent</span>
+          <div className="glow-card-purple rounded-3xl p-5 flex flex-col justify-between transition-all duration-300">
+            <span className="text-xs font-black uppercase tracking-wider text-rose-700">Absent</span>
             <div className="flex items-end justify-between mt-2">
-              <span className="text-3xl font-extrabold text-rose-600">{absentCount}</span>
-              <XCircle className="w-5 h-5 text-rose-500" />
+              <span className="text-3xl font-black text-rose-600">{absentCount}</span>
+              <div className="w-8 h-8 rounded-xl bg-rose-500/20 text-rose-600 flex items-center justify-center">
+                <XCircle className="w-4 h-4" />
+              </div>
             </div>
-            <span className="text-[11px] text-rose-600/80 mt-1 font-semibold">Unexcused</span>
+            <span className="text-[11px] text-rose-700 mt-1 font-bold">Unexcused</span>
           </div>
 
-          <div className="glass-card rounded-3xl p-5 flex flex-col justify-between">
-            <span className="text-xs font-bold uppercase tracking-wider text-amber-600">Late</span>
+          <div className="glow-card-amber rounded-3xl p-5 flex flex-col justify-between transition-all duration-300">
+            <span className="text-xs font-black uppercase tracking-wider text-amber-700">Late</span>
             <div className="flex items-end justify-between mt-2">
-              <span className="text-3xl font-extrabold text-amber-600">{lateCount}</span>
-              <AlertCircle className="w-5 h-5 text-amber-500" />
+              <span className="text-3xl font-black text-amber-600">{lateCount}</span>
+              <div className="w-8 h-8 rounded-xl bg-amber-500/20 text-amber-600 flex items-center justify-center">
+                <AlertCircle className="w-4 h-4" />
+              </div>
             </div>
-            <span className="text-[11px] text-amber-600/80 mt-1 font-semibold">Tardy arrival</span>
+            <span className="text-[11px] text-amber-700 mt-1 font-bold">Tardy arrival</span>
           </div>
         </div>
       </div>

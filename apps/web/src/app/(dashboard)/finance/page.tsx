@@ -208,25 +208,25 @@ export default function FinancePage() {
   return (
     <div className="space-y-6 max-w-[1600px] mx-auto">
       {/* Header Banner */}
-      <div className="glass-card-dark rounded-3xl p-6 sm:p-8 text-white relative overflow-hidden">
-        <div className="absolute top-0 right-0 w-96 h-96 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none" />
+      <div className="rounded-3xl p-6 sm:p-8 text-white relative overflow-hidden shadow-2xl border border-white/20 bg-gradient-to-r from-slate-950 via-[#13112c] to-[#1c1335]">
+        <div className="absolute top-0 right-0 w-96 h-96 bg-indigo-500/20 rounded-full blur-3xl pointer-events-none" />
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 relative z-10">
           <div>
-            <div className="inline-flex items-center gap-2 px-3 py-1 bg-white/10 backdrop-blur-md rounded-full text-xs font-semibold mb-3 border border-white/10">
+            <div className="inline-flex items-center gap-2 px-3 py-1 bg-white/10 backdrop-blur-md rounded-full text-xs font-semibold mb-3 border border-white/10 shadow-inner text-indigo-200">
               <Receipt className="w-3.5 h-3.5 text-indigo-400" />
               <span>Tuition & Accounts Receivable</span>
             </div>
-            <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight">Finance & Fee Management</h1>
-            <p className="text-slate-300 text-sm mt-1 max-w-xl">
+            <h1 className="text-3xl sm:text-4xl font-black tracking-tight text-white">Finance & Fee Management</h1>
+            <p className="text-slate-300 text-sm mt-1 max-w-xl font-medium">
               Track student school fees, issue tuition invoices, record payments, and audit balances.
             </p>
           </div>
 
           {/* Action Buttons */}
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2.5">
             <button
               onClick={() => setIsBulkOpen(true)}
-              className="px-4 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-white font-semibold text-xs sm:text-sm transition-all flex items-center gap-2 border border-white/10"
+              className="px-4 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-white font-bold text-xs sm:text-sm transition-all flex items-center gap-2 border border-white/15 shadow-sm"
             >
               <span>⚡</span>
               <span>Bulk Invoices</span>
@@ -244,54 +244,54 @@ export default function FinancePage() {
 
       {/* KPI Stat Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-        <div className="glass-card rounded-3xl p-6">
+        <div className="glow-card-indigo rounded-3xl p-6 transition-all duration-300">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Total Invoiced</span>
-            <div className="p-3 bg-indigo-50 text-indigo-600 rounded-xl">
+            <span className="text-xs font-extrabold text-indigo-800 uppercase tracking-wider">Total Invoiced</span>
+            <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-indigo-500 to-violet-500 text-white flex items-center justify-center shadow-md shadow-indigo-500/25">
               <Receipt className="w-5 h-5" />
             </div>
           </div>
-          <p className="text-3xl font-extrabold text-slate-900 mt-4">
-            {totalInvoiced.toLocaleString()} <span className="text-sm font-semibold text-slate-500">ETB</span>
+          <p className="text-3xl font-black text-slate-900 mt-4">
+            {totalInvoiced.toLocaleString()} <span className="text-xs font-black text-indigo-700 bg-indigo-100/80 px-2 py-0.5 rounded-md">ETB</span>
           </p>
-          <p className="text-xs text-slate-400 font-medium mt-1">{invoices.length} total issued invoices</p>
+          <p className="text-xs text-indigo-700 font-semibold mt-2">{invoices.length} total issued invoices</p>
         </div>
 
-        <div className="glass-card rounded-3xl p-6">
+        <div className="glow-card-emerald rounded-3xl p-6 transition-all duration-300">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Total Collected</span>
-            <div className="p-3 bg-emerald-50 text-emerald-600 rounded-xl">
+            <span className="text-xs font-extrabold text-emerald-800 uppercase tracking-wider">Total Collected</span>
+            <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-emerald-500 to-teal-400 text-white flex items-center justify-center shadow-md shadow-emerald-500/25">
               <DollarSign className="w-5 h-5" />
             </div>
           </div>
-          <p className="text-3xl font-extrabold text-emerald-600 mt-4">
-            {totalCollected.toLocaleString()} <span className="text-sm font-semibold text-slate-500">ETB</span>
+          <p className="text-3xl font-black text-slate-900 mt-4">
+            {totalCollected.toLocaleString()} <span className="text-xs font-black text-emerald-700 bg-emerald-100/80 px-2 py-0.5 rounded-md">ETB</span>
           </p>
-          <p className="text-xs text-emerald-600 font-semibold mt-1">{collectionRate}% collection rate</p>
+          <p className="text-xs text-emerald-700 font-semibold mt-2">{collectionRate}% collection rate</p>
         </div>
 
-        <div className="glass-card rounded-3xl p-6">
+        <div className="glow-card-amber rounded-3xl p-6 transition-all duration-300">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Pending Balance</span>
-            <div className="p-3 bg-amber-50 text-amber-600 rounded-xl">
+            <span className="text-xs font-extrabold text-amber-800 uppercase tracking-wider">Pending Balance</span>
+            <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-amber-500 to-orange-400 text-white flex items-center justify-center shadow-md shadow-amber-500/25">
               <AlertCircle className="w-5 h-5" />
             </div>
           </div>
-          <p className="text-3xl font-extrabold text-amber-600 mt-4">
-            {pendingBalance.toLocaleString()} <span className="text-sm font-semibold text-slate-500">ETB</span>
+          <p className="text-3xl font-black text-slate-900 mt-4">
+            {pendingBalance.toLocaleString()} <span className="text-xs font-black text-amber-700 bg-amber-100/80 px-2 py-0.5 rounded-md">ETB</span>
           </p>
-          <p className="text-xs text-amber-600 font-semibold mt-1">Outstanding unpaid fees</p>
+          <p className="text-xs text-amber-700 font-semibold mt-2">Outstanding unpaid fees</p>
         </div>
 
-        <div className="glass-card rounded-3xl p-6">
+        <div className="glow-card-purple rounded-3xl p-6 transition-all duration-300">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Students</span>
-            <div className="p-3 bg-blue-50 text-blue-600 rounded-xl">
+            <span className="text-xs font-extrabold text-purple-800 uppercase tracking-wider">Students</span>
+            <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-purple-500 to-pink-400 text-white flex items-center justify-center shadow-md shadow-purple-500/25">
               <Users className="w-5 h-5" />
             </div>
           </div>
-          <p className="text-3xl font-extrabold text-slate-900 mt-4">{students.length}</p>
-          <p className="text-xs text-slate-400 font-medium mt-1">Enrolled student accounts</p>
+          <p className="text-3xl font-black text-slate-900 mt-4">{students.length}</p>
+          <p className="text-xs text-purple-700 font-semibold mt-2">Enrolled student accounts</p>
         </div>
       </div>
 
