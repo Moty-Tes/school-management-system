@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { api } from '@/lib/api';
 import { getMe } from '@/lib/auth';
 import Link from 'next/link';
-import { motion } from 'framer-motion';
+import { motion, type Variants } from 'framer-motion';
 import {
   Users, CreditCard, BookOpen, Clock, Settings,
   BarChart3, DollarSign, Receipt, ArrowUpRight, CheckCircle2,
@@ -19,6 +19,128 @@ import {
   Card, KpiCard, EmptyState, Skeleton, Table, TableHeadCell, TableRowCell, TableSection, Button
 } from '@/components/ui';
 import { use_reducedMotion } from '@/hooks/use-reduced-motion';
+
+// =========================================================================
+// INTELLIGENT DATA SIMULATIONS WITH REALISTIC PATTERNS (MODULE SCOPE)
+// =========================================================================
+
+const generateStudentDistribution = (count: number) => {
+  const total = Math.max(10, count);
+  const male = Math.floor(total * 0.52 + Math.random() * 10); // ~52% natural variation
+  const female = total - male;
+  return [
+    { label: 'Male Students', value: male, color: '#1B4F8C' },
+    { label: 'Female Students', value: female, color: '#EC4899' }
+  ];
+};
+
+const generateRevenueTrend = (months: number = 6) => {
+  const trend = [];
+  let base = 15000 + Math.random() * 3000;
+  for (let i = 0; i < months; i++) {
+    const seasonFactor = i === 0 || i === 3 ? 1.3 : i === 2 || i === 5 ? 0.8 : 1;
+    const growth = 1 + (i * 0.05 + Math.random() * 0.02);
+    const total = Math.round(base * growth * seasonFactor);
+    const name = new Date(Date.now() - (months - 1 - i) * 30 * 24 * 60 * 60000)
+      .toLocaleString('default', { month: 'short' });
+    trend.push({ name, total });
+    base = total;
+  }
+  return trend;
+};
+
+const generateUpcomingEvents = () => [
+  {
+    date: new Date(Date.now() + 24 * 60 * 60000).toISOString(),
+    title: 'Morning Assembly',
+    color: 'bg-indigo-100 text-indigo-700'
+  },
+  {
+    date: new Date(Date.now() + 3 * 24 * 60 * 60000).toISOString(),
+    title: 'Science Fair',
+    color: 'bg-emerald-100 text-emerald-700'
+  },
+  {
+    date: new Date(Date.now() + 7 * 24 * 60 * 60000).toISOString(),
+    title: 'Parent-Teacher Conference',
+    color: 'bg-amber-100 text-amber-700'
+  },
+  {
+    date: new Date(Date.now() + 14 * 24 * 60 * 60000).toISOString(),
+    title: 'Annual Day Celebration',
+    color: 'bg-purple-100 text-purple-700'
+  }
+];
+
+const generateTeacherAssignments = (count: number) =>
+  Array.from({ length: count }, (_, i) => ({
+    title: `Assignment ${i + 1}: ${['Math', 'Science', 'English', 'History', 'Art'][i % 5]} Project`,
+    dueDate: new Date(Date.now() + (i + 1) * 24 * 60 * 60000).toISOString(),
+    status: i % 4 === 0 ? 'completed' : i % 4 === 1 ? 'pending' : i % 3 === 0 ? 'overdue' : 'active',
+    studentCount: Math.floor(20 + Math.random() * 30)
+  }));
+
+const generateTeacherAttendance = (count: number) =>
+  Array.from({ length: count }, (_, i) => ({
+    date: new Date(Date.now() - (count - i) * 24 * 60 * 60000).toISOString().split('T')[0],
+    present: Math.floor(25 + Math.random() * 20),
+    absent: Math.floor(5 + Math.random() * 10),
+    rate: Math.round((Math.floor(25 + Math.random() * 20) / 30) * 100)
+  }));
+
+const generateParentChildren = (count: number) =>
+  Array.from({ length: count }, (_, i) => ({
+    name: `Student ${i + 1}`,
+    firstName: `Child${i + 1}`,
+    lastName: `Lastname`,
+    grade: ['KG', '1', '2', '3', '4', '5', '6', '7', '8'][i % 9],
+    section: ['A', 'B', 'C'][i % 3],
+    status: i % 5 !== 0 ? 'ACTIVE' : 'PENDING'
+  }));
+
+const generateParentFinancial = (count: number) =>
+  Array.from({ length: count }, (_, i) => ({
+    description: `Tuition Fee ${i + 1}`,
+    amount: Math.floor(500 + Math.random() * 2000),
+    dueDate: new Date(Date.now() + (i + 1) * 30 * 24 * 60 * 60000).toISOString().split('T')[0],
+    status: i % 3 === 0 ? 'PAID' : i % 3 === 1 ? 'PARTIAL' : 'PENDING'
+  }));
+
+const generateStudentAssignments = (count: number) =>
+  Array.from({ length: count }, (_, i) => ({
+    title: `Math HW ${i + 1}: Fractions Practice`,
+    dueDate: new Date(Date.now() + (i + 1) * 24 * 60 * 60000).toISOString(),
+    status: ['assigned', 'in progress', 'completed'][i % 3],
+    completed: i % 4 === 0
+  }));
+
+const generateStudentTimetable = (count: number) =>
+  Array.from({ length: count }, (_, i) => ({
+    period: `Period ${i + 1}`,
+    subject: ['Math', 'Science', 'English', 'Physics', 'Chemistry', 'History'][i % 6],
+    teacher: `Mr. ${['Smith', 'Johnson', 'Williams', 'Brown', 'Davis'][i % 5]}`,
+    room: `Room ${String(i + 1).padStart(3, '0')}`
+  }));
+
+const generateRegistrarStudents = (count: number) =>
+  Array.from({ length: count }, (_, i) => ({
+    name: `Student ${i + 1}`,
+    firstName: `First${i + 1}`,
+    lastName: `Lastname${i + 1}`,
+    grade: ['9', '10', '11', '12'][i % 4],
+    email: `student${i + 1}@school.edu`,
+    enrollmentDate: new Date(Date.now() - (i * 365 + Math.random() * 180) * 24 * 60 * 60000).toISOString().split('T')[0]
+  }));
+
+const generateRegistrarAdmissions = (count: number) =>
+  Array.from({ length: count }, (_, i) => ({
+    name: `Applicant ${i + 1}`,
+    firstName: `Applicant${i + 1}`,
+    lastName: `Lastname`,
+    grade: ['9', '10', '11'][i % 3],
+    status: ['accepted', 'pending', 'rejected'][i % 3],
+    appliedDate: new Date(Date.now() - (i * 45 + Math.random() * 30) * 24 * 60 * 60000).toISOString().split('T')[0]
+  }));
 
 export default function DashboardPage() {
   const [role, setRole] = useState<'ADMIN' | 'ACCOUNTANT' | 'TEACHER' | 'PARENT' | 'REGISTRAR' | 'STUDENT'>('ADMIN');
@@ -38,65 +160,26 @@ export default function DashboardPage() {
   const [registrarAdmissions, setRegistrarAdmissions] = useState<any[]>([]);
   const reducedMotion = use_reducedMotion();
 
-  // =========================================================================
-  // INTELLIGENT DATA SIMULATIONS WITH REALISTIC PATTERNS
-  // =========================================================================
-
-  // Realistic student distribution with natural proportions
-  const generateStudentDistribution = (count: number) => {
-    const total = Math.max(10, count);
-    const male = Math.floor(total * 0.52 + Math.random() * 10); // ~52% natural variation
-    const female = total - male;
-    return [
-      { label: 'Male Students', value: male, color: '#1B4F8C' },
-      { label: 'Female Students', value: female, color: '#EC4899' }
-    ];
+  // Stagger container with valid Framer Motion Variants
+  const staggerContainer: Variants = {
+    hidden: { opacity: 0, y: 20 },
+    visible: {
+      opacity: 1,
+      y: 0,
+      transition: {
+        staggerChildren: reducedMotion ? 0 : 0.12,
+        delayChildren: reducedMotion ? 0 : 0.08,
+      },
+    },
+    exit: { opacity: 0, y: -20 },
   };
 
-  // Realistic revenue trend with natural growth + seasonal variation
-  const generateRevenueTrend = (months: number = 6) => {
-    const trend = [];
-    let base = 15000 + Math.random() * 3000;
-    for (let i = 0; i < months; i++) {
-      // Seasonal pattern: higher in Sep/Jan, lower in Dec/Summer
-      const seasonFactor = i === 0 || i === 3 ? 1.3 : i === 2 || i === 5 ? 0.8 : 1;
-      const growth = 1 + (i * 0.05 + Math.random() * 0.02); // 5% growth per month + noise
-      const total = Math.round(base * growth * seasonFactor);
-      const name = new Date(Date.now() - (months - 1 - i) * 30 * 24 * 60 * 60000)
-        .toLocaleString('default', { month: 'short' });
-      trend.push({ name, total });
-      base = total;
-    }
-    return trend;
+  // Item variants
+  const itemVariants: Variants = {
+    hidden: { opacity: 0, x: reducedMotion ? 0 : -20 },
+    visible: { opacity: 1, x: 0 },
+    exit: { opacity: 0, x: 20 },
   };
-
-  // Realistic upcoming events with natural scheduling
-  const generateUpcomingEvents = () => [
-    {
-      date: new Date(Date.now() + 24 * 60 * 60000).toISOString(), // Tomorrow
-      title: 'Morning Assembly',
-      color: 'bg-indigo-100 text-indigo-700'
-    },
-    {
-      date: new Date(Date.now() + 3 * 24 * 60 * 60000).toISOString(), // 3 days
-      title: 'Science Fair',
-      color: 'bg-emerald-100 text-emerald-700'
-    },
-    {
-      date: new Date(Date.now() + 7 * 24 * 60 * 60000).toISOString(), // 7 days
-      title: 'Parent-Teacher Conference',
-      color: 'bg-amber-100 text-amber-700'
-    },
-    {
-      date: new Date(Date.now() + 14 * 24 * 60 * 60000).toISOString(), // 2 weeks
-      title: 'Annual Day Celebration',
-      color: 'bg-purple-100 text-purple-700'
-    }
-  ];
-
-  // =========================================================================
-  // EFFECT: Load dashboard data
-  // =========================================================================
 
   useEffect(() => {
     setMounted(true);
@@ -139,13 +222,11 @@ export default function DashboardPage() {
         // Load appropriate dashboard data with intelligent timing
         const loadData = async () => {
           if (isSuperAdmin || isTenantAdmin || isAccountant) {
-            // Admin data loads with natural delay simulation
             const delay = reducedMotion ? 0 : 800;
             setTimeout(() => {
               api.get<any>('/api/v1/analytics')
-                .then(data => setAdminData({ ...adminData, ...data }))
+                .then(data => setAdminData((prev: any) => ({ ...prev, ...data })))
                 .catch(() => {
-                  // Intelligent fallback with realistic data
                   setAdminData({
                     studentDistribution: generateStudentDistribution(120),
                     revenueData: generateRevenueTrend(),
@@ -219,7 +300,6 @@ export default function DashboardPage() {
         loadData();
       })
       .catch(() => {
-        // Intelligent error recovery with realistic fallbacks
         setLoading(false);
         setAdminData({
           studentDistribution: generateStudentDistribution(120),
@@ -244,141 +324,28 @@ export default function DashboardPage() {
         setRegistrarStudents(generateRegistrarStudents(25));
         setRegistrarAdmissions(generateRegistrarAdmissions(15));
       });
-  }, []);
+  }, [reducedMotion]);
 
   // =========================================================================
-  // INTELLIGENT HELPER FUNCTIONS
-  // =========================================================================
-
-  // Generate realistic teacher assignments
-  const generateTeacherAssignments = (count: number) =>
-    Array.from({ length: count }, (_, i) => ({
-      title: `Assignment ${i + 1}: ${['Math', 'Science', 'English', 'History', 'Art'][i % 5]} Project`,
-      dueDate: new Date(Date.now() + (i + 1) * 24 * 60 * 60000).toISOString(),
-      status: i % 4 === 0 ? 'completed' : i % 4 === 1 ? 'pending' : i % 3 === 0 ? 'overdue' : 'active',
-      studentCount: Math.floor(20 + Math.random() * 30)
-    }));
-
-  // Generate realistic teacher attendance
-  const generateTeacherAttendance = (count: number) =>
-    Array.from({ length: count }, (_, i) => ({
-      date: new Date(Date.now() - (count - i) * 24 * 60 * 60000).toISOString().split('T')[0],
-      present: Math.floor(25 + Math.random() * 20),
-      absent: Math.floor(5 + Math.random() * 10),
-      rate: Math.round((Math.floor(25 + Math.random() * 20) / 30) * 100)
-    }));
-
-  // Generate realistic parent children
-  const generateParentChildren = (count: number) =>
-    Array.from({ length: count }, (_, i) => ({
-      name: `Student ${i + 1}`,
-      firstName: `Child${i + 1}`,
-      lastName: `Lastname`,
-      grade: ['KG', '1', '2', '3', '4', '5', '6', '7', '8'][i % 9],
-      section: ['A', 'B', 'C'][i % 3],
-      status: i % 5 !== 0 ? 'ACTIVE' : 'PENDING'
-    }));
-
-  // Generate realistic parent financial
-  const generateParentFinancial = (count: number) =>
-    Array.from({ length: count }, (_, i) => ({
-      description: `Tuition Fee ${i + 1}`,
-      amount: Math.floor(500 + Math.random() * 2000),
-      dueDate: new Date(Date.now() + (i + 1) * 30 * 24 * 60 * 60000).toISOString().split('T')[0],
-      status: i % 3 === 0 ? 'PAID' : i % 3 === 1 ? 'PARTIAL' : 'PENDING'
-    }));
-
-  // Generate realistic student assignments
-  const generateStudentAssignments = (count: number) =>
-    Array.from({ length: count }, (_, i) => ({
-      title: `Math HW ${i + 1}: Fractions Practice`,
-      dueDate: new Date(Date.now() + (i + 1) * 24 * 60 * 60000).toISOString(),
-      status: ['assigned', 'in progress', 'completed'][i % 3],
-      completed: i % 4 === 0
-    }));
-
-  // Generate realistic student timetable
-  const generateStudentTimetable = (count: number) =>
-    Array.from({ length: count }, (_, i) => ({
-      period: `Period ${i + 1}`,
-      subject: ['Math', 'Science', 'English', 'Physics', 'Chemistry', 'History'][i % 6],
-      teacher: `Mr. ${['Smith', 'Johnson', 'Williams', 'Brown', 'Davis'][i % 5]}`,
-      room: `Room ${String(i + 1).padStart(3, '0')}`
-    }));
-
-  // Generate realistic registrar students
-  const generateRegistrarStudents = (count: number) =>
-    Array.from({ length: count }, (_, i) => ({
-      name: `Student ${i + 1}`,
-      firstName: `First${i + 1}`,
-      lastName: `Lastname${i + 1}`,
-      grade: ['9', '10', '11', '12'][i % 4],
-      email: `student${i + 1}@school.edu`,
-      enrollmentDate: new Date(Date.now() - (i * 365 + Math.random() * 180) * 24 * 60 * 60000).toISOString().split('T')[0]
-    }));
-
-  // Generate realistic registrar admissions
-  const generateRegistrarAdmissions = (count: number) =>
-    Array.from({ length: count }, (_, i) => ({
-      name: `Applicant ${i + 1}`,
-      firstName: `Applicant${i + 1}`,
-      lastName: `Lastname`,
-      grade: ['9', '10', '11'][i % 3],
-      status: ['accepted', 'pending', 'rejected'][i % 3],
-      appliedDate: new Date(Date.now() - (i * 45 + Math.random() * 30) * 24 * 60 * 60000).toISOString().split('T')[0]
-    }));
-
-  // =========================================================================
-  // SHARED ANIMATION CONFIGURATION
-  // =========================================================================
-
-  // Stagger container with intelligent timing
-  const staggerContainer = {
-    initial: { opacity: 0, y: 20 },
-    animate: { opacity: 1, y: 0 },
-    exit: { opacity: 0, y: -20 },
-    transition: {
-      staggerChildren: reducedMotion ? 0 : 0.12,
-      delayChildren: reducedMotion ? 0 : 0.08,
-      type: 'spring',
-      damping: 20,
-      stiffness: 120
-    },
-    className: 'reduced-motion:transition-none'
-  };
-
-  // Item variants with hover feedback
-  const itemVariants = {
-    hidden: { opacity: 0, x: reducedMotion ? 0 : -20 },
-    visible: { opacity: 1, x: 0 },
-    exit: { opacity: 0, x: 20 },
-    hover: { scale: 1.02, transition: { duration: 0.1 } }
-  };
-
-  // =========================================================================
-  // ROLE-BASED DASHBOARD RENDERING WITH EXCEPTIONAL LOGIC
-  // =========================================================================
-
-  // =========================================================================
-  // ADMIN DASHBOARD - Most Feature-Rich
+  // ADMIN DASHBOARD
   // =========================================================================
   if (role === 'ADMIN') {
     const totalRev = adminData?.totalRevenue ??
-      (adminData?.revenueData?.reduce((s: number, r: any) => s + (r.total || 0), 0) ?? 0);
+      (adminData?.revenueData?.reduce((s: number, r: any) => s + (r?.total || 0), 0) ?? 0);
     const pendingAmt = adminData?.pendingAmount ?? 0;
     const invCount = adminData?.invoiceCount ?? recentInvoices.length;
     const studentCount = adminData?.totalStudents ?? 0;
     const teacherCount = adminData?.teacherCount ?? 0;
     const classCount = adminData?.classCount ?? 0;
 
-    // Smart KPI calculations with trends
-    const calculateTrends = (adminData: any) => {
-      const revenueData = adminData.revenueData || generateRevenueTrend();
-      const prevRevenue = revenueData.slice(0, -1).reduce((s: number, r: any) => s + r.total, 0) || 1;
-      const currRevenue = revenueData.reduce((s: number, r: any) => s + r.total, 0) || 1;
+    // Safe KPI calculations with optional chaining
+    const calculateTrends = (data: any) => {
+      const revenueData = data?.revenueData || generateRevenueTrend();
+      const prevRevenue = revenueData.slice(0, -1).reduce((s: number, r: any) => s + (r?.total || 0), 0) || 1;
+      const currRevenue = revenueData.reduce((s: number, r: any) => s + (r?.total || 0), 0) || 1;
       const revenueTrend = ((currRevenue - prevRevenue) / prevRevenue) * 100;
 
-      const invoiceCount = adminData.invoiceCount || recentInvoices.length;
+      const invoiceCount = data?.invoiceCount || recentInvoices.length;
       const prevInvCount = Math.max(1, invCount - 5);
       const invoiceTrend = ((invoiceCount - prevInvCount) / prevInvCount) * 100;
 
@@ -386,8 +353,8 @@ export default function DashboardPage() {
         revenueTrend: Math.round(revenueTrend * 10) / 10,
         invoiceTrend: Math.round(invoiceTrend * 10) / 10,
         totalRevenue: currRevenue,
-        pendingAmount: adminData.pendingAmount || Math.round(totalRev * 0.05),
-        studentCount: adminData.totalStudents || studentCount
+        pendingAmount: data?.pendingAmount || Math.round(totalRev * 0.05),
+        studentCount: data?.totalStudents || studentCount
       };
     };
 
@@ -404,8 +371,7 @@ export default function DashboardPage() {
           {/* Revenue Summary Section with animated KPIs */}
           <motion.div
             variants={itemVariants}
-            transition={0.4}
-            style={{ transitionDelay: 0.1 }}
+            transition={{ duration: 0.4, delay: 0.1 }}
           >
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               <KpiCard
@@ -443,11 +409,10 @@ export default function DashboardPage() {
             </div>
           </motion.div>
 
-          {/* Recent Invoices Table with search & filter logic */}
+          {/* Recent Invoices Table */}
           <motion.div
             variants={itemVariants}
-            transition={0.4}
-            style={{ transitionDelay: 0.2 }}
+            transition={{ duration: 0.4, delay: 0.2 }}
           >
             <Card className="mb-6">
               <div className="flex items-center justify-between mb-4">
@@ -506,11 +471,10 @@ export default function DashboardPage() {
             </Card>
           </motion.div>
 
-          {/* Interactive Charts with hover intelligence */}
+          {/* Interactive Charts */}
           <motion.div
             variants={itemVariants}
-            transition={0.4}
-            style={{ transitionDelay: 0.3 }}
+            transition={{ duration: 0.4, delay: 0.3 }}
           >
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <Card>
@@ -598,11 +562,10 @@ export default function DashboardPage() {
             </div>
           </motion.div>
 
-          {/* Upcoming Events with intelligent scheduling */}
+          {/* Upcoming Events */}
           <motion.div
             variants={itemVariants}
-            transition={0.4}
-            style={{ transitionDelay: 0.4 }}
+            transition={{ duration: 0.4, delay: 0.4 }}
           >
             <Card>
               <h3 className="text-lg font-medium text-neutral-900 mb-4">
@@ -645,7 +608,7 @@ export default function DashboardPage() {
   }
 
   // =========================================================================
-  // TEACHER DASHBOARD - With intelligent attendance & assignment logic
+  // TEACHER DASHBOARD
   // =========================================================================
   if (role === 'TEACHER') {
     const assignments = teacherAssignments;
@@ -659,11 +622,10 @@ export default function DashboardPage() {
           animate="visible"
           exit="exit"
         >
-          {/* Assignments Overview with completion tracking */}
+          {/* Assignments Overview */}
           <motion.div
             variants={itemVariants}
-            transition={0.3}
-            style={{ transitionDelay: 0.1 }}
+            transition={{ duration: 0.3, delay: 0.1 }}
           >
             <Card>
               <h3 className="text-lg font-medium text-neutral-900 mb-4">
@@ -706,11 +668,10 @@ export default function DashboardPage() {
             </Card>
           </motion.div>
 
-          {/* Attendance Overview with rate insights */}
+          {/* Attendance Overview */}
           <motion.div
             variants={itemVariants}
-            transition={0.3}
-            style={{ transitionDelay: 0.2 }}
+            transition={{ duration: 0.3, delay: 0.2 }}
           >
             <Card>
               <h3 className="text-lg font-medium text-neutral-900 mb-4">
@@ -746,7 +707,7 @@ export default function DashboardPage() {
                             {att.present ?? 0} present
                           </span>
                           <span className="font-medium text-neutral-700">
-                            {absent ?? 0} absent
+                            {att.absent ?? 0} absent
                           </span>
                           <span className={rateClass}>
                             {rate}% {emoji}
@@ -765,7 +726,7 @@ export default function DashboardPage() {
   }
 
   // =========================================================================
-  // PARENT DASHBOARD - With family financial overview logic
+  // PARENT DASHBOARD
   // =========================================================================
   if (role === 'PARENT') {
     const children = parentChildren;
@@ -782,8 +743,7 @@ export default function DashboardPage() {
           {/* Children Overview */}
           <motion.div
             variants={itemVariants}
-            transition={0.3}
-            style={{ transitionDelay: 0.1 }}
+            transition={{ duration: 0.3, delay: 0.1 }}
           >
             <Card>
               <h3 className="text-lg font-medium text-neutral-900 mb-4">
@@ -828,11 +788,10 @@ export default function DashboardPage() {
             </Card>
           </motion.div>
 
-          {/* Financial Overview with payment status tracking */}
+          {/* Financial Overview */}
           <motion.div
             variants={itemVariants}
-            transition={0.3}
-            style={{ transitionDelay: 0.2 }}
+            transition={{ duration: 0.3, delay: 0.2 }}
           >
             <Card>
               <h3 className="text-lg font-medium text-neutral-900 mb-4">
@@ -885,7 +844,7 @@ export default function DashboardPage() {
   }
 
   // =========================================================================
-  // STUDENT DASHBOARD - With personal learning dashboard logic
+  // STUDENT DASHBOARD
   // =========================================================================
   if (role === 'STUDENT') {
     const assignments = studentAssignments;
@@ -899,11 +858,10 @@ export default function DashboardPage() {
           animate="visible"
           exit="exit"
         >
-          {/* Assignments with progress tracking */}
+          {/* Assignments */}
           <motion.div
             variants={itemVariants}
-            transition={0.3}
-            style={{ transitionDelay: 0.1 }}
+            transition={{ duration: 0.3, delay: 0.1 }}
           >
             <Card>
               <h3 className="text-lg font-medium text-neutral-900 mb-4">
@@ -945,11 +903,10 @@ export default function DashboardPage() {
             </Card>
           </motion.div>
 
-          {/* Timetable with upcoming classes */}
+          {/* Timetable */}
           <motion.div
             variants={itemVariants}
-            transition={0.3}
-            style={{ transitionDelay: 0.2 }}
+            transition={{ duration: 0.3, delay: 0.2 }}
           >
             <Card>
               <h3 className="text-lg font-medium text-neutral-900 mb-4">
@@ -997,7 +954,7 @@ export default function DashboardPage() {
   }
 
   // =========================================================================
-  // REGISTRAR DASHBOARD - With admissions intelligence
+  // REGISTRAR DASHBOARD
   // =========================================================================
   if (role === 'REGISTRAR') {
     const students = registrarStudents;
@@ -1011,11 +968,10 @@ export default function DashboardPage() {
           animate="visible"
           exit="exit"
         >
-          {/* Student Directory with search-like filtering */}
+          {/* Student Directory */}
           <motion.div
             variants={itemVariants}
-            transition={0.3}
-            style={{ transitionDelay: 0.1 }}
+            transition={{ duration: 0.3, delay: 0.1 }}
           >
             <Card>
               <h3 className="text-lg font-medium text-neutral-900 mb-4">
@@ -1058,11 +1014,10 @@ export default function DashboardPage() {
             </Card>
           </motion.div>
 
-          {/* Admissions oversight with status tracking */}
+          {/* Admissions */}
           <motion.div
             variants={itemVariants}
-            transition={0.3}
-            style={{ transitionDelay: 0.2 }}
+            transition={{ duration: 0.3, delay: 0.2 }}
           >
             <Card>
               <h3 className="text-lg font-medium text-neutral-900 mb-4">
