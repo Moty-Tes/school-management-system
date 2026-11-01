@@ -22,12 +22,12 @@
   },
   "dependencies": {
     "@prisma/client": "5.22.0",
-    "bcryptjs": "^2.4.3"
+    "bcryptjs": "^2.4.3",
+    "prisma": "5.22.0",
+    "tsx": "^4.19.0"
   },
   "devDependencies": {
     "@types/bcryptjs": "^2.4.6",
-    "prisma": "5.22.0",
-    "tsx": "^4.19.0",
     "typescript": "^5.4.0"
   }
 }

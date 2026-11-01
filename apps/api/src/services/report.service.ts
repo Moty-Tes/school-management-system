@@ -1,4 +1,6 @@
-import PdfPrinter from 'pdfmake';
+// pdfmake ESM compatibility: pdfmake main exports an instance, while Printer.js exports the constructor
+// @ts-ignore
+import PrinterModule from 'pdfmake/js/Printer.js';
 import QRCode from 'qrcode';
 import { prisma } from '../lib/prisma.js';
 import { AppError } from '../middleware/error.middleware.js';
@@ -13,7 +15,8 @@ const fonts = {
   }
 };
 
-const printer = new (PdfPrinter as any)(fonts);
+const PdfPrinter = (PrinterModule as any)?.default?.default || (PrinterModule as any)?.default || (PrinterModule as any);
+const printer = new PdfPrinter(fonts);
 
 // ============================================================================
 // 1. REPORT CARD (Uses custom grading scale)
