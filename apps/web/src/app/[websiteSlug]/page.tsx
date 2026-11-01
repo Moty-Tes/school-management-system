@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
+import { getApiBaseUrl } from '@/lib/config';
 
 export default function PublicSchoolWebsite() {
   const { websiteSlug } = useParams();
@@ -10,7 +11,7 @@ export default function PublicSchoolWebsite() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+    const apiUrl = getApiBaseUrl();
     fetch(`${apiUrl}/api/v1/website/public/${websiteSlug}`)
       .then(res => res.json())
       .then(res => {

@@ -12,6 +12,7 @@
     "demo:reset": "powershell -Command \"Invoke-RestMethod -Uri http://localhost:4000/api/v1/demo/reset -Method Post | ConvertTo-Json -Depth 4\"",
     "db:studio": "turbo run db:studio",
     "docker:up": "docker compose up -d",
+    "docker:prod": "docker compose -f docker-compose.prod.yml up --build -d",
     "docker:down": "docker compose down",
     "docker:logs": "docker compose logs -f",
     "typecheck": "turbo run typecheck"

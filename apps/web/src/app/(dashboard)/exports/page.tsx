@@ -1,11 +1,12 @@
 'use client';
 
 import { useState } from 'react';
+import { getApiBaseUrl } from '@/lib/config';
 
 export default function ExportsPage() {
   const [attendanceDate, setAttendanceDate] = useState(new Date().toISOString().split('T')[0]);
 
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+  const apiUrl = getApiBaseUrl();
 
   function downloadFile(endpoint: string) {
     // We use window.open because the backend sends a file download stream

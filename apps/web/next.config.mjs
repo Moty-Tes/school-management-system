@@ -10,13 +10,14 @@ const nextConfig = {
     let apiUrl = rawApiUrl.trim();
 
     if (!apiUrl.startsWith('http://') && !apiUrl.startsWith('https://')) {
-      // If it contains onrender.com, use HTTPS; otherwise (internal service name), use HTTP
-      if (apiUrl.includes('onrender.com')) {
+      // If it contains onrender.com or is not localhost, use HTTPS; otherwise use HTTP
+      if (apiUrl.includes('onrender.com') || (!apiUrl.includes('localhost') && !apiUrl.includes('127.0.0.1'))) {
         apiUrl = `https://${apiUrl}`;
       } else {
         apiUrl = `http://${apiUrl}`;
       }
     }
+    apiUrl = apiUrl.replace(/\/+$/, '');
 
     return [
       {

@@ -4,6 +4,7 @@ import { useEffect, useState, FormEvent } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { api } from '@/lib/api';
 import { getMe } from '@/lib/auth';
+import { getApiBaseUrl } from '@/lib/config';
 import Link from 'next/link';
 import { sonner } from '@/components/sonner';
 
@@ -66,22 +67,22 @@ export default function StudentProfilePage() {
 
   // --- DOWNLOAD HANDLERS ---
   function handleDownloadReport() {
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+    const apiUrl = getApiBaseUrl();
     window.open(`${apiUrl}/api/v1/reports/students/${id}/report-card`, '_blank');
   }
 
   function handleDownloadIdCard() {
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+    const apiUrl = getApiBaseUrl();
     window.open(`${apiUrl}/api/v1/reports/students/${id}/id-card`, '_blank');
   }
 
   function handleDownloadTranscript() {
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+    const apiUrl = getApiBaseUrl();
     window.open(`${apiUrl}/api/v1/reports/students/${id}/transcript`, '_blank');
   }
 
   function handleDownloadCertificate() {
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+    const apiUrl = getApiBaseUrl();
     const query = new URLSearchParams({
       title: certData.title,
       description: certData.description

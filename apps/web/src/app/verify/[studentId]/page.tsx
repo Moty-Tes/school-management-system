@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
+import { getApiBaseUrl } from '@/lib/config';
 
 export default function VerifyDocumentPage() {
   const { studentId } = useParams();
@@ -10,7 +11,7 @@ export default function VerifyDocumentPage() {
   const [error, setError] = useState('');
 
   useEffect(() => {
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+    const apiUrl = getApiBaseUrl();
     fetch(`${apiUrl}/api/v1/verify/student/${studentId}`)
       .then(res => res.json())
       .then(res => {

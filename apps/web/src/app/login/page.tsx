@@ -4,7 +4,8 @@ import { useState, useEffect, FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import { login } from '@/lib/auth';
 import { api, ApiError } from '@/lib/api';
-import { Shield, Lock, School, ArrowRight, Loader2, Users } from 'lucide-react';
+import { Shield, Lock, School, ArrowRight, Loader2, Users, Sparkles } from 'lucide-react';
+import { FigmaGeometricBackground } from '@/components/FigmaGeometricBackground';
 
 const DEFAULT_PERSONAS = [
   { role: 'TENANT_ADMIN', roleName: 'School Administrator', email: 'admin@demo-school.local', password: 'DemoAdmin123!', firstName: 'Alemayehu', title: 'Principal' },
@@ -76,114 +77,143 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 bg-slate-900 text-slate-100 selection:bg-slate-700">
-      <div className="w-full max-w-md space-y-6">
-        
-        {/* Header */}
-        <div className="text-center">
-          <div className="inline-flex items-center justify-center w-12 h-12 rounded-2xl bg-slate-800 border border-slate-700 text-slate-200 mb-3 shadow-lg">
-            <School className="w-6 h-6 text-slate-300" />
-          </div>
-          <h1 className="text-2xl font-bold tracking-tight text-white">School Management Portal</h1>
-          <p className="text-xs text-slate-400 mt-1">Sign in with your institutional credentials or demo accounts</p>
-        </div>
-
-        {/* Login Form */}
-        <div className="bg-slate-800/90 border border-slate-700/80 rounded-2xl p-6 sm:p-8 shadow-2xl backdrop-blur-md">
-          {error && (
-            <div className="mb-5 p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-300 text-xs font-medium leading-relaxed">
-              {error}
+    <FigmaGeometricBackground showBadges={true}>
+      <div className="min-h-screen flex items-center justify-center p-4 sm:p-6">
+        <div className="w-full max-w-md space-y-6 my-auto">
+          
+          {/* Header */}
+          <div className="text-center">
+            <div className="relative inline-flex items-center justify-center mb-4">
+              <div className="absolute inset-0 rounded-2xl bg-[#E86524]/30 blur-xl animate-pulse" />
+              <div className="relative inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-[#1B4F8C] border border-[#E86524]/60 text-white shadow-xl">
+                <School className="w-7 h-7 text-[#E86524]" />
+              </div>
             </div>
-          )}
-
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
-                School Tenant Code
-              </label>
-              <input
-                type="text"
-                value={tenantCode}
-                onChange={(e) => setTenantCode(e.target.value)}
-                required
-                className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900/80 border border-slate-700 text-sm text-white focus:outline-none focus:ring-2 focus:ring-slate-500 font-mono"
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
-                Email Address
-              </label>
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-                className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900/80 border border-slate-700 text-sm text-white focus:outline-none focus:ring-2 focus:ring-slate-500"
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
-                Password
-              </label>
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900/80 border border-slate-700 text-sm text-white focus:outline-none focus:ring-2 focus:ring-slate-500 font-mono"
-              />
-            </div>
-
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full mt-2 py-3 px-4 rounded-xl bg-white hover:bg-slate-100 text-slate-900 font-bold text-xs uppercase tracking-wider transition-all shadow-md flex items-center justify-center gap-2 disabled:opacity-50"
-            >
-              {loading ? (
-                <>
-                  <Loader2 className="w-4 h-4 animate-spin text-slate-900 shrink-0" />
-                  <span className="truncate">{loadingText}</span>
-                </>
-              ) : (
-                <>
-                  <span>Sign In</span>
-                  <ArrowRight className="w-4 h-4" />
-                </>
-              )}
-            </button>
-          </form>
-        </div>
-
-        {/* One-Click Role Switcher */}
-        <div className="bg-slate-800/60 border border-slate-700/60 rounded-2xl p-5">
-          <div className="flex items-center gap-2 text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">
-            <Users className="w-4 h-4" />
-            <span>Instant Demo Role Switcher</span>
+            <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-white font-mulish">
+              School Management Portal
+            </h1>
+            <p className="text-xs text-slate-300/80 mt-1.5 flex items-center justify-center gap-1.5">
+              <span>Enterprise Edition</span>
+              <span className="w-1 h-1 rounded-full bg-[#E86524]" />
+              <span className="font-semibold text-white">V 1.0</span>
+            </p>
           </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-            {personas.map((persona) => (
+          {/* Login Form */}
+          <div className="relative bg-[#0B1E38]/85 border border-white/15 rounded-3xl p-6 sm:p-8 shadow-[0_25px_60px_-15px_rgba(7,19,34,0.9)] backdrop-blur-xl">
+            {error && (
+              <div className="mb-5 p-3.5 rounded-xl bg-rose-500/15 border border-rose-500/30 text-rose-200 text-xs font-medium leading-relaxed flex items-start gap-2">
+                <span className="w-1.5 h-1.5 rounded-full bg-rose-400 mt-1 shrink-0" />
+                <span>{error}</span>
+              </div>
+            )}
+
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1.5">
+                  School Tenant Code
+                </label>
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={tenantCode}
+                    onChange={(e) => setTenantCode(e.target.value)}
+                    required
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-[#071324]/80 border border-slate-700/80 text-sm text-white focus:outline-none focus:border-[#E86524] focus:ring-2 focus:ring-[#E86524]/30 font-mono transition-all"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1.5">
+                  Email Address
+                </label>
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-[#071324]/80 border border-slate-700/80 text-sm text-white focus:outline-none focus:border-[#E86524] focus:ring-2 focus:ring-[#E86524]/30 transition-all"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1.5">
+                  Password
+                </label>
+                <input
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-[#071324]/80 border border-slate-700/80 text-sm text-white focus:outline-none focus:border-[#E86524] focus:ring-2 focus:ring-[#E86524]/30 font-mono transition-all"
+                />
+              </div>
+
               <button
-                key={persona.role}
-                type="button"
-                onClick={() => handleQuickLogin(persona)}
+                type="submit"
                 disabled={loading}
-                className="p-2.5 rounded-xl bg-slate-900/70 hover:bg-slate-700/60 border border-slate-700/70 text-left transition-colors group disabled:opacity-50"
+                className="w-full mt-3 py-3 px-4 rounded-xl bg-[#E86524] hover:bg-[#d2541a] active:scale-[0.99] text-white font-extrabold text-xs uppercase tracking-wider transition-all shadow-lg shadow-[#E86524]/30 hover:shadow-[#E86524]/50 flex items-center justify-center gap-2 disabled:opacity-50"
               >
-                <div className="text-xs font-bold text-slate-200 group-hover:text-white truncate">
-                  {persona.roleName || persona.role}
-                </div>
-                <div className="text-[10px] text-slate-400 truncate mt-0.5">
-                  {persona.firstName}
-                </div>
+                {loading ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin text-white shrink-0" />
+                    <span className="truncate">{loadingText}</span>
+                  </>
+                ) : (
+                  <>
+                    <span>Sign In to School</span>
+                    <ArrowRight className="w-4 h-4" />
+                  </>
+                )}
               </button>
-            ))}
+            </form>
           </div>
-        </div>
 
+          {/* One-Click Role Switcher */}
+          <div className="bg-[#0B1E38]/65 border border-white/10 rounded-2xl p-5 backdrop-blur-md shadow-xl">
+            <div className="flex items-center justify-between text-xs font-bold text-slate-300 uppercase tracking-wider mb-3">
+              <div className="flex items-center gap-2">
+                <Users className="w-4 h-4 text-[#E86524]" />
+                <span>Instant Demo Role Switcher</span>
+              </div>
+              <span className="text-[10px] text-[#E86524] bg-[#E86524]/10 px-2 py-0.5 rounded-full border border-[#E86524]/20">
+                1-Click
+              </span>
+            </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+              {personas.map((persona) => (
+                <button
+                  key={persona.role}
+                  type="button"
+                  onClick={() => handleQuickLogin(persona)}
+                  disabled={loading}
+                  className="p-2.5 rounded-xl bg-[#071324]/70 hover:bg-[#1B4F8C]/40 border border-white/10 hover:border-[#E86524]/60 text-left transition-all duration-200 group disabled:opacity-50"
+                >
+                  <div className="text-xs font-bold text-slate-200 group-hover:text-[#E86524] truncate transition-colors">
+                    {persona.roleName || persona.role}
+                  </div>
+                  <div className="text-[10px] text-slate-400 group-hover:text-slate-300 truncate mt-0.5">
+                    {persona.firstName}
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Institutional Trust Footer */}
+          <div className="flex items-center justify-center gap-3 text-[11px] text-slate-400/80">
+            <div className="flex items-center gap-1">
+              <Lock className="w-3 h-3 text-[#E86524]" />
+              <span>TLS 1.3 256-Bit Encrypted</span>
+            </div>
+            <span>•</span>
+            <span>School ERP Multi-Tenant</span>
+          </div>
+
+        </div>
       </div>
-    </div>
+    </FigmaGeometricBackground>
   );
 }

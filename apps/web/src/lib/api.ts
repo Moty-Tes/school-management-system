@@ -1,3 +1,5 @@
+import { getApiBaseUrl } from './config';
+
 export class ApiError extends Error {
   status: number;
   code: string;
@@ -35,8 +37,12 @@ async function request<T>(endpoint: string, options: RequestOptions = {}, retrie
     ...customHeaders,
   };
 
+  const targetUrl = endpoint.startsWith('http://') || endpoint.startsWith('https://')
+    ? endpoint
+    : (typeof window !== 'undefined' ? endpoint : `${getApiBaseUrl()}${endpoint}`);
+
   try {
-    const response = await fetch(endpoint, {
+    const response = await fetch(targetUrl, {
       ...rest,
       headers,
       credentials: 'include',

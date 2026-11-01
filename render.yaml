@@ -6,7 +6,7 @@ services:
     name: sms-backend-api
     env: node
     plan: free
-    buildCommand: pnpm install && pnpm --filter @sms/database exec prisma db push --skip-generate && pnpm run build
+    buildCommand: pnpm install && pnpm --filter @sms/database run build && pnpm --filter @sms/api run build
     startCommand: pnpm --filter @sms/database exec prisma db push --skip-generate && (pnpm --filter @sms/database db:seed || true) && pnpm --filter @sms/api run start
     healthCheckPath: /health
     envVars:
@@ -33,6 +33,8 @@ services:
     envVars:
       - key: NODE_ENV
         value: production
+      - key: NODE_OPTIONS
+        value: "--max-old-space-size=450"
       - key: NEXT_PUBLIC_API_URL
         fromService:
           type: web
