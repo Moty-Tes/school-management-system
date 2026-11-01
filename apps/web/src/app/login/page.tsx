@@ -106,7 +106,6 @@ export default function LoginPage() {
             <p className="text-xs text-slate-300/80 mt-1.5 flex items-center justify-center gap-1.5">
               <span>Enterprise Edition</span>
               <span className="w-1 h-1 rounded-full bg-[#E86524]" />
-              <span className="font-semibold text-white">V 1.0</span>
             </p>
           </div>
 

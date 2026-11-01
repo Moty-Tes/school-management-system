@@ -18,9 +18,16 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           rel="stylesheet"
         />
       </head>
-      <body className="antialiased bg-slate-50 font-sans">
+      <body className="antialiased bg-neutral-50 font-sans">
+        <Toaster
+          position="top-right"
+          richColors
+          limit={8}
+          newestOnTop
+          pauseOnHover
+          autoClose={3000}
+        />
         {children}
-        <Toaster position="top-right" richColors />
       </body>
     </html>
   );

@@ -25,4 +25,9 @@ router.post('/invoices', authenticate, financeController.createInvoiceHandler);
 router.post('/invoices/:id/pay', authenticate, financeController.recordPaymentHandler);
 router.post('/invoices/bulk', authenticate, financeController.bulkInvoiceHandler);
 
+// Payment Gateway Integrations
+router.post('/payments/initialize', authenticate, financeController.initializeGatewayPaymentHandler);
+router.post('/webhooks/chapa', financeController.chapaWebhookHandler);
+router.post('/webhooks/telebirr', financeController.telebirrWebhookHandler);
+
 export default router;

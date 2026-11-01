@@ -9,5 +9,6 @@ router.post('/subjects', authenticate, timetableController.createSubjectHandler)
 
 router.get('/', authenticate, timetableController.getTimetableHandler);
 router.post('/', authenticate, timetableController.createTimetableHandler);
+router.post('/auto-generate', authenticate, timetableController.autoGenerateTimetableHandler);
 
 export default router;

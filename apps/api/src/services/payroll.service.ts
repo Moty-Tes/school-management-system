@@ -1,5 +1,6 @@
 import { prisma } from '../lib/prisma.js';
 import { AppError } from '../middleware/error.middleware.js';
+import { EthiopianPayrollEngine } from './payroll-engine.service.js';
 
 export async function generatePayroll(tenantId: string, month: number, year: number) {
   const teachers = await prisma.teacherProfile.findMany({
@@ -15,14 +16,17 @@ export async function generatePayroll(tenantId: string, month: number, year: num
     for (const teacher of teachers) {
       // Check if already generated for this month
       const existing = await tx.payslip.findUnique({
-        where: { teacherId_month_year: { teacherId: teacher.id, month, year } }
+        where: { teacherId_month_year: { teacherId: teacher.id, month, year } },
       });
-      
+
       if (existing) continue; // Skip if already generated
 
-      // Standard deduction (e.g., 5% tax) - In reality, you'd calculate this dynamically
-      const deductions = teacher.baseSalary * 0.05;
-      const netPay = teacher.baseSalary - deductions;
+      // Real Ethiopian Proclamation 979/2016 statutory tax & pension calculation
+      const baseSalary = teacher.baseSalary || 12000;
+      const calc = EthiopianPayrollEngine.calculate({
+        baseSalary,
+        transportAllowance: 1500,
+      });
 
       await tx.payslip.create({
         data: {
@@ -30,10 +34,10 @@ export async function generatePayroll(tenantId: string, month: number, year: num
           teacherId: teacher.id,
           month,
           year,
-          baseSalary: teacher.baseSalary,
-          deductions,
-          netPay,
-        }
+          baseSalary: calc.baseSalary,
+          deductions: calc.deductions.totalEmployeeDeductions,
+          netPay: calc.netPay,
+        },
       });
       generatedCount++;
     }
@@ -43,10 +47,22 @@ export async function generatePayroll(tenantId: string, month: number, year: num
 }
 
 export async function getPayrollList(tenantId: string, month: number, year: number) {
-  return prisma.payslip.findMany({
+  const slips = await prisma.payslip.findMany({
     where: { tenantId, month, year },
     include: { teacher: { include: { user: { include: { profile: true } } } } },
     orderBy: { netPay: 'desc' },
+  });
+
+  // Attach enriched statutory tax breakdown for frontend viewing
+  return slips.map((slip) => {
+    const calc = EthiopianPayrollEngine.calculate({
+      baseSalary: slip.baseSalary,
+      transportAllowance: 1500,
+    });
+    return {
+      ...slip,
+      statutoryDetails: calc,
+    };
   });
 }
 
@@ -56,9 +72,20 @@ export async function getMyPayslips(tenantId: string, userId: string) {
   });
   if (!teacher) throw new AppError('Teacher profile not found', 404, 'NOT_FOUND');
 
-  return prisma.payslip.findMany({
+  const slips = await prisma.payslip.findMany({
     where: { tenantId, teacherId: teacher.id },
     orderBy: [{ year: 'desc' }, { month: 'desc' }],
+  });
+
+  return slips.map((slip) => {
+    const calc = EthiopianPayrollEngine.calculate({
+      baseSalary: slip.baseSalary,
+      transportAllowance: 1500,
+    });
+    return {
+      ...slip,
+      statutoryDetails: calc,
+    };
   });
 }
 
@@ -67,4 +94,8 @@ export async function markAsPaid(tenantId: string, payslipId: string) {
     where: { id: payslipId, tenantId },
     data: { status: 'PAID', paidAt: new Date() },
   });
+}
+
+export async function calculateTaxPreview(baseSalary: number, transportAllowance = 0) {
+  return EthiopianPayrollEngine.calculate({ baseSalary, transportAllowance });
 }

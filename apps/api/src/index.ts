@@ -59,7 +59,10 @@ import dailylogRoutes from './routes/dailylog.routes.js';
 import substituteRoutes from './routes/substitute.routes.js';
 import verifyRoutes from './routes/verify.routes.js';
 import websiteRoutes from './routes/website.routes.js';
+import queueRoutes from './routes/queue.routes.js';
+import syncRoutes from './routes/sync.routes.js';
 import { startAutomations } from './services/automation.service.js';
+import { initializeQueueProcessors } from './services/queue-processors.js';
 
 const app = express();
 const httpServer = createServer(app);
@@ -155,6 +158,8 @@ app.use('/api/v1/dailylogs', dailylogRoutes);
 app.use('/api/v1/substitutes', substituteRoutes);
 app.use('/api/v1/verify', verifyRoutes);
 app.use('/api/v1/website', websiteRoutes);
+app.use('/api/v1/queue', queueRoutes);
+app.use('/api/v1/sync', syncRoutes);
 
 
 // Error Handler
@@ -162,6 +167,7 @@ app.use(errorHandler);
 
 // Start Server
 startAutomations();
+initializeQueueProcessors();
 
 const PORT = process.env.PORT || env.API_PORT;
 httpServer.listen(PORT, () => {

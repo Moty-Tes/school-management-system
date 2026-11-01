@@ -4,6 +4,8 @@ import { authenticate } from '../middleware/auth.middleware.js';
 
 const router = Router();
 
+router.get('/risk/cohort', authenticate, aiController.getCohortRiskHandler);
+router.get('/risk/:studentId/predictive', authenticate, aiController.getPredictiveRiskAnalysisHandler);
 router.get('/risk/:studentId', authenticate, aiController.getRiskScoreHandler);
 router.get('/comment/:studentId', authenticate, aiController.generateCommentHandler);
 

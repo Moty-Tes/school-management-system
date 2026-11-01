@@ -47,3 +47,23 @@ export async function getTimetableHandler(req: Request, res: Response, next: Nex
     res.status(200).json(result);
   } catch (err) { next(err); }
 }
+
+const autoGenerateSchema = z.object({
+  classIds: z.array(z.string()).optional(),
+  persistToDatabase: z.boolean().optional().default(true),
+  maxTeacherDailyPeriods: z.number().min(3).max(8).optional().default(6),
+});
+
+export async function autoGenerateTimetableHandler(req: Request, res: Response, next: NextFunction) {
+  try {
+    if (!req.auth?.tenantId) throw new Error("No tenant context");
+    const input = autoGenerateSchema.parse(req.body);
+    const { TimetableSolverEngine } = await import('../services/timetable-solver.service.js');
+    const result = await TimetableSolverEngine.generateSchoolTimetable(req.auth.tenantId, {
+      classIds: input.classIds,
+      persistToDatabase: input.persistToDatabase,
+      maxTeacherDailyPeriods: input.maxTeacherDailyPeriods,
+    });
+    res.status(200).json({ success: true, data: result });
+  } catch (err) { next(err); }
+}
