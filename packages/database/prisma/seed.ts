@@ -1,5 +1,6 @@
 import { PrismaClient, UserStatus, TenantStatus, TenantTier, UserTenantStatus } from '@prisma/client';
 import bcrypt from 'bcryptjs';
+import { seedOperationalData } from '../src/operational-seed.js';
 
 const prisma = new PrismaClient();
 
@@ -360,6 +361,9 @@ async function main() {
       },
     });
   }
+
+  // Populate complete school operational data (Classes, Subjects, Teachers, 48 Students, Finances, Attendance)
+  await seedOperationalData(prisma, demoSchool.id, roleMap);
 
   console.log('\n✅ Seed complete!\n');
   console.log('━'.repeat(76));

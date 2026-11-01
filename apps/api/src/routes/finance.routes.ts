@@ -4,6 +4,14 @@ import { authenticate } from '../middleware/auth.middleware.js';
 
 const router = Router();
 
+// GET /api/v1/finance/summary
+// Summary metrics and chart trends
+router.get('/summary', authenticate, financeController.getSummaryHandler);
+
+// GET /api/v1/finance/payments
+// List payments with invoice details
+router.get('/payments', authenticate, financeController.listPaymentsHandler);
+
 // GET /api/v1/finance/invoices
 // Lists all invoices for the school
 router.get('/invoices', authenticate, financeController.listInvoicesHandler);

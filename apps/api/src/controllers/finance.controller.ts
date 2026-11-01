@@ -87,3 +87,19 @@ export async function bulkInvoiceHandler(req: Request, res: Response, next: Next
     res.status(201).json({ success: true, data: result });
   } catch (err) { next(err); }
 }
+
+export async function getSummaryHandler(req: Request, res: Response, next: NextFunction) {
+  try {
+    if (!req.auth?.tenantId) throw new Error("No tenant context");
+    const result = await financeService.getFinanceSummary(req.auth.tenantId);
+    res.status(200).json({ success: true, data: result });
+  } catch (err) { next(err); }
+}
+
+export async function listPaymentsHandler(req: Request, res: Response, next: NextFunction) {
+  try {
+    if (!req.auth?.tenantId) throw new Error("No tenant context");
+    const result = await financeService.listPayments(req.auth.tenantId);
+    res.status(200).json({ success: true, data: result });
+  } catch (err) { next(err); }
+}

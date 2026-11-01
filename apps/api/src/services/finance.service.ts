@@ -97,3 +97,68 @@ export async function generateBulkInvoices(
     skipDuplicates: true,
   });
 }
+
+export async function getFinanceSummary(tenantId: string) {
+  const [invoices, payments, expenses] = await Promise.all([
+    prisma.invoice.findMany({ where: { tenantId }, select: { amount: true, status: true } }),
+    prisma.payment.findMany({ where: { tenantId }, select: { amount: true, createdAt: true } }),
+    prisma.expense.findMany({ where: { tenantId }, select: { amount: true, date: true } }),
+  ]);
+
+  const totalRevenue = payments.reduce((sum, p) => sum + Number(p.amount), 0);
+  const totalInvoiced = invoices.reduce((sum, i) => sum + Number(i.amount), 0);
+  const pendingAmount = invoices
+    .filter((i) => i.status !== 'PAID')
+    .reduce((sum, i) => sum + Number(i.amount), 0);
+  const totalInvoices = invoices.length;
+  const paidInvoices = invoices.filter((i) => i.status === 'PAID').length;
+  const totalExpenses = expenses.reduce((sum, e) => sum + Number(e.amount), 0);
+
+  // Group monthly for finance charts (last 6 months)
+  const monthlyMap = new Map<string, { month: string; revenue: number; expenses: number }>();
+  for (let i = 5; i >= 0; i--) {
+    const d = new Date();
+    d.setMonth(d.getMonth() - i);
+    const key = d.toLocaleString('default', { month: 'short', year: '2-digit' });
+    monthlyMap.set(key, { month: key, revenue: 0, expenses: 0 });
+  }
+
+  payments.forEach((p) => {
+    const key = p.createdAt.toLocaleString('default', { month: 'short', year: '2-digit' });
+    const entry = monthlyMap.get(key);
+    if (entry) entry.revenue += Number(p.amount);
+  });
+
+  expenses.forEach((e) => {
+    const key = e.date.toLocaleString('default', { month: 'short', year: '2-digit' });
+    const entry = monthlyMap.get(key);
+    if (entry) entry.expenses += Number(e.amount);
+  });
+
+  return {
+    totalRevenue,
+    pendingAmount,
+    totalInvoices,
+    paidInvoices,
+    totalInvoiced,
+    totalExpenses,
+    netIncome: totalRevenue - totalExpenses,
+    collectionRate: totalInvoiced > 0 ? Math.round((totalRevenue / totalInvoiced) * 100) : 0,
+    monthlyTrend: Array.from(monthlyMap.values()),
+  };
+}
+
+export async function listPayments(tenantId: string) {
+  return prisma.payment.findMany({
+    where: { tenantId },
+    include: {
+      invoice: {
+        include: {
+          student: true,
+        },
+      },
+    },
+    orderBy: { createdAt: 'desc' },
+    take: 100,
+  });
+}

@@ -1,4 +1,4 @@
-import { prisma, UserStatus, UserTenantStatus } from '../lib/prisma.js';
+import { prisma, UserStatus, UserTenantStatus, seedOperationalData } from '../lib/prisma.js';
 import { hashPassword } from '../lib/password.js';
 import { AppError } from '../middleware/error.middleware.js';
 
@@ -211,9 +211,14 @@ export async function resetDemoTenant() {
     });
   }
 
+  // Populate realistic operational data (classes, subjects, teachers, 48 students, 6-mo finance, attendance, grades)
+  const roleRecord: Record<string, string> = {};
+  roles.forEach((r) => { roleRecord[r.slug] = r.id; });
+  await seedOperationalData(prisma, tenant.id, roleRecord);
+
   return {
     success: true,
-    message: 'Demo school environment has been successfully reset to its pristine initial state.',
+    message: 'Demo school environment has been successfully reset and populated with rich operational data.',
     personas: DEMO_PERSONAS,
   };
 }

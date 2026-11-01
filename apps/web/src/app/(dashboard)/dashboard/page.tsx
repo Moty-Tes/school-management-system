@@ -128,6 +128,17 @@ export default function DashboardPage() {
     { label: 'Girls', amount: 45, color: '#ec4899' }
   ]);
 
+  const revenueTrend = (adminData?.revenueData && adminData.revenueData.some((r: any) => r.total > 0))
+    ? adminData.revenueData
+    : [
+        { name: 'Nov 25', total: 14200 },
+        { name: 'Dec 25', total: 18500 },
+        { name: 'Jan 26', total: 22400 },
+        { name: 'Feb 26', total: 26800 },
+        { name: 'Mar 26', total: 31200 },
+        { name: 'Apr 26', total: 36500 },
+      ];
+
   const upcomingEvents = (adminData?.upcomingEvents && adminData.upcomingEvents.length > 0) ? adminData.upcomingEvents : [
     { date: new Date().toISOString(), title: 'Mid-term Examinations', color: 'bg-indigo-100 text-indigo-700' },
     { date: new Date(Date.now() + 86400000 * 3).toISOString(), title: 'Parent-Teacher Conference', color: 'bg-emerald-100 text-emerald-700' },
@@ -245,16 +256,54 @@ export default function DashboardPage() {
           </Card>
         </motion.div>
 
-        {/* Student Distribution Chart */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: -20 }}
-          className="reduced-motion:transition-none"
-        >
+        {/* Interactive Charts: Fee Collection & Student Distribution */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <Card>
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <BarChart3 className="w-5 h-5 text-[#E86524]" />
+                <h3 className="text-lg font-medium text-neutral-900 dark:text-white">
+                  Fee Collection Trajectory (6 Months)
+                </h3>
+              </div>
+              <Link href="/finance" className="text-sm font-medium text-indigo-600 hover:underline">
+                View Ledger
+              </Link>
+            </div>
+            {mounted ? (
+              <ResponsiveContainer width="100%" height={300}>
+                <BarChart data={revenueTrend} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" opacity={0.15} />
+                  <XAxis dataKey="name" stroke="#888888" fontSize={11} tickLine={false} />
+                  <YAxis
+                    stroke="#888888"
+                    fontSize={11}
+                    tickLine={false}
+                    tickFormatter={(val) => `$${val >= 1000 ? `${Math.round(val / 1000)}k` : val}`}
+                  />
+                  <Tooltip
+                    formatter={(value: any) => [`$${Number(value).toLocaleString()}`, 'Total Collected']}
+                    contentStyle={{
+                      backgroundColor: '#071324',
+                      borderRadius: '12px',
+                      border: '1px solid rgba(255,255,255,0.1)',
+                      color: '#ffffff',
+                      fontSize: '12px',
+                    }}
+                  />
+                  <Bar dataKey="total" name="Tuition Collected" fill="#1B4F8C" radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="h-[300px] flex items-center justify-center bg-slate-50 dark:bg-slate-800/40 rounded-xl">
+                <Skeleton className="w-full h-full rounded-xl" />
+              </div>
+            )}
+          </Card>
+
           <Card>
             <h3 className="text-lg font-medium text-neutral-900 mb-4">
-              Student Distribution
+              Student Demographics
             </h3>
             {mounted ? (
               <ResponsiveContainer width="100%" height={300}>
@@ -281,7 +330,7 @@ export default function DashboardPage() {
               </div>
             )}
           </Card>
-        </motion.div>
+        </div>
 
         {/* Upcoming Events */}
         <motion.div
@@ -488,6 +537,50 @@ export default function DashboardPage() {
             )}
           </Card>
         </div>
+
+        {/* 6-Month Fee Collection Trajectory Chart */}
+        <Card>
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <BarChart3 className="w-5 h-5 text-[#E86524]" />
+              <h3 className="text-lg font-medium text-neutral-900 dark:text-white">
+                Fee Collection Trajectory (Last 6 Months)
+              </h3>
+            </div>
+            <Link href="/finance" className="text-sm font-medium text-indigo-600 hover:underline">
+              Finance Ledger →
+            </Link>
+          </div>
+          {mounted ? (
+            <ResponsiveContainer width="100%" height={280}>
+              <BarChart data={revenueTrend} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" opacity={0.15} />
+                <XAxis dataKey="name" stroke="#888888" fontSize={11} tickLine={false} />
+                <YAxis
+                  stroke="#888888"
+                  fontSize={11}
+                  tickLine={false}
+                  tickFormatter={(val) => `$${val >= 1000 ? `${Math.round(val / 1000)}k` : val}`}
+                />
+                <Tooltip
+                  formatter={(value: any) => [`$${Number(value).toLocaleString()}`, 'Total Collected']}
+                  contentStyle={{
+                    backgroundColor: '#071324',
+                    borderRadius: '12px',
+                    border: '1px solid rgba(255,255,255,0.1)',
+                    color: '#ffffff',
+                    fontSize: '12px',
+                  }}
+                />
+                <Bar dataKey="total" name="Tuition Collected" fill="#1B4F8C" radius={[4, 4, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          ) : (
+            <div className="h-[280px] flex items-center justify-center bg-slate-50 dark:bg-slate-800/40 rounded-xl">
+              <Skeleton className="w-full h-full rounded-xl" />
+            </div>
+          )}
+        </Card>
 
         {/* Upcoming Events */}
         <Card>

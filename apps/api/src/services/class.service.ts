@@ -14,8 +14,24 @@ export async function createClass(tenantId: string, data: { name: string; sectio
 }
 
 export async function listClasses(tenantId: string) {
-  return prisma.class.findMany({
+  const classes = await prisma.class.findMany({
     where: { tenantId, deletedAt: null },
+    include: {
+      _count: {
+        select: { students: true },
+      },
+    },
     orderBy: [{ name: 'asc' }, { section: 'asc' }],
   });
+
+  return classes.map((c) => ({
+    id: c.id,
+    name: c.name,
+    section: c.section,
+    capacity: c.capacity,
+    studentCount: c._count.students,
+    teacher: 'Department Faculty',
+    grade: c.name,
+    status: 'active',
+  }));
 }
