@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
-import { BackgroundQueueEngine, JobType } from '../services/queue.service.js';
+import { DurableQueueEngine } from '../services/durable-queue.service.js';
 import { z } from 'zod';
 
 const enqueueJobSchema = z.object({
@@ -11,7 +11,7 @@ const enqueueJobSchema = z.object({
     'MASS_SMS_DISPATCH',
   ]),
   data: z.record(z.any()),
-  priority: z.enum(['LOW', 'NORMAL', 'HIGH', 'CRITICAL']).optional(),
+  priority: z.number().int().min(1).max(4).optional(),
 });
 
 export async function enqueueJobHandler(req: Request, res: Response, next: NextFunction) {
@@ -19,11 +19,11 @@ export async function enqueueJobHandler(req: Request, res: Response, next: NextF
     if (!req.auth?.tenantId) throw new Error("No tenant context");
     const input = enqueueJobSchema.parse(req.body);
 
-    const job = await BackgroundQueueEngine.enqueue(
+    const job = await DurableQueueEngine.enqueue(
       req.auth.tenantId,
-      input.type as JobType,
+      input.type,
       input.data,
-      { priority: input.priority }
+      { priority: (input.priority as any) || 2 }
     );
 
     res.status(202).json({ success: true, data: job });
@@ -32,11 +32,12 @@ export async function enqueueJobHandler(req: Request, res: Response, next: NextF
 
 export async function getJobStatusHandler(req: Request, res: Response, next: NextFunction) {
   try {
+    if (!req.auth?.tenantId) throw new Error("No tenant context");
     const { jobId } = req.params;
-    const job = BackgroundQueueEngine.getJob(jobId);
+    const job = await DurableQueueEngine.getJob(req.auth.tenantId, jobId);
 
     if (!job) {
-      return res.status(404).json({ success: false, error: 'Job not found' });
+      return res.status(404).json({ success: false, error: 'Durable job not found' });
     }
 
     res.status(200).json({ success: true, data: job });
@@ -46,7 +47,8 @@ export async function getJobStatusHandler(req: Request, res: Response, next: Nex
 export async function listJobsHandler(req: Request, res: Response, next: NextFunction) {
   try {
     if (!req.auth?.tenantId) throw new Error("No tenant context");
-    const jobs = BackgroundQueueEngine.listJobs(req.auth.tenantId);
+    const status = req.query.status as string | undefined;
+    const jobs = await DurableQueueEngine.listJobs(req.auth.tenantId, status);
     res.status(200).json({ success: true, data: jobs });
   } catch (err) { next(err); }
 }

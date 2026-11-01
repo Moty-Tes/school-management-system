@@ -404,8 +404,8 @@ export class PaymentGatewayService {
   /**
    * Verify Chapa Webhook HMAC-SHA256 signature
    */
-  static verifyChapaWebhookSignature(rawBody: string, signature: string | undefined): boolean {
-    const secret = process.env.CHAPA_WEBHOOK_SECRET || process.env.CHAPA_SECRET_KEY || 'chapa-secret';
+  static verifyChapaWebhookSignature(rawBody: string, signature: string | undefined, secretOverride?: string): boolean {
+    const secret = secretOverride || process.env.CHAPA_WEBHOOK_SECRET || process.env.CHAPA_SECRET_KEY || 'chapa-secret';
     if (!signature) return false;
 
     const hash = crypto

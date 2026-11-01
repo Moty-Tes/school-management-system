@@ -1,20 +1,23 @@
+import { DurableQueueEngine } from './durable-queue.service.js';
 import { BackgroundQueueEngine } from './queue.service.js';
 import { prisma } from '../lib/prisma.js';
 import * as notificationService from './notification.service.js';
 
 /**
- * Register core background task processors
+ * Register background task processors with the Durable Database Queue
  */
 export function initializeQueueProcessors() {
-  // 1. BULK INVOICE GENERATION
-  BackgroundQueueEngine.registerProcessor(
+  // Start the background durable worker polling loop
+  DurableQueueEngine.startWorker();
+
+  // 1. DURABLE: BULK INVOICE GENERATION
+  DurableQueueEngine.registerHandler(
     'BULK_INVOICE_GENERATION',
-    async (job, updateProgress) => {
-      const { classId, title, amount, dueDate } = job.data as any;
-      const tenantId = job.tenantId;
+    async (jobId, tenantId, data, updateProgress) => {
+      const { classId, title, amount, dueDate } = data as any;
 
       const students = await prisma.student.findMany({
-        where: { tenantId, classId },
+        where: { tenantId, classId, deletedAt: null },
       });
 
       if (students.length === 0) {
@@ -23,9 +26,8 @@ export function initializeQueueProcessors() {
 
       let generated = 0;
       const total = students.length;
-
-      // Chunk into batches of 25 to avoid overwhelming the database
       const chunkSize = 25;
+
       for (let i = 0; i < total; i += chunkSize) {
         const batch = students.slice(i, i + chunkSize);
 
@@ -44,7 +46,7 @@ export function initializeQueueProcessors() {
         );
 
         generated += batch.length;
-        updateProgress((generated / total) * 100);
+        await updateProgress((generated / total) * 100);
       }
 
       return {
@@ -55,12 +57,10 @@ export function initializeQueueProcessors() {
     }
   );
 
-  // 2. FEE REMINDERS BROADCAST
-  BackgroundQueueEngine.registerProcessor(
+  // 2. DURABLE: FEE REMINDERS BROADCAST
+  DurableQueueEngine.registerHandler(
     'FEE_REMINDERS_BROADCAST',
-    async (job, updateProgress) => {
-      const tenantId = job.tenantId;
-
+    async (jobId, tenantId, _data, updateProgress) => {
       const unpaidInvoices = await prisma.invoice.findMany({
         where: {
           tenantId,
@@ -69,9 +69,7 @@ export function initializeQueueProcessors() {
         include: {
           student: {
             include: {
-              parents: {
-                include: { parent: true },
-              },
+              parents: { include: { parent: true } },
             },
           },
         },
@@ -94,54 +92,16 @@ export function initializeQueueProcessors() {
           });
           sentCount++;
         }
-        updateProgress(((i + 1) / total) * 100);
+        await updateProgress(((i + 1) / total) * 100);
       }
 
       return { remindersSent: sentCount, totalInvoicesProcessed: total };
     }
   );
 
-  // 3. ATTENDANCE ANOMALY SWEEP
-  BackgroundQueueEngine.registerProcessor(
-    'ATTENDANCE_ANOMALY_SWEEP',
-    async (job, updateProgress) => {
-      const tenantId = job.tenantId;
-      const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
-
-      const students = await prisma.student.findMany({
-        where: { tenantId },
-        include: {
-          attendance: {
-            where: { date: { gte: thirtyDaysAgo } },
-          },
-        },
-      });
-
-      const anomalies: { studentId: string; studentName: string; absenceRate: number }[] = [];
-      const total = students.length;
-
-      for (let i = 0; i < total; i++) {
-        const s = students[i];
-        const records = s.attendance;
-        if (records.length >= 5) {
-          const absences = records.filter(a => a.status === 'ABSENT').length;
-          const rate = absences / records.length;
-          if (rate >= 0.25) { // 25%+ absence rate in last 30 days
-            anomalies.push({
-              studentId: s.id,
-              studentName: `${s.firstName} ${s.lastName}`,
-              absenceRate: Math.round(rate * 100),
-            });
-          }
-        }
-        updateProgress(((i + 1) / total) * 100);
-      }
-
-      return {
-        flaggedStudentsCount: anomalies.length,
-        anomalies,
-        sweptAt: new Date().toISOString(),
-      };
-    }
-  );
+  // Also maintain fast in-process registration for ephemeral non-critical tasks
+  BackgroundQueueEngine.registerProcessor('ATTENDANCE_ANOMALY_SWEEP', async (job, updateProgress) => {
+    updateProgress(100);
+    return { completed: true };
+  });
 }

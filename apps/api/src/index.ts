@@ -61,6 +61,9 @@ import verifyRoutes from './routes/verify.routes.js';
 import websiteRoutes from './routes/website.routes.js';
 import queueRoutes from './routes/queue.routes.js';
 import syncRoutes from './routes/sync.routes.js';
+import safeguardingRoutes from './routes/safeguarding.routes.js';
+import interventionRoutes from './routes/intervention.routes.js';
+import migrationRoutes from './routes/migration.routes.js';
 import { startAutomations } from './services/automation.service.js';
 import { initializeQueueProcessors } from './services/queue-processors.js';
 
@@ -160,6 +163,9 @@ app.use('/api/v1/verify', verifyRoutes);
 app.use('/api/v1/website', websiteRoutes);
 app.use('/api/v1/queue', queueRoutes);
 app.use('/api/v1/sync', syncRoutes);
+app.use('/api/v1/safeguarding', safeguardingRoutes);
+app.use('/api/v1/interventions', interventionRoutes);
+app.use('/api/v1/migration', migrationRoutes);
 
 
 // Error Handler

@@ -11,4 +11,11 @@ router.post('/:id/grades', authenticate, assessmentController.saveGradesHandler)
 router.get('/:id/grades', authenticate, assessmentController.getGradesHandler);
 router.get('/grades', authenticate, assessmentController.getGradesHandler);
 
+// Assessment Governance, Audit Trails, Accommodations & Moderation
+router.post('/grades/audit-change', authenticate, assessmentController.modifyGradeWithAuditHandler);
+router.get('/grades/audit-trail', authenticate, assessmentController.getGradeAuditTrailHandler);
+router.post('/accommodations', authenticate, assessmentController.registerAccommodationHandler);
+router.get('/accommodations/duration/:studentId', authenticate, assessmentController.calculateAccommodatedDurationHandler);
+router.post('/moderation', authenticate, assessmentController.submitModerationReviewHandler);
+
 export default router;

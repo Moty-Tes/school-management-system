@@ -103,6 +103,20 @@ model Tenant {
   cbtQuestions         CBTQuestion[]
   cbtAttempts          CBTAttempt[]
   studentAnswers       StudentAnswer[]
+  safeguardingIncidents   SafeguardingIncident[]
+  safeguardingAccessLogs  SafeguardingAccessLog[]
+  approvedPickupPersons   ApprovedPickupPerson[]
+  supportReferrals        SupportReferral[]
+  interventionPlans       InterventionPlan[]
+  interventionMeetings    InterventionMeeting[]
+  gradeAuditLogs          GradeAuditLog[]
+  assessmentAccommodations AssessmentAccommodation[]
+  assessmentModerations   AssessmentModeration[]
+  durableJobs             DurableJob[]
+  migrationBatches        MigrationBatch[]
+  feeWaivers              FeeWaiver[]
+  paymentRefunds          PaymentRefund[]
+  syncConflicts           SyncConflict[]
 
   @@index([status, deletedAt])
   @@map("tenants")
@@ -486,6 +500,13 @@ model Student {
   examSeats           ExamSeat[]
   certificates        Certificate[]
   cbtAttempts         CBTAttempt[]
+  safeguardingIncidents SafeguardingIncident[]
+  approvedPickupPersons ApprovedPickupPerson[]
+  supportReferrals     SupportReferral[]
+  interventionPlans    InterventionPlan[]
+  gradeAuditLogs       GradeAuditLog[]
+  accommodations       AssessmentAccommodation[]
+  feeWaivers           FeeWaiver[]
 
   @@unique([tenantId, admissionNumber])
   @@index([tenantId])
@@ -688,6 +709,7 @@ model Assessment {
   deletedAt   DateTime?
 
   grades      Grade[]
+  moderations AssessmentModeration[]
 
   @@index([tenantId, classId])
   @@map("assessments")
@@ -708,6 +730,8 @@ model Grade {
 
   createdAt    DateTime   @default(now())
   updatedAt    DateTime   @updatedAt
+
+  auditLogs    GradeAuditLog[]
 
   @@unique([assessmentId, studentId])
   @@index([tenantId, studentId])
@@ -759,6 +783,7 @@ model Payment {
   reference   String?
 
   createdAt   DateTime @default(now())
+  refunds     PaymentRefund[]
 
   @@index([tenantId, invoiceId])
   @@map("payments")
@@ -1852,4 +1877,356 @@ model SubstituteAssignment {
 
   @@index([tenantId, date])
   @@map("substitute_assignments")
+}
+
+// ============================================================================
+// STUDENT SAFEGUARDING & CHILD PROTECTION
+// ============================================================================
+
+model SafeguardingIncident {
+  id              String   @id @default(cuid())
+  tenantId        String
+  tenant          Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  studentId       String
+  student         Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  
+  reportedById    String
+  concernType     String   // ABUSE_NEGLECT, BULLYING, MENTAL_HEALTH, DOMESTIC_VIOLENCE, EXPLOITATION, OTHER
+  severity        String   // LOW, MEDIUM, HIGH, IMMEDIATE_DANGER
+  details         String   @db.Text
+  actionsTaken    String?  @db.Text
+  status          String   @default("OPEN") // OPEN, UNDER_INVESTIGATION, ESCALATED_TO_AUTHORITIES, RESOLVED
+  isConfidential  Boolean  @default(true)
+  designatedLeadId String? // DSL staff member assigned
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  resolvedAt      DateTime?
+
+  accessLogs      SafeguardingAccessLog[]
+
+  @@index([tenantId, studentId])
+  @@index([tenantId, status])
+  @@map("safeguarding_incidents")
+}
+
+model SafeguardingAccessLog {
+  id          String   @id @default(cuid())
+  tenantId    String
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  incidentId  String
+  incident    SafeguardingIncident @relation(fields: [incidentId], references: [id], onDelete: Cascade)
+  
+  userId      String
+  action      String   // VIEW, EDIT, EXPORT, STATUS_CHANGE
+  accessReason String
+  ipAddress   String?
+  createdAt   DateTime @default(now())
+
+  @@index([tenantId, incidentId])
+  @@index([tenantId, userId])
+  @@map("safeguarding_access_logs")
+}
+
+model ApprovedPickupPerson {
+  id              String   @id @default(cuid())
+  tenantId        String
+  tenant          Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  studentId       String
+  student         Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  
+  fullName        String
+  relationship    String   // FATHER, MOTHER, GUARDIAN, DRIVER, GRANDPARENT, SIBLING, OTHER
+  phone           String
+  idCardNumber    String?
+  photoUrl        String?
+  securityPinHash String?
+  isAuthorized    Boolean  @default(true)
+  emergencyPriority Int    @default(1) // 1 = Primary, 2 = Secondary
+  notes           String?
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([tenantId, studentId])
+  @@map("approved_pickup_persons")
+}
+
+// ============================================================================
+// STUDENT SUPPORT & INTERVENTION TRACKING
+// ============================================================================
+
+model SupportReferral {
+  id           String   @id @default(cuid())
+  tenantId     String
+  tenant       Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  studentId    String
+  student      Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  
+  referredById String
+  category     String   // ACADEMIC, ATTENDANCE, WELLBEING, ACCESSIBILITY, FINANCIAL
+  urgency      String   @default("NORMAL") // LOW, NORMAL, URGENT
+  reason       String   @db.Text
+  baselineData Json?    
+  status       String   @default("PENDING_REVIEW") // PENDING_REVIEW, ACCEPTED, DECLINED, COMPLETED
+  reviewNotes  String?  @db.Text
+  
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  plans        InterventionPlan[]
+
+  @@index([tenantId, studentId])
+  @@index([tenantId, status])
+  @@map("support_referrals")
+}
+
+model InterventionPlan {
+  id                    String   @id @default(cuid())
+  tenantId              String
+  tenant                Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  studentId             String
+  student               Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  referralId            String?
+  referral              SupportReferral? @relation(fields: [referralId], references: [id], onDelete: SetNull)
+  
+  ownerId               String   // Case manager or assigned teacher
+  title                 String
+  category              String   // ACADEMIC, ATTENDANCE, BEHAVIORAL, ACCESSIBILITY
+  objectives            Json     // Array of measurable targets [{ target: "Improve math to 65%", baseline: "42%" }]
+  targetOutcomes        String   @db.Text
+  startDate             DateTime
+  reviewDate            DateTime
+  status                String   @default("ACTIVE") // ACTIVE, REVIEW_DUE, ACHIEVED, REVISED, CLOSED
+  
+  aiRecommendationSource String? // Tracks if recommendation originated from AI early-warning engine
+  staffSignedById       String   // MANDATORY: Staff member who reviewed and approved the plan
+  staffSignedAt         DateTime @default(now())
+  
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  meetings              InterventionMeeting[]
+
+  @@index([tenantId, studentId])
+  @@index([tenantId, status])
+  @@index([tenantId, reviewDate])
+  @@map("intervention_plans")
+}
+
+model InterventionMeeting {
+  id             String   @id @default(cuid())
+  tenantId       String
+  tenant         Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  planId         String
+  plan           InterventionPlan @relation(fields: [planId], references: [id], onDelete: Cascade)
+  
+  meetingDate    DateTime
+  attendees      Json     
+  minutes        String   @db.Text
+  outcomeNotes   String   @db.Text
+  nextReviewDate DateTime?
+  
+  createdAt      DateTime @default(now())
+
+  @@index([tenantId, planId])
+  @@map("intervention_meetings")
+}
+
+// ============================================================================
+// ACADEMIC ASSESSMENT GOVERNANCE & MODERATION
+// ============================================================================
+
+model GradeAuditLog {
+  id            String   @id @default(cuid())
+  tenantId      String
+  tenant        Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  gradeId       String
+  grade         Grade    @relation(fields: [gradeId], references: [id], onDelete: Cascade)
+  studentId     String
+  student       Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  assessmentId  String
+  
+  previousScore Float
+  newScore      Float
+  reason        String   // GRADING_ERROR, RECHECK_REQUEST, MODERATION_ADJUSTMENT, RETAKE
+  changedById   String
+  approvedById  String?
+  createdAt     DateTime @default(now())
+
+  @@index([tenantId, gradeId])
+  @@index([tenantId, studentId])
+  @@map("grade_audit_logs")
+}
+
+model AssessmentAccommodation {
+  id               String   @id @default(cuid())
+  tenantId         String
+  tenant           Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  studentId        String
+  student          Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  
+  type             String   // EXTRA_TIME, SCRIBE, ACCESSIBLE_FORMAT, SEPARATE_ROOM
+  details          String
+  extraTimePercent Int      @default(25) // e.g. 25% extra time
+  isActive         Boolean  @default(true)
+  approvedById     String
+  expiryDate       DateTime?
+  
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@index([tenantId, studentId])
+  @@map("assessment_accommodations")
+}
+
+model AssessmentModeration {
+  id                      String   @id @default(cuid())
+  tenantId                String
+  tenant                  Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  assessmentId            String
+  assessment              Assessment @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+  
+  moderatedById           String
+  sampleSize              Int      @default(10)
+  status                  String   @default("PENDING") // PENDING, MODERATED, REJECTED, APPROVED
+  feedback                String?  @db.Text
+  scoreAdjustmentsApplied Boolean  @default(false)
+  createdAt               DateTime @default(now())
+
+  @@index([tenantId, assessmentId])
+  @@map("assessment_moderations")
+}
+
+// ============================================================================
+// DURABLE DATABASE-BACKED BACKGROUND QUEUE
+// ============================================================================
+
+model DurableJob {
+  id          String    @id @default(cuid())
+  tenantId    String
+  tenant      Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  
+  queueName   String    @default("default")
+  jobType     String
+  payload     Json
+  priority    Int       @default(2) // 1=LOW, 2=NORMAL, 3=HIGH, 4=CRITICAL
+  status      String    @default("QUEUED") // QUEUED, RUNNING, COMPLETED, FAILED, RETRYING
+  attempts    Int       @default(0)
+  maxAttempts Int       @default(3)
+  runAt       DateTime  @default(now())
+  lockedAt    DateTime?
+  lockedBy    String?
+  lastError   String?   @db.Text
+  progress    Int       @default(0)
+  result      Json?
+  
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  completedAt DateTime?
+
+  @@index([tenantId, status, runAt])
+  @@index([status, runAt, priority])
+  @@map("durable_jobs")
+}
+
+// ============================================================================
+// DATA MIGRATION & RECONCILIATION
+// ============================================================================
+
+model MigrationBatch {
+  id           String    @id @default(cuid())
+  tenantId     String
+  tenant       Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  
+  entityType   String    // STUDENTS, STAFF, INVOICES, ATTENDANCE
+  fileName     String
+  totalRows    Int
+  validRows    Int
+  invalidRows  Int
+  status       String    @default("STAGED") // STAGED, VALIDATED, DRY_RUN_PASSED, COMMITTED, ROLLED_BACK
+  summary      Json?     
+  errorReport  Json?     
+  createdById  String
+  
+  createdAt    DateTime  @default(now())
+  committedAt  DateTime?
+  rolledBackAt DateTime?
+
+  @@index([tenantId, status])
+  @@map("migration_batches")
+}
+
+// ============================================================================
+// FINANCE: REVERSALS, WAIVERS & SIBLING DISCOUNTS
+// ============================================================================
+
+model FeeWaiver {
+  id           String    @id @default(cuid())
+  tenantId     String
+  tenant       Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  studentId    String
+  student      Student   @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  
+  type         String    // SIBLING_DISCOUNT, SCHOLARSHIP, STAFF_CHILD, HARDSHIP_WAIVER
+  percentage   Decimal?  @db.Decimal(5, 2) 
+  fixedAmount  Decimal?  @db.Decimal(10, 2)
+  reason       String
+  approvedById String
+  startDate    DateTime
+  endDate      DateTime?
+  status       String    @default("ACTIVE") // ACTIVE, EXPIRED, REVOKED
+  
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@index([tenantId, studentId])
+  @@map("fee_waivers")
+}
+
+model PaymentRefund {
+  id           String    @id @default(cuid())
+  tenantId     String
+  tenant       Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  paymentId    String
+  payment      Payment   @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  
+  amount       Decimal   @db.Decimal(10, 2)
+  reason       String    // DUPLICATE_PAYMENT, OVERPAYMENT, WITHDRAWAL, DISPUTED
+  requestedById String
+  approvedById String?
+  status       String    @default("PENDING_APPROVAL") // PENDING_APPROVAL, APPROVED, REJECTED, PROCESSED
+  processedAt  DateTime?
+  
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@index([tenantId, paymentId])
+  @@map("payment_refunds")
+}
+
+// ============================================================================
+// OFFLINE SYNC CONFLICT PRESERVATION
+// ============================================================================
+
+model SyncConflict {
+  id              String    @id @default(cuid())
+  tenantId        String
+  tenant          Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  
+  deviceId        String
+  entityType      String    // ATTENDANCE, GRADE, DAILY_LOG
+  recordId        String
+  clientPayload   Json
+  serverPayload   Json
+  conflictType    String    // ATTENDANCE_STATUS_MISMATCH, GRADE_SCORE_MISMATCH, TIMESTAMP_SKEW
+  status          String    @default("DETECTED") // DETECTED, RESOLVED_CLIENT, RESOLVED_SERVER, MANUALLY_RESOLVED
+  resolvedById    String?
+  resolutionNotes String?
+  
+  createdAt       DateTime  @default(now())
+  resolvedAt      DateTime?
+
+  @@index([tenantId, status])
+  @@map("sync_conflicts")
 }

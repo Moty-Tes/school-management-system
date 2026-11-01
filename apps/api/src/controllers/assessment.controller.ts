@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import * as assessmentService from '../services/assessment.service.js';
+import { AssessmentGovernanceService } from '../services/assessment-governance.service.js';
 import { z } from 'zod';
 
 const createAssessmentSchema = z.object({
@@ -7,15 +8,6 @@ const createAssessmentSchema = z.object({
   classId: z.string().min(1),
   maxScore: z.number().positive().default(100),
   date: z.string().optional().default(() => new Date().toISOString()),
-});
-
-const saveGradesSchema = z.object({
-  grades: z.array(
-    z.object({
-      studentId: z.string().min(1),
-      score: z.number(),
-    })
-  ),
 });
 
 export async function createHandler(req: Request, res: Response, next: NextFunction) {
@@ -91,6 +83,120 @@ export async function getGradesHandler(req: Request, res: Response, next: NextFu
     );
 
     res.status(200).json({ success: true, data: grades });
+  } catch (err) {
+    next(err);
+  }
+}
+
+// ---------------- Assessment Governance & Audit ----------------
+
+const modifyGradeSchema = z.object({
+  gradeId: z.string().min(1),
+  newScore: z.number().min(0),
+  reason: z.enum(['GRADING_ERROR', 'RECHECK_REQUEST', 'MODERATION_ADJUSTMENT', 'RETAKE', 'OTHER']),
+  detailedExplanation: z.string().min(5),
+  approvedById: z.string().optional(),
+});
+
+export async function modifyGradeWithAuditHandler(req: Request, res: Response, next: NextFunction) {
+  try {
+    if (!req.auth?.tenantId || !req.auth?.sub) throw new Error("Unauthorized");
+    const input = modifyGradeSchema.parse(req.body);
+
+    const result = await AssessmentGovernanceService.modifyGradeWithAudit(
+      req.auth.tenantId,
+      req.auth.sub,
+      input as any
+    );
+
+    res.status(200).json({ success: true, data: result });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function getGradeAuditTrailHandler(req: Request, res: Response, next: NextFunction) {
+  try {
+    if (!req.auth?.tenantId) throw new Error("Unauthorized");
+    const { studentId, gradeId } = req.query;
+
+    const trail = await AssessmentGovernanceService.getGradeAuditTrail(
+      req.auth.tenantId,
+      {
+        studentId: studentId as string | undefined,
+        gradeId: gradeId as string | undefined,
+      }
+    );
+
+    res.status(200).json({ success: true, data: trail });
+  } catch (err) {
+    next(err);
+  }
+}
+
+const registerAccommodationSchema = z.object({
+  studentId: z.string().min(1),
+  type: z.enum(['EXTRA_TIME', 'SCRIBE', 'ACCESSIBLE_FORMAT', 'SEPARATE_ROOM']),
+  details: z.string().min(3),
+  extraTimePercent: z.number().min(0).max(100).optional(),
+  expiryDate: z.string().optional(),
+});
+
+export async function registerAccommodationHandler(req: Request, res: Response, next: NextFunction) {
+  try {
+    if (!req.auth?.tenantId || !req.auth?.sub) throw new Error("Unauthorized");
+    const input = registerAccommodationSchema.parse(req.body);
+
+    const accommodation = await AssessmentGovernanceService.registerAccommodation(
+      req.auth.tenantId,
+      req.auth.sub,
+      input as any
+    );
+
+    res.status(201).json({ success: true, data: accommodation });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function calculateAccommodatedDurationHandler(req: Request, res: Response, next: NextFunction) {
+  try {
+    if (!req.auth?.tenantId) throw new Error("Unauthorized");
+    const { studentId } = req.params;
+    const standardMinutes = Number(req.query.standardMinutes) || 60;
+
+    const result = await AssessmentGovernanceService.calculateAccommodatedDuration(
+      req.auth.tenantId,
+      studentId,
+      standardMinutes
+    );
+
+    res.status(200).json({ success: true, data: result });
+  } catch (err) {
+    next(err);
+  }
+}
+
+const submitModerationSchema = z.object({
+  assessmentId: z.string().min(1),
+  sampleSize: z.number().positive(),
+  status: z.enum(['MODERATED', 'APPROVED', 'REJECTED']),
+  feedback: z.string().min(3),
+  scoreAdjustmentsApplied: z.boolean().optional(),
+});
+
+export async function submitModerationReviewHandler(req: Request, res: Response, next: NextFunction) {
+  try {
+    if (!req.auth?.tenantId || !req.auth?.sub) throw new Error("Unauthorized");
+    const input = submitModerationSchema.parse(req.body);
+
+    const result = await AssessmentGovernanceService.submitModerationReview(
+      req.auth.tenantId,
+      req.auth.sub,
+      input as any
+    );
+
+    res.status(201).json({ success: true, data: result });
   } catch (err) {
     next(err);
   }
