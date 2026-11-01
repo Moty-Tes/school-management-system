@@ -22,6 +22,50 @@ export class DurableQueueEngine {
   private static workerId = `${os.hostname()}_${process.pid}_${Math.random().toString(36).slice(2, 6)}`;
   private static isRunning = false;
   private static pollTimer: NodeJS.Timeout | null = null;
+  private static tableVerified = false;
+
+  /**
+   * Automatically ensure durable_jobs table exists in PostgreSQL
+   */
+  static async ensureTableExists(): Promise<boolean> {
+    if (this.tableVerified) return true;
+    try {
+      await prisma.$executeRawUnsafe(`
+        CREATE TABLE IF NOT EXISTS "durable_jobs" (
+          "id" TEXT NOT NULL PRIMARY KEY,
+          "tenantId" TEXT NOT NULL,
+          "queueName" TEXT NOT NULL DEFAULT 'default',
+          "jobType" TEXT NOT NULL,
+          "payload" JSONB NOT NULL,
+          "priority" INTEGER NOT NULL DEFAULT 2,
+          "status" TEXT NOT NULL DEFAULT 'QUEUED',
+          "attempts" INTEGER NOT NULL DEFAULT 0,
+          "maxAttempts" INTEGER NOT NULL DEFAULT 3,
+          "runAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          "lockedAt" TIMESTAMP(3),
+          "lockedBy" TEXT,
+          "lastError" TEXT,
+          "progress" INTEGER NOT NULL DEFAULT 0,
+          "result" JSONB,
+          "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          "completedAt" TIMESTAMP(3)
+        );
+      `);
+      await prisma.$executeRawUnsafe(`
+        CREATE INDEX IF NOT EXISTS "durable_jobs_tenantId_status_runAt_idx" ON "durable_jobs"("tenantId", "status", "runAt");
+      `);
+      await prisma.$executeRawUnsafe(`
+        CREATE INDEX IF NOT EXISTS "durable_jobs_status_runAt_priority_idx" ON "durable_jobs"("status", "runAt", "priority");
+      `);
+      this.tableVerified = true;
+      console.log('✅ DurableQueue: Verified table "durable_jobs" in PostgreSQL.');
+      return true;
+    } catch (err: any) {
+      console.warn('[DurableQueue] Notice during schema verification:', err.message);
+      return false;
+    }
+  }
 
   /**
    * Register a job type handler
@@ -84,10 +128,23 @@ export class DurableQueueEngine {
     if (this.isRunning) return;
     this.isRunning = true;
 
-    // Start poll loop
-    this.pollTimer = setInterval(() => {
-      this.reclaimStaleLocks().catch(() => {});
-      this.processNextBatch().catch(() => {});
+    // Immediately verify and create table if needed
+    this.ensureTableExists().catch(() => {});
+
+    // Start poll loop with existence checks & graceful error containment
+    this.pollTimer = setInterval(async () => {
+      if (!this.tableVerified) {
+        const ready = await this.ensureTableExists();
+        if (!ready) return;
+      }
+      try {
+        await this.reclaimStaleLocks();
+        await this.processNextBatch();
+      } catch (err: any) {
+        if (err?.message?.includes('does not exist') || err?.code === 'P2021') {
+          this.tableVerified = false;
+        }
+      }
     }, pollIntervalMs);
 
     console.log(`🚀 Durable Database Queue Worker started [Worker ID: ${this.workerId}]`);

@@ -66,6 +66,7 @@ import interventionRoutes from './routes/intervention.routes.js';
 import migrationRoutes from './routes/migration.routes.js';
 import { startAutomations } from './services/automation.service.js';
 import { initializeQueueProcessors } from './services/queue-processors.js';
+import { ensureDatabaseSchema } from './services/schema-sync.service.js';
 
 const app = express();
 const httpServer = createServer(app);
@@ -172,6 +173,7 @@ app.use('/api/v1/migration', migrationRoutes);
 app.use(errorHandler);
 
 // Start Server
+ensureDatabaseSchema().catch((e) => console.warn('Schema sync warning:', e.message));
 startAutomations();
 initializeQueueProcessors();
 
