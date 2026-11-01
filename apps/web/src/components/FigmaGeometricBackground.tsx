@@ -22,7 +22,7 @@ export function FigmaGeometricBackground({
           BASE AMBIENT GRADIENTS & TEXTURE
           ============================================================ */}
       <div 
-        className="pointer-events-none fixed inset-0 z-0 select-none overflow-hidden"
+        className="pointer-events-none fixed inset-0 z-0 select-none overflow-hidden max-w-full"
         aria-hidden="true"
       >
         {/* Deep navy foundation with subtle vignette */}

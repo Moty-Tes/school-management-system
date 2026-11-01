@@ -1,10 +1,17 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import { Toaster } from 'sonner';
 import './globals.css';
 
 export const metadata: Metadata = {
   title: 'School Management System',
   description: 'Manage your school efficiently',
+};
+
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 5,
+  themeColor: '#0A1A2F',
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
