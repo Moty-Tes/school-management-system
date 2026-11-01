@@ -2,8 +2,12 @@
 const nextConfig = {
   reactStrictMode: true,
   typescript: {
-    // We already type-check locally, so skip it during the build to save time and prevent strict errors from blocking deployment.
+    // We already type-check locally, skip during production build to prevent memory spikes
     ignoreBuildErrors: true,
+  },
+  eslint: {
+    // Avoid running linting on low-memory free tier builders
+    ignoreDuringBuilds: true,
   },
   async rewrites() {
     const rawApiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';

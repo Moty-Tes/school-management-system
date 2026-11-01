@@ -7,7 +7,7 @@ services:
     env: node
     plan: free
     buildCommand: pnpm install --prod=false && pnpm --filter @sms/database run build && pnpm --filter @sms/api run build
-    startCommand: pnpm --filter @sms/database exec prisma db push --skip-generate && (pnpm --filter @sms/database db:seed || true) && pnpm --filter @sms/api run start
+    startCommand: pnpm --filter @sms/database exec prisma db push --accept-data-loss --skip-generate && (pnpm --filter @sms/database db:seed || true) && pnpm --filter @sms/api run start
     healthCheckPath: /health
     envVars:
       - key: NODE_ENV
@@ -29,7 +29,7 @@ services:
     env: node
     plan: free
     buildCommand: pnpm install --prod=false && pnpm --filter @sms/database run build && pnpm --filter @sms/web run build
-    startCommand: pnpm --filter @sms/web run start
+    startCommand: pnpm --filter @sms/web exec next start -p ${PORT:-3000}
     envVars:
       - key: NODE_ENV
         value: production

@@ -4,7 +4,7 @@ import { useState, useEffect, FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import { login } from '@/lib/auth';
 import { api, ApiError } from '@/lib/api';
-import { Shield, Lock, School, ArrowRight, Loader2, Users, Sparkles, GraduationCap, Wallet, BookOpen, UserCheck, Check } from 'lucide-react';
+import { Shield, ArrowRight, Loader2, Users, Sparkles, GraduationCap, Wallet, BookOpen, UserCheck } from 'lucide-react';
 import { FigmaGeometricBackground } from '@/components/FigmaGeometricBackground';
 
 const ROLE_ICONS: Record<string, any> = {
@@ -31,10 +31,9 @@ export default function LoginPage() {
   const [password, setPassword] = useState('DemoAdmin123!');
   const [tenantCode, setTenantCode] = useState('demo-school');
   const [loading, setLoading] = useState(false);
-  const [loadingText, setLoadingText] = useState('Connecting to School Server...');
+  const [loadingText, setLoadingText] = useState('Connecting to Server...');
   const [error, setError] = useState<string | null>(null);
   const [personas, setPersonas] = useState<any[]>(DEFAULT_PERSONAS);
-  const [activePersonaRole, setActivePersonaRole] = useState('TENANT_ADMIN');
 
   useEffect(() => {
     // Attempt to fetch fresh personas from backend, fallback to default personas if sleeping
@@ -52,7 +51,7 @@ export default function LoginPage() {
   async function performLogin(loginEmail: string, loginPassword: string) {
     setError(null);
     setLoading(true);
-    setLoadingText('Connecting to School Server...');
+    setLoadingText('Connecting to Server...');
 
     const wakeTimer = setTimeout(() => {
       setLoadingText('Waking up server on Render (~30s)... Almost ready!');
@@ -83,29 +82,21 @@ export default function LoginPage() {
   function handleQuickSelect(persona: any) {
     setEmail(persona.email);
     setPassword(persona.password);
-    setActivePersonaRole(persona.role);
     setError(null);
   }
 
   return (
-    <FigmaGeometricBackground showBadges={true}>
+    <FigmaGeometricBackground>
       <div className="min-h-screen flex items-center justify-center p-4 sm:p-6">
         <div className="w-full max-w-md space-y-6 my-auto">
           
           {/* Header */}
           <div className="text-center">
-            <div className="relative inline-flex items-center justify-center mb-4">
-              <div className="absolute inset-0 rounded-2xl bg-[#E86524]/30 blur-xl animate-pulse" />
-              <div className="relative inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-[#1B4F8C] border border-[#E86524]/60 text-white shadow-xl">
-                <School className="w-7 h-7 text-[#E86524]" />
-              </div>
-            </div>
             <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-white font-mulish">
-              School Management Portal
+              Sign In
             </h1>
-            <p className="text-xs text-slate-300/80 mt-1.5 flex items-center justify-center gap-1.5">
-              <span>Enterprise Edition</span>
-              <span className="w-1 h-1 rounded-full bg-[#E86524]" />
+            <p className="text-xs text-slate-400 mt-1.5">
+              Enter your credentials to access your dashboard
             </p>
           </div>
 
@@ -118,56 +109,7 @@ export default function LoginPage() {
               </div>
             )}
 
-            {/* Quick Demo Persona Pill Ribbon */}
-            <div className="mb-6">
-              <div className="flex items-center justify-between text-xs mb-2.5">
-                <span className="text-slate-300 font-medium flex items-center gap-1.5">
-                  <Sparkles className="w-3.5 h-3.5 text-[#E86524]" />
-                  <span>Demo Persona Quick-Fill</span>
-                </span>
-                <span className="text-[11px] text-slate-400">1-click select</span>
-              </div>
-
-              <div className="flex flex-wrap gap-1.5">
-                {personas.map((persona) => {
-                  const isSelected = email === persona.email;
-                  const Icon = ROLE_ICONS[persona.role] || Shield;
-                  return (
-                    <button
-                      key={persona.role}
-                      type="button"
-                      onClick={() => handleQuickSelect(persona)}
-                      disabled={loading}
-                      className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all duration-200 cursor-pointer ${
-                        isSelected
-                          ? 'bg-[#E86524] text-white shadow-md shadow-[#E86524]/40 border border-[#E86524]'
-                          : 'bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white border border-white/10 hover:border-white/20'
-                      }`}
-                    >
-                      <Icon className="w-3.5 h-3.5 shrink-0" />
-                      <span>{persona.title || persona.roleName || persona.role}</span>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
             <form onSubmit={handleSubmit} className="space-y-4">
-              <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-                  School Tenant Code
-                </label>
-                <div className="relative">
-                  <input
-                    type="text"
-                    value={tenantCode}
-                    onChange={(e) => setTenantCode(e.target.value)}
-                    required
-                    className="w-full px-3.5 py-2.5 rounded-xl bg-[#071324]/80 border border-slate-700/80 text-sm text-white focus:outline-none focus:border-[#E86524] focus:ring-2 focus:ring-[#E86524]/30 font-mono transition-all"
-                  />
-                </div>
-              </div>
-
               <div>
                 <label className="block text-xs font-semibold text-slate-300 mb-1.5">
                   Email Address
@@ -177,6 +119,7 @@ export default function LoginPage() {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
+                  placeholder="name@school.com"
                   className="w-full px-3.5 py-2.5 rounded-xl bg-[#071324]/80 border border-slate-700/80 text-sm text-white focus:outline-none focus:border-[#E86524] focus:ring-2 focus:ring-[#E86524]/30 transition-all"
                 />
               </div>
@@ -190,8 +133,29 @@ export default function LoginPage() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
+                  placeholder="••••••••"
                   className="w-full px-3.5 py-2.5 rounded-xl bg-[#071324]/80 border border-slate-700/80 text-sm text-white focus:outline-none focus:border-[#E86524] focus:ring-2 focus:ring-[#E86524]/30 font-mono transition-all"
                 />
+              </div>
+
+              {/* School Tenant Code - subtle collapsible option */}
+              <div className="pt-0.5">
+                <details className="group">
+                  <summary className="text-[11px] text-slate-400 hover:text-slate-300 cursor-pointer flex items-center justify-between select-none py-1">
+                    <span>School Tenant: <span className="font-mono text-slate-200">{tenantCode || 'demo-school'}</span></span>
+                    <span className="text-[10px] text-slate-500 group-open:rotate-180 transition-transform">▼</span>
+                  </summary>
+                  <div className="mt-2">
+                    <input
+                      type="text"
+                      value={tenantCode}
+                      onChange={(e) => setTenantCode(e.target.value)}
+                      required
+                      placeholder="e.g. demo-school"
+                      className="w-full px-3 py-1.5 rounded-lg bg-[#071324]/80 border border-slate-700/80 text-xs text-white focus:outline-none focus:border-[#E86524] font-mono"
+                    />
+                  </div>
+                </details>
               </div>
 
               {/* Sleek Satin Beveled Sign-In Button */}
@@ -209,23 +173,48 @@ export default function LoginPage() {
                     </>
                   ) : (
                     <>
-                      <span>Sign In to School</span>
+                      <span>Sign In</span>
                       <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
                     </>
                   )}
                 </span>
               </button>
             </form>
-          </div>
 
-          {/* Institutional Trust Footer */}
-          <div className="flex items-center justify-center gap-3 text-[11px] text-slate-400/80">
-            <div className="flex items-center gap-1">
-              <Lock className="w-3 h-3 text-[#E86524]" />
-              <span>TLS 1.3 256-Bit Encrypted</span>
-            </div>
-            <span>•</span>
-            <span>School ERP Multi-Tenant</span>
+            {/* Quick Demo Accounts Helper */}
+            {personas && personas.length > 0 && (
+              <div className="mt-6 pt-5 border-t border-white/10">
+                <div className="flex items-center justify-between text-xs mb-2.5">
+                  <span className="text-slate-400 text-[11px] font-medium flex items-center gap-1.5">
+                    <Sparkles className="w-3 h-3 text-[#E86524]" />
+                    <span>Demo Accounts (1-click fill)</span>
+                  </span>
+                </div>
+
+                <div className="flex flex-wrap gap-1.5">
+                  {personas.map((persona) => {
+                    const isSelected = email === persona.email;
+                    const Icon = ROLE_ICONS[persona.role] || Shield;
+                    return (
+                      <button
+                        key={persona.role}
+                        type="button"
+                        onClick={() => handleQuickSelect(persona)}
+                        disabled={loading}
+                        className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium transition-all duration-200 cursor-pointer ${
+                          isSelected
+                            ? 'bg-[#E86524] text-white shadow-md shadow-[#E86524]/40 border border-[#E86524]'
+                            : 'bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white border border-white/10 hover:border-white/20'
+                        }`}
+                      >
+                        <Icon className="w-3 h-3 shrink-0" />
+                        <span>{persona.title || persona.roleName || persona.role}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </div>
 
         </div>
