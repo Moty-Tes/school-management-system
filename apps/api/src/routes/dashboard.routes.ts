@@ -5,5 +5,6 @@ import { authenticate } from '../middleware/auth.middleware.js';
 const router = Router();
 
 router.get('/stats', authenticate, dashboardController.getStatsHandler);
+router.get('/pulse', authenticate, dashboardController.getPulseHandler);
 
 export default router;

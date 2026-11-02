@@ -28,6 +28,16 @@ describe('Web Client Configuration Engine', () => {
     assert.strictEqual(getApiBaseUrl(), 'https://sms-backend-api.onrender.com');
   });
 
+  test('resolves bare Render service name to onrender.com domain with https', () => {
+    process.env.NEXT_PUBLIC_API_URL = 'sms-backend-api';
+    assert.strictEqual(getApiBaseUrl(), 'https://sms-backend-api.onrender.com');
+  });
+
+  test('resolves bare Render service name with https protocol to onrender.com domain', () => {
+    process.env.NEXT_PUBLIC_API_URL = 'https://sms-backend-api';
+    assert.strictEqual(getApiBaseUrl(), 'https://sms-backend-api.onrender.com');
+  });
+
   test('prepends http:// for local domain without protocol', () => {
     process.env.NEXT_PUBLIC_API_URL = 'localhost:4000/';
     assert.strictEqual(getApiBaseUrl(), 'http://localhost:4000');

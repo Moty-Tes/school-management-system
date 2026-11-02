@@ -96,12 +96,8 @@ app.use('/uploads', express.static(path.resolve(process.cwd(), 'uploads')));
 // Tenant Resolution
 app.use(resolveTenant);
 
-// Institutional Service Root
-app.get('/', (req, res) => {
-  if (req.accepts('html') && !req.xhr && env.WEB_BASE_URL) {
-    return res.redirect(env.WEB_BASE_URL);
-  }
-
+// Institutional Service Root (Pure machine-readable service descriptor)
+app.get('/', (_req, res) => {
   res.status(200).json({
     service: 'School Management System Core API',
     status: 'operational',
@@ -112,21 +108,25 @@ app.get('/', (req, res) => {
   });
 });
 
-// Health Check
+// Health Check (Deep dependency verification)
 app.get('/health', async (_req, res) => {
-  let dbStatus = 'connected';
   try {
     await prisma.$queryRaw`SELECT 1`;
-  } catch {
-    dbStatus = 'connecting';
+    res.status(200).json({ 
+      status: 'healthy', 
+      database: 'connected', 
+      timestamp: new Date().toISOString(), 
+      environment: env.NODE_ENV 
+    });
+  } catch (error: any) {
+    res.status(503).json({
+      status: 'unhealthy',
+      database: 'disconnected',
+      error: error?.message || 'Database connectivity unavailable',
+      timestamp: new Date().toISOString(),
+      environment: env.NODE_ENV,
+    });
   }
-  // Return 200 so Render health check confirms the process is listening and does not abort deployment
-  res.status(200).json({ 
-    status: 'healthy', 
-    database: dbStatus, 
-    timestamp: new Date().toISOString(), 
-    environment: env.NODE_ENV 
-  });
 });
 
 // Mount Routes

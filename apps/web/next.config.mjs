@@ -14,13 +14,21 @@ const nextConfig = {
     let apiUrl = rawApiUrl.trim();
 
     if (!apiUrl.startsWith('http://') && !apiUrl.startsWith('https://')) {
-      // If it contains onrender.com or is not localhost, use HTTPS; otherwise use HTTP
-      if (apiUrl.includes('onrender.com') || (!apiUrl.includes('localhost') && !apiUrl.includes('127.0.0.1'))) {
-        apiUrl = `https://${apiUrl}`;
-      } else {
-        apiUrl = `http://${apiUrl}`;
-      }
+      const isLocal = apiUrl.includes('localhost') || apiUrl.includes('127.0.0.1');
+      apiUrl = isLocal ? `http://${apiUrl}` : `https://${apiUrl}`;
     }
+
+    try {
+      const parsed = new URL(apiUrl);
+      const host = parsed.hostname;
+      if (!host.includes('.') && host !== 'localhost' && host !== '127.0.0.1') {
+        parsed.hostname = `${host}.onrender.com`;
+        apiUrl = parsed.origin + (parsed.pathname === '/' ? '' : parsed.pathname);
+      }
+    } catch {
+      // If URL parsing fails, retain as-is
+    }
+
     apiUrl = apiUrl.replace(/\/+$/, '');
 
     return [

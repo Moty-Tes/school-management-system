@@ -19,10 +19,13 @@ import {
   Card, KpiCard, EmptyState, Skeleton, Table, TableHeadCell, TableRowCell, TableSection, Button
 } from '@/components/ui';
 import { use_reducedMotion } from '@/hooks/use-reduced-motion';
+import { SchoolPulseCard, type SchoolPulseData } from '@/components/SchoolPulseCard';
 
 export default function DashboardPage() {
   const [role, setRole] = useState<'ADMIN' | 'ACCOUNTANT' | 'TEACHER' | 'PARENT' | 'REGISTRAR' | 'STUDENT'>('ADMIN');
   const [userProfile, setUserProfile] = useState<{ firstName?: string; lastName?: string }>({});
+  const [pulseData, setPulseData] = useState<SchoolPulseData | null>(null);
+  const [pulseLoading, setPulseLoading] = useState(false);
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [mounted, setMounted] = useState(false);
@@ -62,10 +65,28 @@ export default function DashboardPage() {
     setMounted(true);
   }, []);
 
+  // School operations briefing loader
+  const fetchPulse = useCallback(async () => {
+    try {
+      setPulseLoading(true);
+      const res = await api.get<SchoolPulseData>('/api/v1/dashboard/pulse');
+      if (res) {
+        setPulseData(res);
+      }
+    } catch {
+      // Graceful non-blocking if offline or initializing
+    } finally {
+      setPulseLoading(false);
+    }
+  }, []);
+
   // Centralized real data loader
   const loadDashboardData = useCallback(async () => {
     setLoading(true);
     setFetchError(null);
+
+    // Concurrently trigger pulse briefing
+    fetchPulse();
 
     try {
       // 1. Identify active persona and permissions
@@ -305,6 +326,15 @@ export default function DashboardPage() {
         animate="visible"
         className="space-y-6"
       >
+        {/* Daily School Operations Pulse Briefing */}
+        <motion.div variants={itemVariants}>
+          <SchoolPulseCard
+            pulse={pulseData}
+            loading={pulseLoading}
+            onRefresh={fetchPulse}
+          />
+        </motion.div>
+
         {/* KPI Cards Grid */}
         <motion.div variants={itemVariants} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <KpiCard
@@ -583,6 +613,15 @@ export default function DashboardPage() {
   if (role === 'TEACHER') {
     return (
       <motion.section variants={containerVariants} initial="hidden" animate="visible" className="space-y-6">
+        {/* Daily Operations Briefing */}
+        <motion.div variants={itemVariants}>
+          <SchoolPulseCard
+            pulse={pulseData}
+            loading={pulseLoading}
+            onRefresh={fetchPulse}
+          />
+        </motion.div>
+
         <motion.div variants={itemVariants} className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <KpiCard
             value={assignments.length}
@@ -783,6 +822,15 @@ export default function DashboardPage() {
   if (role === 'REGISTRAR') {
     return (
       <motion.section variants={containerVariants} initial="hidden" animate="visible" className="space-y-6">
+        {/* Registrar Operations Briefing */}
+        <motion.div variants={itemVariants}>
+          <SchoolPulseCard
+            pulse={pulseData}
+            loading={pulseLoading}
+            onRefresh={fetchPulse}
+          />
+        </motion.div>
+
         <motion.div variants={itemVariants} className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <KpiCard
             value={registeredStudents.length}

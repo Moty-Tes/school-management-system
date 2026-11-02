@@ -101,7 +101,11 @@ export default function LoginPage() {
     } catch (err: any) {
       clearTimeout(wakeTimer);
       if (err instanceof ApiError && (err.status === 502 || err.status === 503 || err.status === 504)) {
-        setError('Server is warming up. Please click Sign In once more in a few seconds.');
+        if (err.status === 503) {
+          setError('School service is undergoing maintenance or database sync (HTTP 503). Please retry in a few moments.');
+        } else {
+          setError('Backend gateway is warming up or temporarily unreachable (HTTP 502/504). If the server was idle, please retry in 15–30 seconds.');
+        }
       } else if (err instanceof ApiError && err.status === 401) {
         setError('Invalid email, password, or school code. Please verify your credentials.');
       } else {
