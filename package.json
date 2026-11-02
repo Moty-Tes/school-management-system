@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "turbo run dev",
     "build": "turbo run build",
+    "test": "turbo run test",
     "db:generate": "turbo run db:generate",
     "db:migrate": "turbo run db:migrate",
     "db:start": "powershell -ExecutionPolicy Bypass -File ./scripts/start-db.ps1",

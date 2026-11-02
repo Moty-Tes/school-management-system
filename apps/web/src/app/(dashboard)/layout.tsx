@@ -22,6 +22,7 @@ interface ModuleItem {
   href: string;
   icon: string;
   desc: string;
+  allowedRoles?: string[];
 }
 
 interface ModuleCategory {
@@ -33,70 +34,85 @@ const ALL_MODULES: ModuleCategory[] = [
   {
     category: 'Academics',
     items: [
-      { name: 'Classes & Sections', href: '/classes', icon: 'Users', desc: 'Manage grades, arms & streams' },
-      { name: 'Timetable', href: '/timetable', icon: 'Calendar', desc: 'Class schedules & periods' },
-      { name: 'Attendance', href: '/attendance', icon: 'Clock', desc: 'Daily attendance marking' },
-      { name: 'Assessments', href: '/assessments', icon: 'BookOpen', desc: 'Tests, exams & coursework' },
-      { name: 'Grading & Reports', href: '/grading', icon: 'DollarSign', desc: 'Score sheets & report cards' },
-      { name: 'Quizzes', href: '/quizzes', icon: 'Sparkles', desc: 'Interactive classroom quizzes' },
-      { name: 'CBT (Online Exams)', href: '/cbt', icon: 'Shield', desc: 'Computer-based examination system' },
-      { name: 'Assignments', href: '/assignments', icon: 'FileText', desc: 'Homework & submission tracking' },
-      { name: 'Calendar', href: '/calendar', icon: 'Calendar', desc: 'Academic terms & event dates' },
-      { name: 'Certificates', href: '/certificates', icon: 'Award', desc: 'Print student certificates' },
-      { name: 'Promotions', href: '/promotions', icon: 'Award', desc: 'End of year student promotions' },
-      { name: 'Substitutes', href: '/substitutes', icon: 'Users', desc: 'Cover absent teachers' },
+      { name: 'Classes & Sections', href: '/classes', icon: 'Users', desc: 'Manage grades, arms & streams', allowedRoles: ['SUPER_ADMIN', 'TENANT_ADMIN', 'REGISTRAR', 'TEACHER'] },
+      { name: 'Timetable', href: '/timetable', icon: 'Calendar', desc: 'Class schedules & periods', allowedRoles: ['SUPER_ADMIN', 'TENANT_ADMIN', 'REGISTRAR', 'TEACHER', 'STUDENT', 'PARENT'] },
+      { name: 'Attendance', href: '/attendance', icon: 'Clock', desc: 'Daily attendance marking', allowedRoles: ['SUPER_ADMIN', 'TENANT_ADMIN', 'REGISTRAR', 'TEACHER', 'STUDENT', 'PARENT'] },
+      { name: 'Assessments', href: '/assessments', icon: 'BookOpen', desc: 'Tests, exams & coursework', allowedRoles: ['SUPER_ADMIN', 'TENANT_ADMIN', 'REGISTRAR', 'TEACHER'] },
+      { name: 'Grading & Reports', href: '/grading', icon: 'DollarSign', desc: 'Score sheets & report cards', allowedRoles: ['SUPER_ADMIN', 'TENANT_ADMIN', 'REGISTRAR', 'TEACHER'] },
+      { name: 'Quizzes', href: '/quizzes', icon: 'Sparkles', desc: 'Interactive classroom quizzes', allowedRoles: ['SUPER_ADMIN', 'TENANT_ADMIN', 'TEACHER', 'STUDENT'] },
+      { name: 'CBT (Online Exams)', href: '/cbt', icon: 'Shield', desc: 'Computer-based examination system', allowedRoles: ['SUPER_ADMIN', 'TENANT_ADMIN', 'TEACHER', 'STUDENT'] },
+      { name: 'Assignments', href: '/assignments', icon: 'FileText', desc: 'Homework & submission tracking', allowedRoles: ['SUPER_ADMIN', 'TENANT_ADMIN', 'TEACHER', 'STUDENT'] },
+      { name: 'Calendar', href: '/calendar', icon: 'Calendar', desc: 'Academic terms & event dates', allowedRoles: ['SUPER_ADMIN', 'TENANT_ADMIN', 'REGISTRAR', 'TEACHER', 'STUDENT', 'PARENT', 'ACCOUNTANT'] },
+      { name: 'Certificates', href: '/certificates', icon: 'Award', desc: 'Print student certificates', allowedRoles: ['SUPER_ADMIN', 'TENANT_ADMIN', 'REGISTRAR'] },
+      { name: 'Promotions', href: '/promotions', icon: 'Award', desc: 'End of year student promotions', allowedRoles: ['SUPER_ADMIN', 'TENANT_ADMIN', 'REGISTRAR'] },
+      { name: 'Substitutes', href: '/substitutes', icon: 'Users', desc: 'Cover absent teachers', allowedRoles: ['SUPER_ADMIN', 'TENANT_ADMIN', 'TEACHER'] },
     ]
   },
   {
     category: 'Finance & HR',
     items: [
-      { name: 'Finance & Invoices', href: '/finance', icon: 'DollarSign', desc: 'Student fees & payment records' },
-      { name: 'Expenses', href: '/expenses', icon: 'Receipt', desc: 'School operational expenditure' },
-      { name: 'Payroll', href: '/payroll', icon: 'CreditCard', desc: 'Salary slips & staff wages' },
-      { name: 'HR & Staff Leaves', href: '/hr', icon: 'Users', desc: 'Staff directory & leave requests' },
-      { name: 'Assets & Inventory', href: '/assets', icon: 'BookOpen', desc: 'School assets tracking' },
-      { name: 'Exports & Reports', href: '/exports', icon: 'Receipt', desc: 'Export student & financial data' },
+      { name: 'Finance & Invoices', href: '/finance', icon: 'DollarSign', desc: 'Student fees & payment records', allowedRoles: ['SUPER_ADMIN', 'TENANT_ADMIN', 'ACCOUNTANT', 'PARENT'] },
+      { name: 'Expenses', href: '/expenses', icon: 'Receipt', desc: 'School operational expenditure', allowedRoles: ['SUPER_ADMIN', 'TENANT_ADMIN', 'ACCOUNTANT'] },
+      { name: 'Payroll', href: '/payroll', icon: 'CreditCard', desc: 'Salary slips & staff wages', allowedRoles: ['SUPER_ADMIN', 'TENANT_ADMIN', 'ACCOUNTANT'] },
+      { name: 'HR & Staff Leaves', href: '/hr', icon: 'Users', desc: 'Staff directory & leave requests', allowedRoles: ['SUPER_ADMIN', 'TENANT_ADMIN', 'ACCOUNTANT', 'TEACHER'] },
+      { name: 'Assets & Inventory', href: '/assets', icon: 'BookOpen', desc: 'School assets tracking', allowedRoles: ['SUPER_ADMIN', 'TENANT_ADMIN', 'ACCOUNTANT'] },
+      { name: 'Exports & Reports', href: '/exports', icon: 'Receipt', desc: 'Export student & financial data', allowedRoles: ['SUPER_ADMIN', 'TENANT_ADMIN', 'ACCOUNTANT', 'REGISTRAR'] },
     ]
   },
   {
     category: 'People & Operations',
     items: [
-      { name: 'Students', href: '/students', icon: 'Users', desc: 'Student directory & admissions' },
-      { name: 'Teachers', href: '/teachers', icon: 'Users', desc: 'Faculty & staff profiles' },
-      { name: 'Library', href: '/library', icon: 'BookOpen', desc: 'Book catalog & loans' },
-      { name: 'Transport & Buses', href: '/transport', icon: 'Truck', desc: 'Bus routes & vehicle tracking' },
-      { name: 'Hostel & Dorms', href: '/hostel', icon: 'Building', desc: 'Rooms & bed assignments' },
-      { name: 'Cafeteria & Meals', href: '/cafeteria', icon: 'Utensils', desc: 'Meal plans & cafeteria menu' },
-      { name: 'Front Desk & Visitors', href: '/front-desk', icon: 'Building', desc: 'Visitor log & admissions inquiry' },
-      { name: 'Health & Physical Exams', href: '/physical-exams', icon: 'Heart', desc: 'Medical records & checkups' },
-      { name: 'Clubs & Activities', href: '/clubs', icon: 'Users', desc: 'Extracurricular student clubs' },
+      { name: 'Students', href: '/students', icon: 'Users', desc: 'Student directory & admissions', allowedRoles: ['SUPER_ADMIN', 'TENANT_ADMIN', 'REGISTRAR', 'ACCOUNTANT', 'TEACHER'] },
+      { name: 'Teachers', href: '/teachers', icon: 'Users', desc: 'Faculty & staff profiles', allowedRoles: ['SUPER_ADMIN', 'TENANT_ADMIN', 'REGISTRAR'] },
+      { name: 'Library', href: '/library', icon: 'BookOpen', desc: 'Book catalog & loans', allowedRoles: ['SUPER_ADMIN', 'TENANT_ADMIN', 'TEACHER', 'STUDENT'] },
+      { name: 'Transport & Buses', href: '/transport', icon: 'Truck', desc: 'Bus routes & vehicle tracking', allowedRoles: ['SUPER_ADMIN', 'TENANT_ADMIN', 'PARENT', 'STUDENT'] },
+      { name: 'Hostel & Dorms', href: '/hostel', icon: 'Building', desc: 'Rooms & bed assignments', allowedRoles: ['SUPER_ADMIN', 'TENANT_ADMIN', 'STUDENT', 'PARENT'] },
+      { name: 'Cafeteria & Meals', href: '/cafeteria', icon: 'Utensils', desc: 'Meal plans & cafeteria menu', allowedRoles: ['SUPER_ADMIN', 'TENANT_ADMIN', 'STUDENT', 'PARENT', 'TEACHER'] },
+      { name: 'Front Desk & Visitors', href: '/front-desk', icon: 'Building', desc: 'Visitor log & admissions inquiry', allowedRoles: ['SUPER_ADMIN', 'TENANT_ADMIN', 'REGISTRAR'] },
+      { name: 'Health & Physical Exams', href: '/physical-exams', icon: 'Heart', desc: 'Medical records & checkups', allowedRoles: ['SUPER_ADMIN', 'TENANT_ADMIN', 'TEACHER', 'PARENT'] },
+      { name: 'Clubs & Activities', href: '/clubs', icon: 'Users', desc: 'Extracurricular student clubs', allowedRoles: ['SUPER_ADMIN', 'TENANT_ADMIN', 'TEACHER', 'STUDENT'] },
     ]
   },
   {
     category: 'Communication & Portal',
     items: [
-      { name: 'Announcements', href: '/announcements', icon: 'MessageSquare', desc: 'School-wide notice board' },
-      { name: 'Broadcasts (SMS/Email)', href: '/broadcasts', icon: 'Mail', desc: 'Mass messages to parents' },
-      { name: 'Messages & Chat', href: '/messages', icon: 'MessageCircle', desc: 'Internal messaging system' },
-      { name: 'PTM Meetings', href: '/ptm', icon: 'Calendar', desc: 'Parent-Teacher conference schedule' },
-      { name: 'Custom Forms', href: '/forms', icon: 'FileText', desc: 'Surveys & application forms' },
-      { name: 'Parent Forms', href: '/parent-forms', icon: 'FileText', desc: 'Parent submission portal' },
-      { name: 'My Children', href: '/children', icon: 'Users', desc: 'Parent view of enrolled children' },
+      { name: 'Announcements', href: '/announcements', icon: 'MessageSquare', desc: 'School-wide notice board', allowedRoles: ['SUPER_ADMIN', 'TENANT_ADMIN', 'TEACHER', 'STUDENT', 'PARENT', 'ACCOUNTANT', 'REGISTRAR'] },
+      { name: 'Broadcasts (SMS/Email)', href: '/broadcasts', icon: 'Mail', desc: 'Mass messages to parents', allowedRoles: ['SUPER_ADMIN', 'TENANT_ADMIN', 'REGISTRAR'] },
+      { name: 'Messages & Chat', href: '/messages', icon: 'MessageCircle', desc: 'Internal messaging system', allowedRoles: ['SUPER_ADMIN', 'TENANT_ADMIN', 'TEACHER', 'STUDENT', 'PARENT', 'ACCOUNTANT', 'REGISTRAR'] },
+      { name: 'PTM Meetings', href: '/ptm', icon: 'Calendar', desc: 'Parent-Teacher conference schedule', allowedRoles: ['SUPER_ADMIN', 'TENANT_ADMIN', 'TEACHER', 'PARENT'] },
+      { name: 'Custom Forms', href: '/forms', icon: 'FileText', desc: 'Surveys & application forms', allowedRoles: ['SUPER_ADMIN', 'TENANT_ADMIN', 'REGISTRAR'] },
+      { name: 'Parent Forms', href: '/parent-forms', icon: 'FileText', desc: 'Parent submission portal', allowedRoles: ['PARENT'] },
+      { name: 'My Children', href: '/children', icon: 'Users', desc: 'Parent view of enrolled children', allowedRoles: ['PARENT'] },
     ]
   },
   {
     category: 'System & Administration',
     items: [
-      { name: 'AI Insights', href: '/ai-insights', icon: 'Sparkles', desc: 'AI predictive analytics' },
-      { name: 'Audit Logs', href: '/audit-logs', icon: 'Shield', desc: 'Security & system activity trail' },
-      { name: 'Automations', href: '/automations', icon: 'Zap', desc: 'Scheduled robots & alerts' },
-      { name: 'Roles & Permissions', href: '/roles', icon: 'Lock', desc: 'Access control configuration' },
-      { name: 'Public Website', href: '/website', icon: 'Globe', desc: 'School public landing page builder' },
-      { name: 'School Settings', href: '/settings', icon: 'Settings', desc: 'Branding, grading & terms' },
-      { name: 'Platform Admin', href: '/platform', icon: 'Server', desc: 'Multi-tenant administration' },
+      { name: 'AI Insights', href: '/ai-insights', icon: 'Sparkles', desc: 'AI predictive analytics', allowedRoles: ['SUPER_ADMIN', 'TENANT_ADMIN'] },
+      { name: 'Audit Logs', href: '/audit-logs', icon: 'Shield', desc: 'Security & system activity trail', allowedRoles: ['SUPER_ADMIN', 'TENANT_ADMIN'] },
+      { name: 'Automations', href: '/automations', icon: 'Zap', desc: 'Scheduled robots & alerts', allowedRoles: ['SUPER_ADMIN', 'TENANT_ADMIN'] },
+      { name: 'Roles & Permissions', href: '/roles', icon: 'Lock', desc: 'Access control configuration', allowedRoles: ['SUPER_ADMIN', 'TENANT_ADMIN'] },
+      { name: 'Public Website', href: '/website', icon: 'Globe', desc: 'School public landing page builder', allowedRoles: ['SUPER_ADMIN', 'TENANT_ADMIN'] },
+      { name: 'School Settings', href: '/settings', icon: 'Settings', desc: 'Branding, grading & terms', allowedRoles: ['SUPER_ADMIN', 'TENANT_ADMIN'] },
+      { name: 'Platform Admin', href: '/platform', icon: 'Server', desc: 'Multi-tenant administration', allowedRoles: ['SUPER_ADMIN'] },
     ]
   }
 ];
+
+function getAuthorizedModules(categories: ModuleCategory[], userRoles: string[]): ModuleCategory[] {
+  if (userRoles.includes('SUPER_ADMIN')) {
+    return categories;
+  }
+  return categories
+    .map((category) => ({
+      ...category,
+      items: category.items.filter((item) => {
+        if (!item.allowedRoles || item.allowedRoles.length === 0) return true;
+        return item.allowedRoles.some((role) => userRoles.includes(role));
+      }),
+    }))
+    .filter((category) => category.items.length > 0);
+}
 
 function renderModuleIcon(iconName: string, className = "w-4 h-4 shrink-0") {
   switch (iconName) {
@@ -252,6 +268,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const isRegistrar = roles.includes('REGISTRAR');
   const unreadCount = notifications.filter(n => !n.readAt).length;
 
+  // Filter modules based on user roles
+  const authorizedModules = getAuthorizedModules(ALL_MODULES, roles);
+
   const roleLabel = isSuperAdmin
     ? 'Super Admin'
     : isAdmin
@@ -374,7 +393,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 ))}
 
                 {/* "All Modules" Mega-Menu Popover */}
-                {(isAdmin || isAccountant) && (
+                {authorizedModules.length > 0 && (
                   <div className="relative" ref={modulesMenuRef}>
                     <button
                       onClick={() => setShowModulesMenu(!showModulesMenu)}
@@ -394,17 +413,17 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                         <div className="flex items-center justify-between pb-4 mb-4 border-b border-border dark:border-border-overlay">
                           <div>
                             <h3 className="text-base font-extrabold text-neutral-900 dark:text-white tracking-tight">
-                              Complete School Suite
+                              School Portal Directory
                             </h3>
-                            <p className="text-xs text-slate-400">Instant access to all modules, records, and services</p>
+                            <p className="text-xs text-slate-400">Authorized modules and services for your role</p>
                           </div>
                           <span className="text-xs font-semibold text-brand-primary bg-brand-primary/10 px-2.5 py-1 rounded-full">
-                            40+ Integrated Features
+                            Role-Authorized
                           </span>
                         </div>
 
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 max-h-[70vh] overflow-y-auto pr-2">
-                          {ALL_MODULES.map((category) => (
+                          {authorizedModules.map((category) => (
                             <div key={category.category} className="space-y-2">
                               <h4 className="text-[10px] font-bold text-neutral-500 uppercase tracking-wider">
                                 {category.category}
@@ -618,43 +637,45 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 </div>
               </div>
 
-              {/* Complete School Suite (All 40+ Modules) */}
-              <div className="pt-2 border-t border-border dark:border-border-overlay">
-                <p className="px-2 pb-2 text-[10px] font-bold text-neutral-400 uppercase tracking-wider">
-                  All School Modules (40+)
-                </p>
-                <div className="space-y-3">
-                  {ALL_MODULES.map((category) => (
-                    <div key={category.category} className="space-y-1">
-                      <p className="px-2 text-[11px] font-bold text-neutral-700 dark:text-neutral-300">
-                        {category.category}
-                      </p>
-                      <div className="grid grid-cols-1 gap-1">
-                        {category.items.map((item) => {
-                          const isActive = pathname === item.href;
-                          return (
-                            <Link
-                              key={item.href}
-                              href={item.href}
-                              onClick={() => setMobileNavOpen(false)}
-                              className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs transition-colors ${
-                                isActive
-                                  ? 'bg-[#1B4F8C]/10 text-[#1B4F8C] font-bold'
-                                  : 'text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800'
-                              }`}
-                            >
-                              <div className="text-[#1B4F8C]">
-                                {renderModuleIcon(item.icon, "w-4 h-4 shrink-0")}
-                              </div>
-                              <span className="truncate">{item.name}</span>
-                            </Link>
-                          );
-                        })}
+              {/* Authorized School Modules */}
+              {authorizedModules.length > 0 && (
+                <div className="pt-2 border-t border-border dark:border-border-overlay">
+                  <p className="px-2 pb-2 text-[10px] font-bold text-neutral-400 uppercase tracking-wider">
+                    School Directory
+                  </p>
+                  <div className="space-y-3">
+                    {authorizedModules.map((category) => (
+                      <div key={category.category} className="space-y-1">
+                        <p className="px-2 text-[11px] font-bold text-neutral-700 dark:text-neutral-300">
+                          {category.category}
+                        </p>
+                        <div className="grid grid-cols-1 gap-1">
+                          {category.items.map((item) => {
+                            const isActive = pathname === item.href;
+                            return (
+                              <Link
+                                key={item.href}
+                                href={item.href}
+                                onClick={() => setMobileNavOpen(false)}
+                                className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs transition-colors ${
+                                  isActive
+                                    ? 'bg-[#1B4F8C]/10 text-[#1B4F8C] font-bold'
+                                    : 'text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800'
+                                }`}
+                              >
+                                <div className="text-[#1B4F8C]">
+                                  {renderModuleIcon(item.icon, "w-4 h-4 shrink-0")}
+                                </div>
+                                <span className="truncate">{item.name}</span>
+                              </Link>
+                            );
+                          })}
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    ))}
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
 
             {/* Drawer Footer with Sign Out */}
@@ -710,6 +731,16 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             <Clock className="w-5 h-5" />
             <span>Attendance</span>
           </Link>
+        ) : isStudent ? (
+          <Link
+            href="/assignments"
+            className={`flex flex-col items-center gap-1 py-1 px-3 rounded-lg text-[10px] font-medium transition-colors ${
+              pathname.startsWith('/assignments') ? 'text-[#1B4F8C] font-bold' : 'text-neutral-500 hover:text-neutral-900'
+            }`}
+          >
+            <FileText className="w-5 h-5" />
+            <span>Tasks</span>
+          </Link>
         ) : (
           <Link
             href="/students"
@@ -722,15 +753,27 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           </Link>
         )}
 
-        <Link
-          href="/finance"
-          className={`flex flex-col items-center gap-1 py-1 px-3 rounded-lg text-[10px] font-medium transition-colors ${
-            pathname.startsWith('/finance') ? 'text-[#1B4F8C] font-bold' : 'text-neutral-500 hover:text-neutral-900'
-          }`}
-        >
-          <DollarSign className="w-5 h-5" />
-          <span>Finance</span>
-        </Link>
+        {isStudent ? (
+          <Link
+            href="/timetable"
+            className={`flex flex-col items-center gap-1 py-1 px-3 rounded-lg text-[10px] font-medium transition-colors ${
+              pathname.startsWith('/timetable') ? 'text-[#1B4F8C] font-bold' : 'text-neutral-500 hover:text-neutral-900'
+            }`}
+          >
+            <Calendar className="w-5 h-5" />
+            <span>Schedule</span>
+          </Link>
+        ) : (
+          <Link
+            href="/finance"
+            className={`flex flex-col items-center gap-1 py-1 px-3 rounded-lg text-[10px] font-medium transition-colors ${
+              pathname.startsWith('/finance') ? 'text-[#1B4F8C] font-bold' : 'text-neutral-500 hover:text-neutral-900'
+            }`}
+          >
+            <DollarSign className="w-5 h-5" />
+            <span>Finance</span>
+          </Link>
+        )}
 
         {isTeacher ? (
           <Link

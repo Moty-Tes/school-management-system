@@ -1,4 +1,5 @@
 import * as React from 'react';
+import Link from 'next/link';
 
 export interface EmptyStateProps extends React.HTMLAttributes<HTMLDivElement> {
   icon?: any;
@@ -6,13 +7,14 @@ export interface EmptyStateProps extends React.HTMLAttributes<HTMLDivElement> {
   description?: string;
   actionLabel?: string;
   actionOnClick?: () => void;
+  actionHref?: string;
   illustration?: string;
   variant?: 'default' | 'transparent' | 'ghost';
   className?: string;
 }
 
 export const EmptyState = React.forwardRef<HTMLDivElement, EmptyStateProps>(
-  ({ icon, title, description, actionLabel, actionOnClick, illustration, variant = 'default', className = '', ...props }, ref) => {
+  ({ icon, title, description, actionLabel, actionOnClick, actionHref, illustration, variant = 'default', className = '', ...props }, ref) => {
     return (
       <div
         ref={ref}
@@ -37,12 +39,21 @@ export const EmptyState = React.forwardRef<HTMLDivElement, EmptyStateProps>(
         {title && <h3 className="mt-4 text-base font-bold text-slate-700 dark:text-slate-200">{title}</h3>}
         {description && <p className="mt-1 text-xs text-slate-400 dark:text-slate-500 max-w-sm">{description}</p>}
         {actionLabel && (
-          <button
-            onClick={actionOnClick}
-            className="mt-4 inline-flex items-center gap-2 rounded-xl bg-slate-900 dark:bg-indigo-600 px-4 py-2 text-xs font-semibold text-white hover:bg-slate-800 dark:hover:bg-indigo-500 transition-colors shadow-sm"
-          >
-            {actionLabel}
-          </button>
+          actionHref ? (
+            <Link
+              href={actionHref}
+              className="mt-4 inline-flex items-center gap-2 rounded-xl bg-slate-900 dark:bg-indigo-600 px-4 py-2 text-xs font-semibold text-white hover:bg-slate-800 dark:hover:bg-indigo-500 transition-colors shadow-sm"
+            >
+              {actionLabel}
+            </Link>
+          ) : (
+            <button
+              onClick={actionOnClick}
+              className="mt-4 inline-flex items-center gap-2 rounded-xl bg-slate-900 dark:bg-indigo-600 px-4 py-2 text-xs font-semibold text-white hover:bg-slate-800 dark:hover:bg-indigo-500 transition-colors shadow-sm"
+            >
+              {actionLabel}
+            </button>
+          )
         )}
       </div>
     );
