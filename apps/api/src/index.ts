@@ -96,6 +96,22 @@ app.use('/uploads', express.static(path.resolve(process.cwd(), 'uploads')));
 // Tenant Resolution
 app.use(resolveTenant);
 
+// Institutional Service Root
+app.get('/', (req, res) => {
+  if (req.accepts('html') && !req.xhr && env.WEB_BASE_URL) {
+    return res.redirect(env.WEB_BASE_URL);
+  }
+
+  res.status(200).json({
+    service: 'School Management System Core API',
+    status: 'operational',
+    version: '1.0.0',
+    health: '/health',
+    apiRoot: '/api/v1',
+    timestamp: new Date().toISOString(),
+  });
+});
+
 // Health Check
 app.get('/health', async (_req, res) => {
   let dbStatus = 'connected';

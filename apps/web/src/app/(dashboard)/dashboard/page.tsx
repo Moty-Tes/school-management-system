@@ -259,6 +259,45 @@ export default function DashboardPage() {
     const hasRevenueRecords = revenueData.some((r) => r.total > 0);
     const hasDemographicRecords = genderData.some((g) => g.value > 0);
 
+    const setupMilestones = [
+      {
+        id: 'classes',
+        name: 'Classes & Sections',
+        desc: 'Classrooms and grade streams for student placement.',
+        completed: true,
+        metric: 'Grade streams active',
+        action: 'Configure Classes',
+        href: '/classes',
+      },
+      {
+        id: 'faculty',
+        name: 'Faculty Registry',
+        desc: 'Active teaching roster assigned to subject curriculums.',
+        completed: teacherCount > 0,
+        metric: `${teacherCount} faculty assigned`,
+        action: 'Add Teachers',
+        href: '/teachers',
+      },
+      {
+        id: 'students',
+        name: 'Student Enrollment',
+        desc: 'Enrolled learner body in classes and sections.',
+        completed: studentCount > 0,
+        metric: `${studentCount} learners enrolled`,
+        action: 'Enroll Students',
+        href: '/students',
+      },
+      {
+        id: 'billing',
+        name: 'Tuition & Invoicing',
+        desc: 'Term fee structures and student balance ledger.',
+        completed: invCount > 0 || totalRev > 0,
+        metric: `${invCount} invoices issued`,
+        action: 'Set Up Fees',
+        href: '/finance',
+      },
+    ];
+
     return (
       <motion.section
         variants={containerVariants}
@@ -293,6 +332,76 @@ export default function DashboardPage() {
             variant="default"
           />
         </motion.div>
+
+        {/* Institutional Operational Readiness Checklist (Admin-only) */}
+        {role === 'ADMIN' && (
+          <motion.div variants={itemVariants}>
+            <Card className="border-l-4 border-l-[#1B4F8C]">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 mb-3 border-b border-slate-100 dark:border-neutral-800">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <CheckCircle2 className="w-5 h-5 text-[#1B4F8C]" />
+                    <h3 className="text-sm font-bold text-neutral-900 dark:text-white">
+                      Institutional Operational Readiness
+                    </h3>
+                  </div>
+                  <p className="text-xs text-slate-500 dark:text-neutral-400 mt-0.5">
+                    Persisted configuration status for core academic operations
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-bold text-[#1B4F8C] bg-blue-50 dark:bg-blue-950/40 px-2.5 py-1 rounded-full">
+                    {Math.round((setupMilestones.filter((m) => m.completed).length / setupMilestones.length) * 100)}% Configured
+                  </span>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 pt-1">
+                {setupMilestones.map((m) => (
+                  <div
+                    key={m.id}
+                    className={`p-3 rounded-xl border text-xs transition-colors flex flex-col justify-between ${
+                      m.completed
+                        ? 'bg-emerald-50/50 dark:bg-emerald-950/20 border-emerald-200/60 dark:border-emerald-900/30'
+                        : 'bg-amber-50/40 dark:bg-amber-950/20 border-amber-200/60 dark:border-amber-900/30'
+                    }`}
+                  >
+                    <div>
+                      <div className="flex items-center justify-between gap-2 mb-1.5">
+                        <span className="font-bold text-neutral-900 dark:text-white">{m.name}</span>
+                        {m.completed ? (
+                          <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+                            <CheckCircle2 className="w-3.5 h-3.5" /> Ready
+                          </span>
+                        ) : (
+                          <span className="text-[10px] font-bold text-amber-600 dark:text-amber-400 flex items-center gap-1">
+                            <AlertCircle className="w-3.5 h-3.5" /> Action Needed
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-[11px] text-slate-500 dark:text-neutral-400 leading-relaxed mb-2.5">
+                        {m.desc}
+                      </p>
+                    </div>
+                    {!m.completed ? (
+                      <Link
+                        href={m.href}
+                        className="inline-flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-lg bg-[#1B4F8C] hover:bg-[#153f70] text-white text-[11px] font-semibold transition-colors mt-auto shadow-xs"
+                      >
+                        <span>{m.action}</span>
+                        <ArrowRight className="w-3 h-3" />
+                      </Link>
+                    ) : (
+                      <div className="text-[10px] font-medium text-emerald-700 dark:text-emerald-400/80 mt-auto">
+                        ✓ {m.metric}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </Card>
+          </motion.div>
+        )}
 
         {/* Charts & Analytical Summaries */}
         <motion.div variants={itemVariants} className="grid grid-cols-1 lg:grid-cols-2 gap-6">

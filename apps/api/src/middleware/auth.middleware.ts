@@ -54,3 +54,36 @@ function extractToken(req: Request): string | null {
   if (req.cookies?.access_token) return req.cookies.access_token as string;
   return null;
 }
+
+/**
+ * Role-Based Access Control (RBAC) route middleware.
+ * Enforces server-side authorization: requires that req.auth contains at least one of the allowed roles.
+ * 'SUPER_ADMIN' role automatically bypasses tenant-scoped restrictions.
+ */
+export function requireRoles(...allowedRoles: string[]) {
+  return (req: Request, _res: Response, next: NextFunction): void => {
+    if (!req.auth) {
+      return next(new AppError('Authentication required', 401, 'UNAUTHENTICATED'));
+    }
+
+    const userRoles = req.auth.roles || [];
+
+    // Global super admin bypass
+    if (userRoles.includes('SUPER_ADMIN')) {
+      return next();
+    }
+
+    const hasAllowedRole = allowedRoles.some((role) => userRoles.includes(role));
+    if (!hasAllowedRole) {
+      return next(
+        new AppError(
+          `Access forbidden: required role ${allowedRoles.join(' or ')}`,
+          403,
+          'FORBIDDEN'
+        )
+      );
+    }
+
+    next();
+  };
+}

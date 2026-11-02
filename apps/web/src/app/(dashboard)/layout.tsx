@@ -13,9 +13,11 @@ import {
   Shield, GraduationCap, ArrowRight, Award, Layers,
   X, Menu, LogOut, Bell, Home, ChevronRight, ChevronDown, Check,
   LayoutGrid, Building2, Utensils, Heart, Mail, MessageSquare,
-  MessageCircle, Truck, Lock, Globe, Server, Zap
+  MessageCircle, Truck, Lock, Globe, Server, Zap, Search
 } from 'lucide-react';
 import { use_reducedMotion } from '@/hooks/use-reduced-motion';
+import { CommandPalette } from '@/components/CommandPalette';
+import { Breadcrumbs } from '@/components/Breadcrumbs';
 
 interface ModuleItem {
   name: string;
@@ -165,6 +167,47 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const [showModulesMenu, setShowModulesMenu] = useState(false);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const modulesMenuRef = useRef<HTMLDivElement>(null);
+
+  // Universal Command Palette state
+  const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
+
+  // Keyboard shortcut listener for Ctrl+K or Cmd+K
+  useEffect(() => {
+    function handleGlobalKeyDown(e: KeyboardEvent) {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        setCommandPaletteOpen((prev) => !prev);
+      }
+    }
+    window.addEventListener('keydown', handleGlobalKeyDown);
+    return () => window.removeEventListener('keydown', handleGlobalKeyDown);
+  }, []);
+
+  async function handleMarkAllNotificationsRead() {
+    try {
+      await api.post('/api/v1/notifications/mark-all-read');
+      setNotifications((prev) => prev.map((n) => ({ ...n, readAt: new Date().toISOString() })));
+    } catch {
+      // Non-fatal
+    }
+  }
+
+  async function handleNotificationClick(notif: any) {
+    if (!notif.readAt) {
+      try {
+        await api.patch(`/api/v1/notifications/${notif.id}/read`);
+        setNotifications((prev) =>
+          prev.map((n) => (n.id === notif.id ? { ...n, readAt: new Date().toISOString() } : n))
+        );
+      } catch {
+        // Non-fatal
+      }
+    }
+    if (notif.link) {
+      setShowNotifs(false);
+      router.push(notif.link);
+    }
+  }
 
   // Reduced motion preference
   const reducedMotion = use_reducedMotion();
@@ -460,8 +503,22 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               </nav>
             </div>
 
-            {/* Right: Notifications, Profile, Logout & Mobile Hamburger */}
+            {/* Right: Search, Notifications, Profile, Logout & Mobile Hamburger */}
             <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+              {/* Quick Command Launcher Button */}
+              <button
+                onClick={() => setCommandPaletteOpen(true)}
+                className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-xl bg-neutral-100 hover:bg-neutral-200 dark:bg-neutral-800 dark:hover:bg-neutral-700 text-neutral-600 dark:text-neutral-300 text-xs font-medium transition-colors border border-border dark:border-border-overlay shadow-xs"
+                title="Search modules and actions (Ctrl+K)"
+                aria-label="Open Command Search"
+              >
+                <Search className="w-3.5 h-3.5 text-neutral-400" />
+                <span>Search...</span>
+                <kbd className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-white dark:bg-neutral-900 border border-border dark:border-border-overlay text-neutral-500 font-bold">
+                  Ctrl K
+                </kbd>
+              </button>
+
               {/* Notification Button */}
               <div className="relative">
                 <button
@@ -471,7 +528,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 >
                   <Bell className="w-4 h-4" />
                   {unreadCount > 0 && (
-                    <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-brand-primary text-white text-[9px] font-black flex items-center justify-center shadow-sm">
+                    <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-[#E86524] text-white text-[9px] font-black flex items-center justify-center shadow-sm">
                       {unreadCount}
                     </span>
                   )}
@@ -485,33 +542,66 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                       onClick={() => setShowNotifs(false)}
                     />
                     <div
-                      className="absolute right-0 mt-3 w-80 rounded-2xl bg-white dark:bg-neutral-900 border border-border dark:border-border-overlay shadow-xl overflow-hidden z-50 max-h-96"
+                      className="absolute right-0 mt-3 w-80 sm:w-96 rounded-2xl bg-white dark:bg-neutral-900 border border-border dark:border-border-overlay shadow-xl overflow-hidden z-50 max-h-[420px] flex flex-col"
                     >
-                      <div className="p-4 border-b border-border dark:border-border-overlay bg-neutral-50 dark:bg-neutral-800 flex justify-between items-center">
-                        <span className="text-xs font-semibold uppercase tracking-wider text-neutral-600 dark:text-neutral-400">System Notifications</span>
-                        <button
-                          onClick={() => setShowNotifs(false)}
-                          className="text-xs text-neutral-500 hover:text-neutral-400"
-                        >
-                          Close
-                        </button>
-                      </div>
-                      <div className="max-h-80 overflow-y-auto p-4 space-y-2">
-                        {notifications.length === 0 ? (
-                          <p className="text-center text-xs text-neutral-400 py-4">No new alerts</p>
-                        ) : (
-                          notifications.map((n) => (
-                            <div
-                              key={n.id}
-                              className="p-3 rounded-lg bg-neutral-50 dark:bg-neutral-800/50 border border-border dark:border-border-overlay hover:bg-neutral-100 transition-colors"
+                      <div className="p-3.5 border-b border-border dark:border-border-overlay bg-neutral-50 dark:bg-neutral-800 flex justify-between items-center">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-bold text-neutral-900 dark:text-white uppercase tracking-wider">System Alerts</span>
+                          {unreadCount > 0 && (
+                            <span className="text-[10px] bg-[#E86524]/10 text-[#E86524] font-bold px-2 py-0.5 rounded-full">
+                              {unreadCount} unread
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2">
+                          {unreadCount > 0 && (
+                            <button
+                              onClick={handleMarkAllNotificationsRead}
+                              className="text-[11px] font-semibold text-[#1B4F8C] hover:underline"
                             >
-                              <p className="text-xs font-medium text-neutral-900 dark:text-white">{n.title}</p>
-                              <p className="text-[10px] text-neutral-500 mt-0.5">{n.message}</p>
-                              <p className="text-[9px] text-neutral-400 mt-1">
-                                {new Date(n.createdAt).toLocaleDateString()}
-                              </p>
-                            </div>
-                          ))
+                              Mark all read
+                            </button>
+                          )}
+                          <button
+                            onClick={() => setShowNotifs(false)}
+                            className="text-xs text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-200"
+                          >
+                            Close
+                          </button>
+                        </div>
+                      </div>
+                      <div className="max-h-80 overflow-y-auto p-3 space-y-2">
+                        {notifications.length === 0 ? (
+                          <div className="text-center py-6">
+                            <Bell className="w-6 h-6 mx-auto text-neutral-300 dark:text-neutral-600 mb-1" />
+                            <p className="text-xs text-neutral-400">No new alerts</p>
+                          </div>
+                        ) : (
+                          notifications.map((n) => {
+                            const isUnread = !n.readAt;
+                            return (
+                              <div
+                                key={n.id}
+                                onClick={() => handleNotificationClick(n)}
+                                className={`p-3 rounded-xl border transition-all cursor-pointer ${
+                                  isUnread
+                                    ? 'bg-blue-50/60 dark:bg-blue-950/20 border-blue-200/80 dark:border-blue-900/40'
+                                    : 'bg-neutral-50/70 dark:bg-neutral-800/40 border-border dark:border-border-overlay hover:bg-neutral-100/70'
+                                }`}
+                              >
+                                <div className="flex items-start justify-between gap-2">
+                                  <p className="text-xs font-semibold text-neutral-900 dark:text-white">{n.title}</p>
+                                  {isUnread && (
+                                    <span className="w-2 h-2 rounded-full bg-[#E86524] shrink-0 mt-1" />
+                                  )}
+                                </div>
+                                <p className="text-[11px] text-neutral-600 dark:text-neutral-300 mt-0.5 leading-relaxed">{n.message}</p>
+                                <p className="text-[9px] text-neutral-400 mt-1">
+                                  {new Date(n.createdAt).toLocaleDateString()}
+                                </p>
+                              </div>
+                            );
+                          })
                         )}
                       </div>
                     </div>
@@ -694,10 +784,18 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
       {/* Main Content Area */}
       <main
-        className="flex-1 max-w-[1800px] w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 pb-24 lg:pb-8 relative z-10"
+        className="flex-1 max-w-[1800px] w-full mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6 pb-24 lg:pb-8 relative z-10"
       >
+        <Breadcrumbs tenantName={tenantName} />
         {children}
       </main>
+
+      {/* Universal Keyboard Command Palette */}
+      <CommandPalette
+        isOpen={commandPaletteOpen}
+        onClose={() => setCommandPaletteOpen(false)}
+        authorizedModules={authorizedModules}
+      />
 
       {/* Mobile Sticky Bottom Navigation Bar for Android / Mobile Phones */}
       <nav className="fixed bottom-0 inset-x-0 z-30 lg:hidden bg-white/95 dark:bg-neutral-900/95 border-t border-border dark:border-border-overlay backdrop-blur-md px-2 py-1.5 flex items-center justify-around shadow-[0_-4px_20px_rgba(0,0,0,0.08)]">
