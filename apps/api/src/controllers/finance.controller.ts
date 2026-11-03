@@ -1,5 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import * as financeService from '../services/finance.service.js';
+import { prisma } from '../lib/prisma.js';
+import { AppError } from '../middleware/error.middleware.js';
 import { z } from 'zod';
 
 const createInvoiceSchema = z.object({
@@ -20,14 +22,86 @@ const recordPaymentSchema = z.object({
 
 export async function listInvoicesHandler(req: Request, res: Response, next: NextFunction) {
   try {
-    if (!req.auth?.tenantId) throw new Error("No tenant");
-    
-    // Extract the studentId from the URL query parameters
-    const studentId = req.query.studentId as string | undefined;
-    
-    const result = await financeService.listInvoices(req.auth.tenantId, studentId);
-    res.status(200).json({ success: true, data: result });
-  } catch (err) { next(err); }
+    if (!req.auth?.tenantId || !req.auth?.sub) {
+      throw new AppError('Authentication required', 401, 'UNAUTHENTICATED');
+    }
+
+    const tenantId = req.auth.tenantId;
+    const userId = req.auth.sub;
+    const roles = (req.auth.roles || []).map((r) => r.toUpperCase());
+    const isStaff = roles.some((r) => ['SUPER_ADMIN', 'TENANT_ADMIN', 'ADMIN', 'ACCOUNTANT'].includes(r));
+    const isStudent = roles.includes('STUDENT');
+    const isParent = roles.includes('PARENT');
+
+    const requestedStudentId = req.query.studentId as string | undefined;
+
+    // 1. Staff can view all invoices or filter by studentId
+    if (isStaff) {
+      const result = await financeService.listInvoices(tenantId, requestedStudentId);
+      return res.status(200).json({ success: true, data: result });
+    }
+
+    // 2. Student can ONLY view their own invoices
+    if (isStudent) {
+      const user = await prisma.user.findUnique({
+        where: { id: userId },
+        include: { profile: true },
+      });
+      const student = await prisma.student.findFirst({
+        where: {
+          tenantId,
+          firstName: user?.profile?.firstName || '',
+          lastName: user?.profile?.lastName || '',
+          deletedAt: null,
+        },
+        select: { id: true },
+      });
+
+      if (!student) {
+        return res.status(200).json({ success: true, data: [] });
+      }
+
+      if (requestedStudentId && requestedStudentId !== student.id) {
+        throw new AppError('Unauthorized access to external student invoice records', 403, 'FORBIDDEN');
+      }
+
+      const result = await financeService.listInvoices(tenantId, student.id);
+      return res.status(200).json({ success: true, data: result });
+    }
+
+    // 3. Parent can ONLY view invoices for their linked children
+    if (isParent) {
+      const parentProfile = await prisma.parentProfile.findFirst({
+        where: { tenantId, userId },
+        include: { students: { select: { studentId: true } } },
+      });
+
+      const allowedStudentIds = parentProfile?.students.map((s) => s.studentId) || [];
+
+      if (allowedStudentIds.length === 0) {
+        return res.status(200).json({ success: true, data: [] });
+      }
+
+      if (requestedStudentId) {
+        if (!allowedStudentIds.includes(requestedStudentId)) {
+          throw new AppError('Unauthorized access: requested student is not registered under your parent account', 403, 'FORBIDDEN');
+        }
+        const result = await financeService.listInvoices(tenantId, requestedStudentId);
+        return res.status(200).json({ success: true, data: result });
+      }
+
+      const result = await prisma.invoice.findMany({
+        where: { tenantId, studentId: { in: allowedStudentIds } },
+        include: { student: true, payments: true },
+        orderBy: { createdAt: 'desc' },
+      });
+      return res.status(200).json({ success: true, data: result });
+    }
+
+    throw new AppError('Access denied', 403, 'FORBIDDEN');
+  } catch (err) {
+    next(err);
+  }
 }
 
 export async function createInvoiceHandler(req: Request, res: Response, next: NextFunction) {

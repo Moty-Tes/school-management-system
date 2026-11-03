@@ -70,6 +70,8 @@ describe('School Operations Pulse Briefing Service', () => {
     assert.ok(attGap, 'Should contain attendance gap item');
     assert.strictEqual(attGap?.severity, 'warning');
     assert.strictEqual(attGap?.count, 1);
+    assert.strictEqual(attGap?.status, 'OPEN');
+    assert.strictEqual(attGap?.responsibleRole, 'Class Teachers & Academic Staff');
     assert.ok(attGap?.source.includes('classes'));
     assert.ok(attGap?.action.href === '/attendance');
 
@@ -77,6 +79,8 @@ describe('School Operations Pulse Briefing Service', () => {
     const finOverdue = pulse.items.find((i) => i.id === 'pulse-overdue-invoices');
     assert.ok(finOverdue, 'Should contain overdue invoices item');
     assert.strictEqual(finOverdue?.count, 2);
+    assert.strictEqual(finOverdue?.status, 'OPEN');
+    assert.strictEqual(finOverdue?.responsibleRole, 'Bursar & Finance Office');
     assert.ok(finOverdue?.detail.includes('$500.00'));
 
     // Check Safeguarding Item
@@ -84,6 +88,14 @@ describe('School Operations Pulse Briefing Service', () => {
     assert.ok(sg, 'Should contain safeguarding item');
     assert.strictEqual(sg?.severity, 'urgent');
     assert.strictEqual(sg?.count, 1);
+    assert.strictEqual(sg?.status, 'OPEN');
+    assert.strictEqual(sg?.responsibleRole, 'Designated Safeguarding Lead');
+
+    // Verify all items have responsibility and status
+    for (const item of pulse.items) {
+      assert.ok(item.responsibleRole && item.responsibleRole.length > 0, `Item ${item.id} must define responsibleRole`);
+      assert.ok(['OPEN', 'IN_PROGRESS', 'RESOLVED'].includes(item.status), `Item ${item.id} has invalid status: ${item.status}`);
+    }
   });
 
   test('reports institutional nominal state when all operational checkpoints pass', async () => {
@@ -95,6 +107,13 @@ describe('School Operations Pulse Briefing Service', () => {
 
     const completeAtt = pulse.items.find((i) => i.id === 'pulse-attendance-complete');
     assert.ok(completeAtt, 'Should indicate all classes attended');
+    assert.strictEqual(completeAtt?.status, 'RESOLVED');
+    assert.strictEqual(completeAtt?.responsibleRole, 'Class Teachers & Academic Staff');
+
+    for (const item of pulse.items) {
+      assert.ok(item.responsibleRole && item.responsibleRole.length > 0);
+      assert.ok(['OPEN', 'IN_PROGRESS', 'RESOLVED'].includes(item.status));
+    }
   });
 
   test('restricts safeguarding alerts away from non-admin roles', async () => {

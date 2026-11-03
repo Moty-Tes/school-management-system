@@ -106,6 +106,8 @@ export default function LoginPage() {
         } else {
           setError('Backend gateway is warming up or temporarily unreachable (HTTP 502/504). If the server was idle, please retry in 15–30 seconds.');
         }
+      } else if (err instanceof ApiError && err.status === 429) {
+        setError('Too many sign-in attempts or high network traffic (HTTP 429). Please wait 10–15 seconds before trying again.');
       } else if (err instanceof ApiError && err.status === 401) {
         setError('Invalid email, password, or school code. Please verify your credentials.');
       } else {

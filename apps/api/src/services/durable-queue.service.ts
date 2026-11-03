@@ -123,8 +123,10 @@ export class DurableQueueEngine {
 
   /**
    * Start worker processing loop with crash-recovery watchdog
+   * Defaults to 30s idle poll interval to prevent Neon serverless connection exhaustion.
+   * Jobs are processed instantly on enqueue and drain sequentially with zero latency.
    */
-  static startWorker(pollIntervalMs = 3000) {
+  static startWorker(pollIntervalMs = 30000) {
     if (this.isRunning) return;
     this.isRunning = true;
 
@@ -279,6 +281,9 @@ export class DurableQueueEngine {
           result,
         });
       } catch {}
+
+      // Immediately process next job in queue if available
+      setImmediate(() => this.processNextBatch());
     } catch (err: any) {
       const currentAttempts = candidate.attempts + 1;
       const errorMsg = err?.message || 'Unknown processing error';

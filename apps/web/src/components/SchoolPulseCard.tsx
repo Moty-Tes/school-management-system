@@ -14,6 +14,10 @@ import {
   RefreshCw,
   ChevronDown,
   ChevronUp,
+  UserCheck,
+  Check,
+  RotateCcw,
+  Clock,
 } from 'lucide-react';
 
 export interface PulseItem {
@@ -30,6 +34,8 @@ export interface PulseItem {
     href: string;
   };
   count: number;
+  responsibleRole?: string;
+  status?: 'OPEN' | 'IN_PROGRESS' | 'RESOLVED';
 }
 
 export interface SchoolPulseData {
@@ -53,9 +59,28 @@ interface SchoolPulseCardProps {
 export function SchoolPulseCard({ pulse, loading, onRefresh }: SchoolPulseCardProps) {
   const [expandedReasons, setExpandedReasons] = useState<Record<string, boolean>>({});
   const [filterSeverity, setFilterSeverity] = useState<'ALL' | 'URGENT' | 'WARNING'>('ALL');
+  const [itemStatuses, setItemStatuses] = useState<Record<string, 'OPEN' | 'IN_PROGRESS' | 'RESOLVED'>>({});
+  const [updatingIds, setUpdatingIds] = useState<Set<string>>(new Set());
 
   const toggleReason = (id: string) => {
     setExpandedReasons((prev) => ({ ...prev, [id]: !prev[id] }));
+  };
+
+  const handleStatusChange = async (itemId: string, newStatus: 'OPEN' | 'IN_PROGRESS' | 'RESOLVED') => {
+    if (updatingIds.has(itemId)) return;
+
+    setUpdatingIds((prev) => new Set(prev).add(itemId));
+    setItemStatuses((prev) => ({ ...prev, [itemId]: newStatus }));
+
+    try {
+      await new Promise((resolve) => setTimeout(resolve, 300));
+    } finally {
+      setUpdatingIds((prev) => {
+        const next = new Set(prev);
+        next.delete(itemId);
+        return next;
+      });
+    }
   };
 
   if (loading && !pulse) {
@@ -192,6 +217,8 @@ export function SchoolPulseCard({ pulse, loading, onRefresh }: SchoolPulseCardPr
           </div>
         ) : (
           displayedItems.map((item) => {
+            const effectiveStatus = itemStatuses[item.id] || item.status || 'OPEN';
+            const isUpdating = updatingIds.has(item.id);
             const isExpanded = !!expandedReasons[item.id];
             const isUrgent = item.severity === 'urgent';
             const isWarning = item.severity === 'warning';
@@ -224,6 +251,38 @@ export function SchoolPulseCard({ pulse, loading, onRefresh }: SchoolPulseCardPr
                       <h3 className="text-sm font-semibold text-slate-900 dark:text-white">
                         {item.title}
                       </h3>
+                      {/* Operational Status Pill */}
+                      <span
+                        className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-medium border ${
+                          effectiveStatus === 'RESOLVED'
+                            ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800/60'
+                            : effectiveStatus === 'IN_PROGRESS'
+                            ? 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-800/60'
+                            : 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800/60'
+                        }`}
+                      >
+                        <span
+                          className={`w-1.5 h-1.5 rounded-full ${
+                            effectiveStatus === 'RESOLVED'
+                              ? 'bg-emerald-500'
+                              : effectiveStatus === 'IN_PROGRESS'
+                              ? 'bg-blue-500 animate-pulse'
+                              : 'bg-amber-500'
+                          }`}
+                        />
+                        {effectiveStatus === 'RESOLVED'
+                          ? 'Resolved'
+                          : effectiveStatus === 'IN_PROGRESS'
+                          ? 'In Progress'
+                          : 'Open'}
+                      </span>
+                      {/* Responsible Role Badge */}
+                      {item.responsibleRole && (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-medium bg-slate-100 text-slate-600 dark:bg-neutral-800 dark:text-slate-400">
+                          <UserCheck className="w-3 h-3 text-[#1B4F8C]" />
+                          <span>{item.responsibleRole}</span>
+                        </span>
+                      )}
                     </div>
 
                     <p className="text-xs sm:text-sm text-slate-700 dark:text-slate-300 leading-relaxed">
@@ -268,9 +327,45 @@ export function SchoolPulseCard({ pulse, loading, onRefresh }: SchoolPulseCardPr
                     </div>
                   </div>
 
-                  {/* Action Link */}
-                  {item.action && (
-                    <div className="shrink-0 self-start sm:self-center">
+                  {/* Interactive Workbench Controls & Action Link */}
+                  <div className="shrink-0 flex items-center gap-2 self-start sm:self-center">
+                    {effectiveStatus === 'OPEN' && item.severity !== 'info' && (
+                      <button
+                        type="button"
+                        disabled={isUpdating}
+                        onClick={() => handleStatusChange(item.id, 'IN_PROGRESS')}
+                        className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-medium border border-slate-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 hover:bg-slate-50 dark:hover:bg-neutral-700 text-slate-700 dark:text-slate-300 transition-colors disabled:opacity-50"
+                        title="Acknowledge and mark in-progress"
+                      >
+                        <Clock className={`w-3.5 h-3.5 ${isUpdating ? 'animate-spin' : 'text-blue-500'}`} />
+                        <span>In Progress</span>
+                      </button>
+                    )}
+                    {effectiveStatus === 'IN_PROGRESS' && (
+                      <button
+                        type="button"
+                        disabled={isUpdating}
+                        onClick={() => handleStatusChange(item.id, 'RESOLVED')}
+                        className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-medium border border-emerald-200 dark:border-emerald-800/60 bg-emerald-50 dark:bg-emerald-950/40 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 text-emerald-800 dark:text-emerald-300 transition-colors disabled:opacity-50"
+                        title="Mark resolved"
+                      >
+                        <Check className={`w-3.5 h-3.5 ${isUpdating ? 'animate-spin' : 'text-emerald-600 dark:text-emerald-400'}`} />
+                        <span>Resolve</span>
+                      </button>
+                    )}
+                    {effectiveStatus === 'RESOLVED' && item.severity !== 'info' && (
+                      <button
+                        type="button"
+                        disabled={isUpdating}
+                        onClick={() => handleStatusChange(item.id, 'OPEN')}
+                        className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-medium border border-slate-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 hover:bg-slate-50 dark:hover:bg-neutral-700 text-slate-600 dark:text-slate-400 transition-colors disabled:opacity-50"
+                        title="Reopen operational item"
+                      >
+                        <RotateCcw className={`w-3 h-3 ${isUpdating ? 'animate-spin' : ''}`} />
+                        <span>Reopen</span>
+                      </button>
+                    )}
+                    {item.action && (
                       <Link
                         href={item.action.href}
                         className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-semibold shadow-xs transition-colors ${
@@ -284,8 +379,8 @@ export function SchoolPulseCard({ pulse, loading, onRefresh }: SchoolPulseCardPr
                         <span>{item.action.label}</span>
                         <ArrowRight className="w-3.5 h-3.5" />
                       </Link>
-                    </div>
-                  )}
+                    )}
+                  </div>
                 </div>
               </div>
             );

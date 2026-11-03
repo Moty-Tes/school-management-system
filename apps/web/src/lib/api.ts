@@ -18,7 +18,10 @@ interface RequestOptions extends Omit<RequestInit, 'body'> {
   body?: unknown;
 }
 
-async function request<T>(endpoint: string, options: RequestOptions = {}, retries = 7, delay = 3000): Promise<T> {
+// In-flight request deduplication map to prevent concurrent duplicate GET requests
+const inFlightGetRequests = new Map<string, Promise<any>>();
+
+async function executeFetch<T>(endpoint: string, options: RequestOptions = {}, retries = 2, delay = 2000): Promise<T> {
   const { body, headers: customHeaders, ...rest } = options;
 
   let token: string | null = null;
@@ -49,11 +52,24 @@ async function request<T>(endpoint: string, options: RequestOptions = {}, retrie
       body: body !== undefined ? JSON.stringify(body) : undefined,
     });
 
+    // Handle Rate Limiting (429 Too Many Requests) with Retry-After or Exponential Backoff
+    if (response.status === 429 && retries > 0) {
+      const retryAfterHeader = response.headers.get('retry-after');
+      const retryAfterSec = retryAfterHeader ? parseFloat(retryAfterHeader) : NaN;
+      const waitMs = !isNaN(retryAfterSec)
+        ? Math.max(10, Math.floor(retryAfterSec * 1000))
+        : (delay * 2 + Math.floor(Math.random() * 500));
+      console.warn(`[API] Rate limit (429) hit for ${endpoint}. Backing off for ${waitMs}ms... (${retries} retries left)`);
+      await new Promise((r) => setTimeout(r, waitMs));
+      return executeFetch<T>(endpoint, options, retries - 1, delay * 2);
+    }
+
     // Handle Render cold start / sleeping instance (502 Bad Gateway / 503 Service Unavailable / 504 Gateway Timeout)
     if ((response.status === 502 || response.status === 503 || response.status === 504) && retries > 0) {
-      console.warn(`[API] Received ${response.status} from ${endpoint}. Server may be waking up. Retrying in ${delay}ms... (${retries} left)`);
-      await new Promise((r) => setTimeout(r, delay));
-      return request<T>(endpoint, options, retries - 1, delay + 1000);
+      const jitterDelay = delay + Math.floor(Math.random() * 500);
+      console.warn(`[API] Received ${response.status} from ${endpoint}. Server waking up. Retrying in ${jitterDelay}ms... (${retries} left)`);
+      await new Promise((r) => setTimeout(r, jitterDelay));
+      return executeFetch<T>(endpoint, options, retries - 1, delay * 1.5);
     }
 
     // Handle 204 No Content
@@ -70,8 +86,21 @@ async function request<T>(endpoint: string, options: RequestOptions = {}, retrie
     }
 
     if (!response.ok) {
-      const message = data?.error?.message || data?.message || `Request failed (${response.status})`;
-      const code = data?.error?.code || 'UNKNOWN_ERROR';
+      let defaultMessage = `Request failed (${response.status})`;
+      if (response.status === 429) {
+        defaultMessage = 'High traffic detected. Please wait a few seconds before trying again.';
+      } else if (response.status === 401) {
+        defaultMessage = 'Invalid credentials or session expired. Please sign in again.';
+      } else if (response.status === 403) {
+        defaultMessage = 'You do not have permission to access this institutional resource.';
+      } else if (response.status === 503) {
+        defaultMessage = 'School service is undergoing maintenance or database sync (HTTP 503).';
+      } else if (response.status === 502 || response.status === 504) {
+        defaultMessage = 'School service gateway temporarily unavailable (HTTP 502/504). Please retry shortly.';
+      }
+
+      const message = data?.error?.message || data?.message || defaultMessage;
+      const code = data?.error?.code || (response.status === 429 ? 'RATE_LIMITED' : 'UNKNOWN_ERROR');
       throw new ApiError(message, response.status, code, data?.error?.details);
     }
 
@@ -81,11 +110,12 @@ async function request<T>(endpoint: string, options: RequestOptions = {}, retrie
       throw error;
     }
 
-    // Network error / connection reset / socket hang up during container spin-up
+    // Network error / connection reset during container spin-up
     if (retries > 0) {
-      console.warn(`[API] Network error connecting to ${endpoint}. Retrying in ${delay}ms... (${retries} left)`);
-      await new Promise((r) => setTimeout(r, delay));
-      return request<T>(endpoint, options, retries - 1, delay + 1000);
+      const jitterDelay = delay + Math.floor(Math.random() * 500);
+      console.warn(`[API] Network error connecting to ${endpoint}. Retrying in ${jitterDelay}ms... (${retries} left)`);
+      await new Promise((r) => setTimeout(r, jitterDelay));
+      return executeFetch<T>(endpoint, options, retries - 1, delay * 1.5);
     }
 
     throw new ApiError(
@@ -94,6 +124,29 @@ async function request<T>(endpoint: string, options: RequestOptions = {}, retrie
       'NETWORK_ERROR'
     );
   }
+}
+
+async function request<T>(endpoint: string, options: RequestOptions = {}): Promise<T> {
+  const isGet = !options.method || options.method.toUpperCase() === 'GET';
+  const hasBody = options.body !== undefined;
+
+  // Deduplicate concurrent in-flight GET requests for the same endpoint
+  if (isGet && !hasBody) {
+    const cacheKey = endpoint;
+    const existing = inFlightGetRequests.get(cacheKey);
+    if (existing) {
+      return existing as Promise<T>;
+    }
+
+    const promise = executeFetch<T>(endpoint, options).finally(() => {
+      inFlightGetRequests.delete(cacheKey);
+    });
+
+    inFlightGetRequests.set(cacheKey, promise);
+    return promise;
+  }
+
+  return executeFetch<T>(endpoint, options);
 }
 
 export const api = {

@@ -14,6 +14,8 @@ export interface PulseItem {
     href: string;
   };
   count: number;
+  responsibleRole: string;
+  status: 'OPEN' | 'IN_PROGRESS' | 'RESOLVED';
 }
 
 export interface SchoolPulseResponse {
@@ -125,6 +127,8 @@ export async function getSchoolPulse(
             dateRange: `Today (${todayStr} UTC)`,
             action: { label: 'Log Attendance', href: '/attendance' },
             count: missingClasses.length,
+            responsibleRole: 'Class Teachers & Academic Staff',
+            status: 'OPEN',
           });
         } else {
           pulseItems.push({
@@ -138,6 +142,8 @@ export async function getSchoolPulse(
             dateRange: `Today (${todayStr} UTC)`,
             action: { label: 'Review Attendance', href: '/attendance' },
             count: 0,
+            responsibleRole: 'Class Teachers & Academic Staff',
+            status: 'RESOLVED',
           });
         }
       }
@@ -171,6 +177,8 @@ export async function getSchoolPulse(
           dateRange: 'Past due date',
           action: { label: 'Manage Fee Ledger', href: '/finance' },
           count: overdueInvoices.length,
+          responsibleRole: 'Bursar & Finance Office',
+          status: 'OPEN',
         });
       }
     } catch {
@@ -197,6 +205,8 @@ export async function getSchoolPulse(
           dateRange: 'Active admission cycle',
           action: { label: 'Review Applications', href: '/frontdesk' },
           count: pendingAdmissions,
+          responsibleRole: 'Admissions & Registrar',
+          status: 'OPEN',
         });
       }
     } catch {
@@ -234,6 +244,8 @@ export async function getSchoolPulse(
           dateRange: 'Current academic term',
           action: { label: 'Open Grading Suite', href: '/grading' },
           count: pendingGradingCount,
+          responsibleRole: 'Subject Teachers',
+          status: 'OPEN',
         });
       }
     } catch {
@@ -263,6 +275,8 @@ export async function getSchoolPulse(
           dateRange: 'Open investigations',
           action: { label: 'Safeguarding Register', href: '/safeguarding' },
           count: openSafeguardingCount,
+          responsibleRole: 'Designated Safeguarding Lead',
+          status: 'OPEN',
         });
       }
     } catch {
@@ -289,6 +303,8 @@ export async function getSchoolPulse(
           dateRange: 'Pending triage',
           action: { label: 'Support Interventions', href: '/interventions' },
           count: pendingReferrals,
+          responsibleRole: 'Pastoral Care & SENCO',
+          status: 'OPEN',
         });
       }
     } catch {
@@ -309,6 +325,8 @@ export async function getSchoolPulse(
       dateRange: 'Current operational window',
       action: { label: 'View Reports', href: '/reports' },
       count: 0,
+      responsibleRole: 'School Administration',
+      status: 'RESOLVED',
     });
   }
 
