@@ -29,8 +29,10 @@ export default function AssignmentsPage() {
       api.get<any[]>('/api/v1/assignments')
     ]);
 
-    const isTeacher = (meData as any).roles?.includes('TEACHER') || (meData as any).roles?.includes('TENANT_ADMIN');
-    setRole(isTeacher ? 'TEACHER' : 'STUDENT');
+    const userRoles: string[] = (meData as any)?.roles || [];
+    const isTeacher = userRoles.includes('TEACHER');
+    const isAdmin = userRoles.some((r: string) => ['SUPER_ADMIN', 'TENANT_ADMIN', 'ADMIN'].includes(r));
+    setRole(isTeacher ? 'TEACHER' : (isAdmin ? 'ADMIN' : 'STUDENT'));
     setClasses(Array.isArray(classesData) ? classesData : []);
     setAssignments(Array.isArray(assignmentsData) ? assignmentsData : ((assignmentsData as any)?.data || []));
     if (classesData?.length > 0) setFormData(prev => ({...prev, classId: classesData[0].id}));

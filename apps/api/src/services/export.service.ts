@@ -10,18 +10,38 @@ function escapeCsv(val: any) {
   return str;
 }
 
-function convertToCsv(headers: string[], rows: any[][]) {
+async function isDemoTenant(tenantId: string): Promise<boolean> {
+  const tenant = await prisma.tenant.findUnique({
+    where: { id: tenantId },
+    select: { code: true, slug: true, name: true },
+  });
+  if (!tenant) return false;
+  return (
+    tenant.code.toLowerCase().includes('demo') ||
+    tenant.slug.toLowerCase().includes('demo') ||
+    tenant.name.toLowerCase().includes('demo')
+  );
+}
+
+function convertToCsv(headers: string[], rows: any[][], isDemo = false) {
   const headerLine = headers.join(',');
   const rowLines = rows.map(row => row.map(escapeCsv).join(','));
-  return [headerLine, ...rowLines].join('\n');
+  const body = [headerLine, ...rowLines].join('\n');
+  if (isDemo) {
+    return `# CLASSIFICATION: DEMO SYNTHETIC DATA - FICTIONAL RECORDS FOR DEMONSTRATION ONLY\n${body}`;
+  }
+  return body;
 }
 
 export async function exportStudents(tenantId: string) {
-  const students = await prisma.student.findMany({
-    where: { tenantId, deletedAt: null },
-    include: { class: true },
-    orderBy: { firstName: 'asc' },
-  });
+  const [students, isDemo] = await Promise.all([
+    prisma.student.findMany({
+      where: { tenantId, deletedAt: null },
+      include: { class: true },
+      orderBy: { firstName: 'asc' },
+    }),
+    isDemoTenant(tenantId),
+  ]);
 
   const headers = ['Admission No', 'First Name', 'Last Name', 'Gender', 'Class', 'Section', 'Guardian Name', 'Guardian Phone', 'Status'];
   
@@ -37,15 +57,18 @@ export async function exportStudents(tenantId: string) {
     s.status
   ]);
 
-  return convertToCsv(headers, rows);
+  return convertToCsv(headers, rows, isDemo);
 }
 
 export async function exportFinance(tenantId: string) {
-  const invoices = await prisma.invoice.findMany({
-    where: { tenantId },
-    include: { student: true, payments: true },
-    orderBy: { createdAt: 'desc' },
-  });
+  const [invoices, isDemo] = await Promise.all([
+    prisma.invoice.findMany({
+      where: { tenantId },
+      include: { student: true, payments: true },
+      orderBy: { createdAt: 'desc' },
+    }),
+    isDemoTenant(tenantId),
+  ]);
 
   const headers = ['Invoice Title', 'Student Name', 'Admission No', 'Total Amount', 'Amount Paid', 'Balance', 'Status', 'Due Date'];
   
@@ -64,19 +87,21 @@ export async function exportFinance(tenantId: string) {
     ];
   });
 
-  return convertToCsv(headers, rows);
+  return convertToCsv(headers, rows, isDemo);
 }
 
 export async function exportAttendance(tenantId: string, dateStr: string) {
-  // Fetch attendance for a specific date
   const date = new Date(dateStr);
   date.setUTCHours(0, 0, 0, 0);
 
-  const records = await prisma.attendance.findMany({
-    where: { tenantId, date },
-    include: { student: { include: { class: true } } },
-    orderBy: { student: { firstName: 'asc' } },
-  });
+  const [records, isDemo] = await Promise.all([
+    prisma.attendance.findMany({
+      where: { tenantId, date },
+      include: { student: { include: { class: true } } },
+      orderBy: { student: { firstName: 'asc' } },
+    }),
+    isDemoTenant(tenantId),
+  ]);
 
   const headers = ['Date', 'Student Name', 'Admission No', 'Class', 'Status'];
   
@@ -88,5 +113,5 @@ export async function exportAttendance(tenantId: string, dateStr: string) {
     r.status
   ]);
 
-  return convertToCsv(headers, rows);
+  return convertToCsv(headers, rows, isDemo);
 }

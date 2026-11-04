@@ -2,16 +2,18 @@ import { prisma } from '../lib/prisma.js';
 import { AppError } from '../middleware/error.middleware.js';
 
 export async function createAssignment(tenantId: string, teacherUserId: string, data: any) {
-  // Find the teacher profile using the logged-in User ID
-  let teacher = await prisma.teacherProfile.findFirst({
+  // Verify that the user has an active teacher profile
+  const teacher = await prisma.teacherProfile.findFirst({
     where: { tenantId, userId: teacherUserId },
   });
+
   if (!teacher) {
-    teacher = await prisma.teacherProfile.findFirst({
-      where: { tenantId },
-    });
+    throw new AppError(
+      'Only authorized teachers with an active faculty profile may create classroom assignments.',
+      403,
+      'FORBIDDEN'
+    );
   }
-  if (!teacher) throw new AppError('No teacher profile found for this school', 400, 'NO_TEACHER');
 
   return prisma.assignment.create({
     data: {
@@ -40,14 +42,13 @@ export async function listAssignments(tenantId: string, classId?: string) {
 
 export async function submitAssignment(tenantId: string, studentUserId: string, assignmentId: string, data: { content?: string, fileUrl?: string }) {
   // Find the student profile using the logged-in User ID
-  // Note: We are assuming the student's UserProfile matches the Student record (as done in previous parts)
   const user = await prisma.user.findUnique({ where: { id: studentUserId }, include: { profile: true } });
   const student = await prisma.student.findFirst({
-    where: { tenantId, firstName: user?.profile?.firstName, lastName: user?.profile?.lastName }
+    where: { tenantId, firstName: user?.profile?.firstName || '', lastName: user?.profile?.lastName || '', deletedAt: null }
   });
-  if (!student) throw new AppError('Student profile not found', 404, 'NOT_FOUND');
+  if (!student) throw new AppError('Student profile not found for this account', 404, 'NOT_FOUND');
 
-  // Upsert: Update if they are resubmitting, create if it's new
+  // Upsert: Update if resubmitting, create if new
   return prisma.submission.upsert({
     where: { assignmentId_studentId: { assignmentId, studentId: student.id } },
     update: { content: data.content, fileUrl: data.fileUrl, submittedAt: new Date() },

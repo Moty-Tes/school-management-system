@@ -158,6 +158,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const [tenantColor, setTenantColor] = useState('#1e293b');
   const [tenantLogo, setTenantLogo] = useState<string | null>(null);
   const [tenantName, setTenantName] = useState('School');
+  const [tenantCode, setTenantCode] = useState<string>('');
 
   // Notification states
   const [notifications, setNotifications] = useState<any[]>([]);
@@ -166,6 +167,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   // All Modules Mega Menu & Mobile Drawer state
   const [showModulesMenu, setShowModulesMenu] = useState(false);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const [mobileSearchQuery, setMobileSearchQuery] = useState('');
   const modulesMenuRef = useRef<HTMLDivElement>(null);
 
   // Universal Command Palette state
@@ -263,6 +265,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           const tenant = await api.get<any>('/api/v1/tenant/current');
           if (tenant) {
             setTenantName(tenant.name || 'School');
+            if (tenant.code) setTenantCode(tenant.code);
             if (tenant.primaryColor) setTenantColor(tenant.primaryColor);
             if (tenant.logoUrl) setTenantLogo(tenant.logoUrl);
             if (tenant.enabledModules) setEnabledModules(tenant.enabledModules);
@@ -310,6 +313,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const isStudent = roles.includes('STUDENT');
   const isRegistrar = roles.includes('REGISTRAR');
   const unreadCount = notifications.filter(n => !n.readAt).length;
+  const isDemoTenant = tenantCode.toLowerCase().includes('demo') || tenantName.toLowerCase().includes('demo');
 
   // Filter modules based on user roles
   const authorizedModules = getAuthorizedModules(ALL_MODULES, roles);
@@ -419,6 +423,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                     <span className="text-[10px] font-bold text-neutral-500 uppercase tracking-widest">
                       {roleLabel}
                     </span>
+                    {isDemoTenant && (
+                      <span className="inline-flex items-center px-1.5 py-0.2 rounded text-[9px] font-bold bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30 tracking-wider">
+                        DEMO DATA
+                      </span>
+                    )}
                   </div>
                 </div>
               </Link>
@@ -660,7 +669,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           {/* Backdrop */}
           <div
             className="fixed inset-0 bg-neutral-950/70 backdrop-blur-sm transition-opacity animate-in fade-in duration-200"
-            onClick={() => setMobileNavOpen(false)}
+            onClick={() => {
+              setMobileNavOpen(false);
+              setMobileSearchQuery('');
+            }}
           />
 
           {/* Drawer Sheet */}
@@ -672,12 +684,22 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                   {tenantName.charAt(0)}
                 </div>
                 <div className="min-w-0">
-                  <p className="text-sm font-bold text-neutral-900 dark:text-white truncate">{tenantName}</p>
+                  <div className="flex items-center gap-1.5">
+                    <p className="text-sm font-bold text-neutral-900 dark:text-white truncate">{tenantName}</p>
+                    {isDemoTenant && (
+                      <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30 shrink-0">
+                        DEMO
+                      </span>
+                    )}
+                  </div>
                   <p className="text-[10px] text-[#E86524] font-semibold uppercase tracking-wider">{roleLabel}</p>
                 </div>
               </div>
               <button
-                onClick={() => setMobileNavOpen(false)}
+                onClick={() => {
+                  setMobileNavOpen(false);
+                  setMobileSearchQuery('');
+                }}
                 className="p-1.5 rounded-lg text-neutral-500 hover:text-neutral-900 hover:bg-neutral-200 dark:hover:bg-neutral-700 transition-colors"
                 aria-label="Close menu"
               >
@@ -698,73 +720,113 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               </div>
             </div>
 
-            {/* Scrollable Navigation List */}
-            <div className="flex-1 overflow-y-auto px-3 py-3 space-y-4">
-              {/* Primary Quick Links */}
-              <div>
-                <p className="px-2 pb-1.5 text-[10px] font-bold text-neutral-400 uppercase tracking-wider">
-                  Main Navigation
-                </p>
-                <div className="space-y-1">
-                  {primaryNavLinks.map((link) => {
-                    const isActive = pathname === link.href || (link.href !== '/dashboard' && pathname.startsWith(link.href));
-                    return (
-                      <Link
-                        key={link.href}
-                        href={link.href}
-                        onClick={() => setMobileNavOpen(false)}
-                        className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold transition-all ${
-                          isActive
-                            ? 'bg-[#1B4F8C] text-white shadow-sm'
-                            : 'text-neutral-700 dark:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-neutral-800'
-                        }`}
-                      >
-                        <span className={`w-2 h-2 rounded-full shrink-0 ${isActive ? 'bg-white' : 'bg-[#1B4F8C]'}`} />
-                        <span className="truncate">{link.name}</span>
-                      </Link>
-                    );
-                  })}
-                </div>
+            {/* In-Drawer Instant Filter for Android & Mobile Screen Ease */}
+            <div className="px-3 pt-3">
+              <div className="relative">
+                <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400" />
+                <input
+                  type="text"
+                  value={mobileSearchQuery}
+                  onChange={(e) => setMobileSearchQuery(e.target.value)}
+                  placeholder="Filter school modules..."
+                  className="w-full pl-8 pr-7 py-2 rounded-xl text-xs bg-neutral-100 dark:bg-neutral-800 border border-border dark:border-border-overlay text-neutral-900 dark:text-white placeholder-neutral-400 focus:outline-none focus:ring-1 focus:ring-[#1B4F8C]"
+                />
+                {mobileSearchQuery && (
+                  <button
+                    type="button"
+                    onClick={() => setMobileSearchQuery('')}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-600 text-xs px-1"
+                    aria-label="Clear search"
+                  >
+                    ✕
+                  </button>
+                )}
               </div>
+            </div>
 
-              {/* Authorized School Modules */}
-              {authorizedModules.length > 0 && (
-                <div className="pt-2 border-t border-border dark:border-border-overlay">
-                  <p className="px-2 pb-2 text-[10px] font-bold text-neutral-400 uppercase tracking-wider">
-                    School Directory
+            {/* Scrollable Categorized Directory (Non-redundant) */}
+            <div className="flex-1 overflow-y-auto px-3 py-3 space-y-3">
+              {mobileSearchQuery.trim() ? (
+                // Filtered Results
+                <div className="space-y-1">
+                  <p className="px-2 pb-1 text-[10px] font-bold text-neutral-400 uppercase tracking-wider">
+                    Search Results
                   </p>
-                  <div className="space-y-3">
-                    {authorizedModules.map((category) => (
-                      <div key={category.category} className="space-y-1">
-                        <p className="px-2 text-[11px] font-bold text-neutral-700 dark:text-neutral-300">
-                          {category.category}
-                        </p>
-                        <div className="grid grid-cols-1 gap-1">
-                          {category.items.map((item) => {
-                            const isActive = pathname === item.href;
-                            return (
-                              <Link
-                                key={item.href}
-                                href={item.href}
-                                onClick={() => setMobileNavOpen(false)}
-                                className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs transition-colors ${
-                                  isActive
-                                    ? 'bg-[#1B4F8C]/10 text-[#1B4F8C] font-bold'
-                                    : 'text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800'
-                                }`}
-                              >
-                                <div className="text-[#1B4F8C]">
-                                  {renderModuleIcon(item.icon, "w-4 h-4 shrink-0")}
-                                </div>
-                                <span className="truncate">{item.name}</span>
-                              </Link>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
+                  {authorizedModules
+                    .flatMap((cat) => cat.items)
+                    .filter((item) =>
+                      item.name.toLowerCase().includes(mobileSearchQuery.toLowerCase()) ||
+                      item.desc.toLowerCase().includes(mobileSearchQuery.toLowerCase())
+                    ).length === 0 ? (
+                    <div className="text-center py-6">
+                      <p className="text-xs text-neutral-400">No modules match &quot;{mobileSearchQuery}&quot;</p>
+                    </div>
+                  ) : (
+                    authorizedModules
+                      .flatMap((cat) => cat.items)
+                      .filter((item) =>
+                        item.name.toLowerCase().includes(mobileSearchQuery.toLowerCase()) ||
+                        item.desc.toLowerCase().includes(mobileSearchQuery.toLowerCase())
+                      )
+                      .map((item) => {
+                        const isActive = pathname === item.href;
+                        return (
+                          <Link
+                            key={item.href}
+                            href={item.href}
+                            onClick={() => {
+                              setMobileNavOpen(false);
+                              setMobileSearchQuery('');
+                            }}
+                            className={`flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-xs transition-colors ${
+                              isActive
+                                ? 'bg-[#1B4F8C] text-white font-bold shadow-xs'
+                                : 'text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800'
+                            }`}
+                          >
+                            <div className={isActive ? 'text-white' : 'text-[#1B4F8C]'}>
+                              {renderModuleIcon(item.icon, "w-4 h-4 shrink-0")}
+                            </div>
+                            <div className="min-w-0">
+                              <span className="truncate block font-medium">{item.name}</span>
+                              <span className={`text-[10px] truncate block ${isActive ? 'text-white/80' : 'text-neutral-400'}`}>{item.desc}</span>
+                            </div>
+                          </Link>
+                        );
+                      })
+                  )}
                 </div>
+              ) : (
+                // Grouped School Directory
+                authorizedModules.map((category) => (
+                  <div key={category.category} className="space-y-1">
+                    <p className="px-2 text-[10px] font-bold text-neutral-500 uppercase tracking-wider">
+                      {category.category}
+                    </p>
+                    <div className="grid grid-cols-1 gap-1">
+                      {category.items.map((item) => {
+                        const isActive = pathname === item.href;
+                        return (
+                          <Link
+                            key={item.href}
+                            href={item.href}
+                            onClick={() => setMobileNavOpen(false)}
+                            className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs transition-colors ${
+                              isActive
+                                ? 'bg-[#1B4F8C]/10 text-[#1B4F8C] font-bold'
+                                : 'text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800'
+                            }`}
+                          >
+                            <div className="text-[#1B4F8C]">
+                              {renderModuleIcon(item.icon, "w-4 h-4 shrink-0")}
+                            </div>
+                            <span className="truncate">{item.name}</span>
+                          </Link>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))
               )}
             </div>
 
@@ -798,121 +860,144 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       />
 
       {/* Mobile Sticky Bottom Navigation Bar for Android / Mobile Phones */}
-      <nav className="fixed bottom-0 inset-x-0 z-30 lg:hidden bg-white/95 dark:bg-neutral-900/95 border-t border-border dark:border-border-overlay backdrop-blur-md px-2 py-1.5 flex items-center justify-around shadow-[0_-4px_20px_rgba(0,0,0,0.08)]">
+      <nav aria-label="Mobile Bottom Navigation" className="fixed bottom-0 inset-x-0 z-30 lg:hidden bg-white/95 dark:bg-neutral-900/95 border-t border-border dark:border-border-overlay backdrop-blur-md px-1 py-1 flex items-center justify-around shadow-[0_-4px_20px_rgba(0,0,0,0.08)]">
+        {/* Tab 1: Home */}
         <Link
           href="/dashboard"
-          className={`flex flex-col items-center gap-1 py-1 px-3 rounded-lg text-[10px] font-medium transition-colors ${
-            pathname === '/dashboard' ? 'text-[#1B4F8C] font-bold' : 'text-neutral-500 hover:text-neutral-900'
+          className={`min-w-[56px] min-h-[44px] flex flex-col items-center justify-center gap-0.5 rounded-lg text-[10px] font-medium transition-colors ${
+            pathname === '/dashboard' ? 'text-[#1B4F8C] font-bold' : 'text-neutral-500 hover:text-neutral-900 dark:hover:text-white'
           }`}
         >
-          <Home className="w-5 h-5" />
+          <Home className="w-4 h-4" />
           <span>Home</span>
         </Link>
 
+        {/* Tab 2: Primary Role Action 1 */}
         {isParent ? (
           <Link
             href="/children"
-            className={`flex flex-col items-center gap-1 py-1 px-3 rounded-lg text-[10px] font-medium transition-colors ${
-              pathname.startsWith('/children') ? 'text-[#1B4F8C] font-bold' : 'text-neutral-500 hover:text-neutral-900'
+            className={`min-w-[56px] min-h-[44px] flex flex-col items-center justify-center gap-0.5 rounded-lg text-[10px] font-medium transition-colors ${
+              pathname.startsWith('/children') ? 'text-[#1B4F8C] font-bold' : 'text-neutral-500 hover:text-neutral-900 dark:hover:text-white'
             }`}
           >
-            <Users className="w-5 h-5" />
+            <Users className="w-4 h-4" />
             <span>Children</span>
           </Link>
         ) : isTeacher ? (
           <Link
             href="/attendance"
-            className={`flex flex-col items-center gap-1 py-1 px-3 rounded-lg text-[10px] font-medium transition-colors ${
-              pathname.startsWith('/attendance') ? 'text-[#1B4F8C] font-bold' : 'text-neutral-500 hover:text-neutral-900'
+            className={`min-w-[56px] min-h-[44px] flex flex-col items-center justify-center gap-0.5 rounded-lg text-[10px] font-medium transition-colors ${
+              pathname.startsWith('/attendance') ? 'text-[#1B4F8C] font-bold' : 'text-neutral-500 hover:text-neutral-900 dark:hover:text-white'
             }`}
           >
-            <Clock className="w-5 h-5" />
+            <Clock className="w-4 h-4" />
             <span>Attendance</span>
           </Link>
         ) : isStudent ? (
           <Link
             href="/assignments"
-            className={`flex flex-col items-center gap-1 py-1 px-3 rounded-lg text-[10px] font-medium transition-colors ${
-              pathname.startsWith('/assignments') ? 'text-[#1B4F8C] font-bold' : 'text-neutral-500 hover:text-neutral-900'
+            className={`min-w-[56px] min-h-[44px] flex flex-col items-center justify-center gap-0.5 rounded-lg text-[10px] font-medium transition-colors ${
+              pathname.startsWith('/assignments') ? 'text-[#1B4F8C] font-bold' : 'text-neutral-500 hover:text-neutral-900 dark:hover:text-white'
             }`}
           >
-            <FileText className="w-5 h-5" />
+            <FileText className="w-4 h-4" />
             <span>Tasks</span>
+          </Link>
+        ) : isAccountant ? (
+          <Link
+            href="/finance"
+            className={`min-w-[56px] min-h-[44px] flex flex-col items-center justify-center gap-0.5 rounded-lg text-[10px] font-medium transition-colors ${
+              pathname.startsWith('/finance') ? 'text-[#1B4F8C] font-bold' : 'text-neutral-500 hover:text-neutral-900 dark:hover:text-white'
+            }`}
+          >
+            <DollarSign className="w-4 h-4" />
+            <span>Finance</span>
           </Link>
         ) : (
           <Link
             href="/students"
-            className={`flex flex-col items-center gap-1 py-1 px-3 rounded-lg text-[10px] font-medium transition-colors ${
-              pathname.startsWith('/students') ? 'text-[#1B4F8C] font-bold' : 'text-neutral-500 hover:text-neutral-900'
+            className={`min-w-[56px] min-h-[44px] flex flex-col items-center justify-center gap-0.5 rounded-lg text-[10px] font-medium transition-colors ${
+              pathname.startsWith('/students') ? 'text-[#1B4F8C] font-bold' : 'text-neutral-500 hover:text-neutral-900 dark:hover:text-white'
             }`}
           >
-            <Users className="w-5 h-5" />
+            <Users className="w-4 h-4" />
             <span>Students</span>
           </Link>
         )}
 
-        {isStudent ? (
-          <Link
-            href="/timetable"
-            className={`flex flex-col items-center gap-1 py-1 px-3 rounded-lg text-[10px] font-medium transition-colors ${
-              pathname.startsWith('/timetable') ? 'text-[#1B4F8C] font-bold' : 'text-neutral-500 hover:text-neutral-900'
-            }`}
-          >
-            <Calendar className="w-5 h-5" />
-            <span>Schedule</span>
-          </Link>
-        ) : (
+        {/* Tab 3: Primary Role Action 2 */}
+        {isParent ? (
           <Link
             href="/finance"
-            className={`flex flex-col items-center gap-1 py-1 px-3 rounded-lg text-[10px] font-medium transition-colors ${
-              pathname.startsWith('/finance') ? 'text-[#1B4F8C] font-bold' : 'text-neutral-500 hover:text-neutral-900'
+            className={`min-w-[56px] min-h-[44px] flex flex-col items-center justify-center gap-0.5 rounded-lg text-[10px] font-medium transition-colors ${
+              pathname.startsWith('/finance') ? 'text-[#1B4F8C] font-bold' : 'text-neutral-500 hover:text-neutral-900 dark:hover:text-white'
             }`}
           >
-            <DollarSign className="w-5 h-5" />
-            <span>Finance</span>
+            <DollarSign className="w-4 h-4" />
+            <span>Fees</span>
           </Link>
-        )}
-
-        {isTeacher ? (
+        ) : isTeacher ? (
           <Link
             href="/grading"
-            className={`flex flex-col items-center gap-1 py-1 px-3 rounded-lg text-[10px] font-medium transition-colors ${
-              pathname.startsWith('/grading') ? 'text-[#1B4F8C] font-bold' : 'text-neutral-500 hover:text-neutral-900'
+            className={`min-w-[56px] min-h-[44px] flex flex-col items-center justify-center gap-0.5 rounded-lg text-[10px] font-medium transition-colors ${
+              pathname.startsWith('/grading') ? 'text-[#1B4F8C] font-bold' : 'text-neutral-500 hover:text-neutral-900 dark:hover:text-white'
             }`}
           >
-            <Award className="w-5 h-5" />
+            <Award className="w-4 h-4" />
             <span>Grades</span>
           </Link>
         ) : isStudent ? (
           <Link
-            href="/cbt"
-            className={`flex flex-col items-center gap-1 py-1 px-3 rounded-lg text-[10px] font-medium transition-colors ${
-              pathname.startsWith('/cbt') ? 'text-[#1B4F8C] font-bold' : 'text-neutral-500 hover:text-neutral-900'
+            href="/timetable"
+            className={`min-w-[56px] min-h-[44px] flex flex-col items-center justify-center gap-0.5 rounded-lg text-[10px] font-medium transition-colors ${
+              pathname.startsWith('/timetable') ? 'text-[#1B4F8C] font-bold' : 'text-neutral-500 hover:text-neutral-900 dark:hover:text-white'
             }`}
           >
-            <Shield className="w-5 h-5" />
-            <span>Exams</span>
+            <Calendar className="w-4 h-4" />
+            <span>Schedule</span>
+          </Link>
+        ) : isAccountant ? (
+          <Link
+            href="/payroll"
+            className={`min-w-[56px] min-h-[44px] flex flex-col items-center justify-center gap-0.5 rounded-lg text-[10px] font-medium transition-colors ${
+              pathname.startsWith('/payroll') ? 'text-[#1B4F8C] font-bold' : 'text-neutral-500 hover:text-neutral-900 dark:hover:text-white'
+            }`}
+          >
+            <CreditCard className="w-4 h-4" />
+            <span>Payroll</span>
           </Link>
         ) : (
           <Link
             href="/classes"
-            className={`flex flex-col items-center gap-1 py-1 px-3 rounded-lg text-[10px] font-medium transition-colors ${
-              pathname.startsWith('/classes') ? 'text-[#1B4F8C] font-bold' : 'text-neutral-500 hover:text-neutral-900'
+            className={`min-w-[56px] min-h-[44px] flex flex-col items-center justify-center gap-0.5 rounded-lg text-[10px] font-medium transition-colors ${
+              pathname.startsWith('/classes') ? 'text-[#1B4F8C] font-bold' : 'text-neutral-500 hover:text-neutral-900 dark:hover:text-white'
             }`}
           >
-            <BookOpen className="w-5 h-5" />
+            <BookOpen className="w-4 h-4" />
             <span>Classes</span>
           </Link>
         )}
 
+        {/* Tab 4: Search & Actions */}
+        <button
+          onClick={() => setCommandPaletteOpen(true)}
+          className="min-w-[56px] min-h-[44px] flex flex-col items-center justify-center gap-0.5 rounded-lg text-[10px] font-medium text-neutral-500 hover:text-neutral-900 dark:hover:text-white transition-colors"
+          aria-label="Search actions"
+        >
+          <Search className="w-4 h-4" />
+          <span>Search</span>
+        </button>
+
+        {/* Tab 5: All Modules / Directory */}
         <button
           onClick={() => setMobileNavOpen(true)}
-          className={`flex flex-col items-center gap-1 py-1 px-3 rounded-lg text-[10px] font-medium transition-colors ${
-            mobileNavOpen ? 'text-[#1B4F8C] font-bold' : 'text-neutral-500 hover:text-neutral-900'
+          className={`min-w-[56px] min-h-[44px] flex flex-col items-center justify-center gap-0.5 rounded-lg text-[10px] font-medium transition-colors ${
+            mobileNavOpen ? 'text-[#1B4F8C] font-bold' : 'text-neutral-500 hover:text-neutral-900 dark:hover:text-white'
           }`}
+          aria-label="Open Directory"
         >
-          <LayoutGrid className="w-5 h-5" />
-          <span>Modules</span>
+          <LayoutGrid className="w-4 h-4" />
+          <span>More</span>
         </button>
       </nav>
     </div>

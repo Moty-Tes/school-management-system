@@ -107,3 +107,81 @@ export async function getSeatingPlan(tenantId: string, examId: string) {
 
   return grouped;
 }
+
+export async function getMyExamSeats(tenantId: string, userId: string, roles: string[]) {
+  const normalizedRoles = roles.map(r => r.toUpperCase());
+  const isStudent = normalizedRoles.includes('STUDENT');
+  const isParent = normalizedRoles.includes('PARENT');
+
+  if (isStudent) {
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      include: { profile: true },
+    });
+    const student = await prisma.student.findFirst({
+      where: {
+        tenantId,
+        firstName: user?.profile?.firstName || '',
+        lastName: user?.profile?.lastName || '',
+        deletedAt: null,
+      },
+    });
+
+    if (!student) return [];
+
+    const seats = await prisma.examSeat.findMany({
+      where: { tenantId, studentId: student.id },
+      include: {
+        exam: true,
+        room: true,
+      },
+      orderBy: { exam: { date: 'asc' } },
+    });
+
+    return seats.map((s) => ({
+      examId: s.examId,
+      examTitle: s.exam.title,
+      date: s.exam.date,
+      startTime: s.exam.startTime,
+      endTime: s.exam.endTime,
+      roomName: s.room.name,
+      seatNumber: s.seatNumber,
+      studentName: `${student.firstName} ${student.lastName}`,
+      admissionNumber: student.admissionNumber,
+    }));
+  }
+
+  if (isParent) {
+    const parentProfile = await prisma.parentProfile.findFirst({
+      where: { tenantId, userId },
+      include: { students: { select: { studentId: true } } },
+    });
+
+    const studentIds = parentProfile?.students.map((s) => s.studentId) || [];
+    if (studentIds.length === 0) return [];
+
+    const seats = await prisma.examSeat.findMany({
+      where: { tenantId, studentId: { in: studentIds } },
+      include: {
+        exam: true,
+        room: true,
+        student: true,
+      },
+      orderBy: { exam: { date: 'asc' } },
+    });
+
+    return seats.map((s) => ({
+      examId: s.examId,
+      examTitle: s.exam.title,
+      date: s.exam.date,
+      startTime: s.exam.startTime,
+      endTime: s.exam.endTime,
+      roomName: s.room.name,
+      seatNumber: s.seatNumber,
+      studentName: `${s.student.firstName} ${s.student.lastName}`,
+      admissionNumber: s.student.admissionNumber,
+    }));
+  }
+
+  return [];
+}

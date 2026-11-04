@@ -64,6 +64,7 @@ import syncRoutes from './routes/sync.routes.js';
 import safeguardingRoutes from './routes/safeguarding.routes.js';
 import interventionRoutes from './routes/intervention.routes.js';
 import migrationRoutes from './routes/migration.routes.js';
+import gateRoutes from './routes/gate.routes.js';
 import { startAutomations } from './services/automation.service.js';
 import { initializeQueueProcessors } from './services/queue-processors.js';
 import { ensureDatabaseSchema } from './services/schema-sync.service.js';
@@ -183,6 +184,7 @@ app.use('/api/v1/sync', syncRoutes);
 app.use('/api/v1/safeguarding', safeguardingRoutes);
 app.use('/api/v1/interventions', interventionRoutes);
 app.use('/api/v1/migration', migrationRoutes);
+app.use('/api/v1/gate', gateRoutes);
 
 
 // Error Handler

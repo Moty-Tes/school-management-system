@@ -1,11 +1,72 @@
 import { PrismaClient, Gender, InvoiceStatus, AttendanceStatus, UserStatus, UserTenantStatus } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 
-export async function seedOperationalData(prisma: PrismaClient, tenantId: string, roleMap?: Record<string, string>) {
-  console.log('⚡ Populating rich operational data for tenant:', tenantId);
+// ============================================================================
+// DETERMINISTIC ETHIOPIAN SYNTHETIC NAME CATALOGS (100% FICTIONAL)
+// ============================================================================
 
-  // 1. CLEAN EXISTING OPERATIONAL DATA FOR THIS TENANT
+const MALE_FIRST_NAMES = [
+  'Natnael', 'Kirubel', 'Brook', 'Abel', 'Samuel', 'Daniel', 'Mikiyas', 'Biniyam',
+  'Yared', 'Robel', 'Eyob', 'Nahom', 'Bereket', 'Surafel', 'Yonatan', 'Henok',
+  'Biruk', 'Leul', 'Fitsum', 'Amanuel', 'Dawit', 'Tariku', 'Getachew', 'Yohannes',
+  'Chala', 'Tolosa', 'Gamachu', 'Bekele', 'Kenenisa', 'Desta', 'Ermias', 'Befekadu',
+  'Kassahun', 'Fikadu', 'Tamirat', 'Tewodros', 'Mulugeta', 'Wondwossen', 'Zerihun', 'Zelalem',
+  'Nebiyu', 'Alemayehu', 'Girma', 'Haile', 'Tilahun', 'Negash', 'Worku', 'Melaku',
+  'Solomon', 'Eshetu'
+];
+
+const FEMALE_FIRST_NAMES = [
+  'Bethlehem', 'Mahlet', 'Tsion', 'Hana', 'Liya', 'Betelhem', 'Hanna', 'Senait',
+  'Almaz', 'Selamawit', 'Fasika', 'Meron', 'Helina', 'Hermela', 'Kalkidan', 'Rahel',
+  'Eden', 'Feven', 'Saron', 'Hiwot', 'Ruth', 'Blen', 'Tigist', 'Maya',
+  'Aster', 'Bontu', 'Hawi', 'Genet', 'Marta', 'Kidan', 'Lulit', 'Mekdes',
+  'Rediet', 'Sara', 'Semhar', 'Sosina', 'Tsedey', 'Wezero', 'Yeabsira', 'Yordanos',
+  'Zufan', 'Fikirte', 'Dagmawit', 'Beza', 'Blisse', 'Edom', 'Emnet', 'Gelila',
+  'Hayat', 'Iman'
+];
+
+const FATHER_NAMES = [
+  'Mulugeta', 'Assefa', 'Tekle', 'Kassahun', 'Alemu', 'Girma', 'Fikru', 'Worku',
+  'Kebede', 'Yohannes', 'Tefera', 'Negash', 'Berhanu', 'Dagne', 'Mekonnen', 'Zewde',
+  'Hailu', 'Tadesse', 'Desta', 'Mengistu', 'Solomon', 'Fantahun', 'Gashaw', 'Eshetu',
+  'Wolde', 'Tilahun', 'Mulatu', 'Getachew', 'Abebe', 'Legesse', 'Gebre', 'Wondimu',
+  'Kassa', 'Melaku', 'Mengesha', 'Sisay', 'Demissie', 'Haile', 'Tsegaye', 'Bekele',
+  'Berhe', 'Tesfaye', 'Habte', 'Gudeta', 'Fanta', 'Benti', 'Kumsa', 'Dibaba',
+  'Tolera', 'Bayisa'
+];
+
+export async function seedOperationalData(prisma: PrismaClient, tenantId: string, roleMap?: Record<string, string>) {
+  console.log('⚡ Starting operational demo data seeding for tenant:', tenantId);
+
+  // 1. SAFETY LOCK: Strictly guarantee this is a designated demo tenant
+  const tenant = await prisma.tenant.findUnique({ where: { id: tenantId } });
+  if (!tenant) {
+    throw new Error(`Tenant with ID ${tenantId} not found.`);
+  }
+
+  const isDemo =
+    tenant.code.toLowerCase().includes('demo') ||
+    tenant.slug.toLowerCase().includes('demo') ||
+    tenant.name.toLowerCase().includes('demo');
+
+  if (!isDemo) {
+    throw new Error(
+      `SAFETY LOCK ACTIVATED: Refusing to seed non-demo tenant "${tenant.name}" (${tenant.code}). Operational demo seeding is strictly permitted for designated demo environments only to protect real records.`
+    );
+  }
+
+  // 2. PURGE OLD DEMO OPERATIONAL RECORDS (Safely scoped to this demo tenantId)
   console.log('  -> Purging old demo operational records...');
+  await prisma.examSeat.deleteMany({ where: { tenantId } });
+  await prisma.examSchedule.deleteMany({ where: { tenantId } });
+  await prisma.examRoom.deleteMany({ where: { tenantId } });
+  await prisma.bookLoan.deleteMany({ where: { tenantId } });
+  await prisma.book.deleteMany({ where: { tenantId } });
+  await prisma.clubMembership.deleteMany({ where: { tenantId } });
+  await prisma.club.deleteMany({ where: { tenantId } });
+  await prisma.gatePass.deleteMany({ where: { tenantId } });
+  await prisma.clinicVisit.deleteMany({ where: { tenantId } });
+  await prisma.healthRecord.deleteMany({ where: { tenantId } });
   await prisma.payment.deleteMany({ where: { tenantId } });
   await prisma.invoice.deleteMany({ where: { tenantId } });
   await prisma.expense.deleteMany({ where: { tenantId } });
@@ -20,15 +81,13 @@ export async function seedOperationalData(prisma: PrismaClient, tenantId: string
   await prisma.class.deleteMany({ where: { tenantId } });
   await prisma.announcement.deleteMany({ where: { tenantId } });
 
-  // 2. CREATE 6 ACADEMIC CLASSES
-  console.log('  -> Creating academic classes & sections...');
+  // 3. CREATE 4 ACADEMIC CLASSES (Grades 9, 10, 11 Natural Science, 12 Social Science)
+  console.log('  -> Creating 4 core academic classes & sections (50 students each)...');
   const classDefs = [
-    { name: 'Grade 9', section: 'A', capacity: 35 },
-    { name: 'Grade 9', section: 'B', capacity: 35 },
-    { name: 'Grade 10', section: 'A', capacity: 35 },
-    { name: 'Grade 10', section: 'B', capacity: 35 },
-    { name: 'Grade 11', section: 'Natural Science', capacity: 35 },
-    { name: 'Grade 12', section: 'Advanced STEM', capacity: 35 },
+    { name: 'Grade 9', section: 'A (Common Foundation)', capacity: 55 },
+    { name: 'Grade 10', section: 'A (Common Foundation)', capacity: 55 },
+    { name: 'Grade 11', section: 'Section A (Natural Science Stream)', capacity: 55 },
+    { name: 'Grade 12', section: 'Section A (Social Science Stream)', capacity: 55 },
   ];
 
   const classes: any[] = [];
@@ -44,19 +103,31 @@ export async function seedOperationalData(prisma: PrismaClient, tenantId: string
     classes.push(created);
   }
 
-  // 3. CREATE 10 CORE & ADVANCED SUBJECTS
-  console.log('  -> Creating school subjects...');
+  // 4. CREATE ETHIOPIAN CURRICULUM SUBJECTS (Common + Streams)
+  console.log('  -> Creating Ethiopian curriculum subjects...');
   const subjectDefs = [
-    { name: 'Mathematics & Calculus', code: 'MATH-101' },
-    { name: 'Advanced Physics', code: 'PHYS-201' },
-    { name: 'Organic & General Chemistry', code: 'CHEM-202' },
-    { name: 'Biology & Life Sciences', code: 'BIO-105' },
-    { name: 'English Language & World Literature', code: 'ENG-101' },
-    { name: 'Computer Science & Python Programming', code: 'CS-101' },
-    { name: 'World History & Global Citizenship', code: 'HIST-102' },
-    { name: 'Economics & Financial Literacy', code: 'ECON-201' },
-    { name: 'Physical Education & Athletics', code: 'PE-101' },
-    { name: 'Fine Arts & Creative Media', code: 'ART-101' },
+    // Common Foundation (Grades 9 & 10)
+    { name: 'Mathematics & Algebra', code: 'MATH-091' },
+    { name: 'English Language & Literature', code: 'ENG-091' },
+    { name: 'Information Technology & Coding', code: 'IT-091' },
+    { name: 'Biology & Life Sciences', code: 'BIO-091' },
+    { name: 'Chemistry & Lab Sciences', code: 'CHEM-091' },
+    { name: 'Physics & Applied Mechanics', code: 'PHYS-091' },
+    { name: 'Ethiopian & World History', code: 'HIST-091' },
+    { name: 'Geography & Environmental Systems', code: 'GEOG-091' },
+    { name: 'Economics & Financial Fundamentals', code: 'ECON-091' },
+    { name: 'Civics & Ethical Studies', code: 'CIV-091' },
+
+    // Advanced Natural Science Stream (Grades 11 & 12)
+    { name: 'Advanced Calculus & Analytical Geometry', code: 'MATH-111' },
+    { name: 'Cellular & Molecular Biology', code: 'BIO-111' },
+    { name: 'Organic & Physical Chemistry', code: 'CHEM-111' },
+    { name: 'Electromagnetism & Thermodynamics', code: 'PHYS-111' },
+
+    // Social Science Stream (Grades 11 & 12)
+    { name: 'Macroeconomics & Development Studies', code: 'ECON-121' },
+    { name: 'Contemporary African & Global History', code: 'HIST-121' },
+    { name: 'Human Geography & Spatial Planning', code: 'GEOG-121' },
   ];
 
   const subjects: any[] = [];
@@ -71,20 +142,20 @@ export async function seedOperationalData(prisma: PrismaClient, tenantId: string
     subjects.push(created);
   }
 
-  // 4. FIND OR CREATE TEACHERS WITH TEACHERPROFILES
-  console.log('  -> Creating faculty profiles & teachers...');
+  // 5. CREATE FACULTY PROFILES & DEPARTMENT HEADS (Scoped by Grade Band)
+  console.log('  -> Setting up faculty instructors and department heads...');
   let teacherRole = await prisma.role.findFirst({ where: { slug: 'TEACHER' } });
   const teacherRoleId = roleMap?.['TEACHER'] || teacherRole?.id;
 
   const teacherDefs = [
-    { email: 'teacher@demo-school.local', firstName: 'Abebe', lastName: 'Kebede', gender: Gender.MALE, title: 'Senior Mathematics Faculty', employeeId: 'FAC-MATH-01', spec: 'Pure Mathematics & Calculus', qual: 'M.Sc. Applied Mathematics' },
-    { email: 'rahel.mulugeta@demo-school.local', firstName: 'Dr. Rahel', lastName: 'Mulugeta', gender: Gender.FEMALE, title: 'Head of Chemistry', employeeId: 'FAC-CHEM-02', spec: 'Organic & Inorganic Chemistry', qual: 'Ph.D. Chemical Sciences' },
-    { email: 'yohannes.desta@demo-school.local', firstName: 'Yohannes', lastName: 'Desta', gender: Gender.MALE, title: 'Physics Department Lead', employeeId: 'FAC-PHYS-03', spec: 'Theoretical & Classical Physics', qual: 'M.Sc. Physics' },
-    { email: 'tigist.bekele@demo-school.local', firstName: 'Tigist', lastName: 'Bekele', gender: Gender.FEMALE, title: 'Biology Instructor', employeeId: 'FAC-BIO-04', spec: 'Cell Biology & Genetics', qual: 'B.Ed. Life Sciences' },
-    { email: 'elias.haile@demo-school.local', firstName: 'Elias', lastName: 'Haile', gender: Gender.MALE, title: 'Social Studies & Civics', employeeId: 'FAC-HIST-05', spec: 'Modern World History & Civics', qual: 'M.A. History' },
-    { email: 'bethlehem.tsegaye@demo-school.local', firstName: 'Bethlehem', lastName: 'Tsegaye', gender: Gender.FEMALE, title: 'Literature & Linguistics', employeeId: 'FAC-ENG-06', spec: 'English & Modern Literature', qual: 'M.A. English' },
-    { email: 'dawit.alemayehu@demo-school.local', firstName: 'Dawit', lastName: 'Alemayehu', gender: Gender.MALE, title: 'ICT & Robotics Lead', employeeId: 'FAC-CS-07', spec: 'Software Engineering & Coding', qual: 'B.Sc. Computer Science' },
-    { email: 'meron.assefa@demo-school.local', firstName: 'Meron', lastName: 'Assefa', gender: Gender.FEMALE, title: 'Economics Teacher', employeeId: 'FAC-ECON-08', spec: 'Micro & Macroeconomics', qual: 'M.Sc. Economics' },
+    { email: 'teacher@demo-school.local', firstName: 'Abebe', lastName: 'Kebede', gender: Gender.MALE, title: 'Senior Mathematics Faculty & Dept Head (9-12)', employeeId: 'FAC-MATH-01', spec: 'Pure Mathematics & Calculus', qual: 'M.Sc. Mathematics' },
+    { email: 'rahel.mulugeta@demo-school.local', firstName: 'Dr. Rahel', lastName: 'Mulugeta', gender: Gender.FEMALE, title: 'Head of Chemistry & Natural Sciences', employeeId: 'FAC-CHEM-02', spec: 'Organic & Inorganic Chemistry', qual: 'Ph.D. Chemistry' },
+    { email: 'yohannes.desta@demo-school.local', firstName: 'Yohannes', lastName: 'Desta', gender: Gender.MALE, title: 'Physics Department Lead', employeeId: 'FAC-PHYS-03', spec: 'Theoretical & Applied Physics', qual: 'M.Sc. Physics' },
+    { email: 'tigist.bekele@demo-school.local', firstName: 'Tigist', lastName: 'Bekele', gender: Gender.FEMALE, title: 'Biology Instructor', employeeId: 'FAC-BIO-04', spec: 'Genetics & Life Sciences', qual: 'B.Ed. Biology' },
+    { email: 'elias.haile@demo-school.local', firstName: 'Elias', lastName: 'Haile', gender: Gender.MALE, title: 'Social Sciences & History Lead', employeeId: 'FAC-HIST-05', spec: 'Ethiopian & Modern History', qual: 'M.A. History' },
+    { email: 'bethlehem.tsegaye@demo-school.local', firstName: 'Bethlehem', lastName: 'Tsegaye', gender: Gender.FEMALE, title: 'English & Literature Department Lead', employeeId: 'FAC-ENG-06', spec: 'English Language & Linguistics', qual: 'M.A. English' },
+    { email: 'dawit.alemayehu@demo-school.local', firstName: 'Dawit', lastName: 'Alemayehu', gender: Gender.MALE, title: 'ICT & Computer Science Faculty', employeeId: 'FAC-CS-07', spec: 'Software Systems & Python', qual: 'B.Sc. Computer Science' },
+    { email: 'meron.assefa@demo-school.local', firstName: 'Meron', lastName: 'Assefa', gender: Gender.FEMALE, title: 'Economics & Commercial Studies', employeeId: 'FAC-ECON-08', spec: 'Micro & Macroeconomics', qual: 'M.Sc. Economics' },
   ];
 
   const teacherProfiles: any[] = [];
@@ -138,251 +209,289 @@ export async function seedOperationalData(prisma: PrismaClient, tenantId: string
           employeeId: t.employeeId,
           specialization: t.spec,
           qualification: t.qual,
-          baseSalary: 18500,
+          baseSalary: 21500,
         },
       });
     }
     teacherProfiles.push(tp);
   }
 
-  // 5. CREATE 48 REALISTIC STUDENTS DISTRIBUTED ACROSS ALL CLASSES
-  console.log('  -> Creating 48 students across all grade levels...');
-  const studentPool = [
-    // Grade 9-A
-    { classIdx: 0, firstName: 'Natnael', lastName: 'Mulugeta', gender: Gender.MALE, dob: '2011-03-14', guardian: 'Mulugeta Tesfaye', phone: '+251-911-304050' },
-    { classIdx: 0, firstName: 'Bethlehem', lastName: 'Assefa', gender: Gender.FEMALE, dob: '2011-05-19', guardian: 'Assefa Wolde', phone: '+251-912-112233' },
-    { classIdx: 0, firstName: 'Kirubel', lastName: 'Tekle', gender: Gender.MALE, dob: '2011-02-10', guardian: 'Tekle Berhe', phone: '+251-913-223344' },
-    { classIdx: 0, firstName: 'Mahlet', lastName: 'Kassahun', gender: Gender.FEMALE, dob: '2011-07-25', guardian: 'Kassahun Desta', phone: '+251-914-334455' },
-    { classIdx: 0, firstName: 'Brook', lastName: 'Alemu', gender: Gender.MALE, dob: '2011-01-30', guardian: 'Alemu Tilahun', phone: '+251-915-445566' },
-    { classIdx: 0, firstName: 'Tsion', lastName: 'Girma', gender: Gender.FEMALE, dob: '2011-08-12', guardian: 'Girma Negash', phone: '+251-916-556677' },
-    { classIdx: 0, firstName: 'Abel', lastName: 'Fikru', gender: Gender.MALE, dob: '2011-11-04', guardian: 'Fikru Abebe', phone: '+251-917-667788' },
-    { classIdx: 0, firstName: 'Hana', lastName: 'Worku', gender: Gender.FEMALE, dob: '2011-09-22', guardian: 'Worku Sisay', phone: '+251-918-778899' },
+  // 6. GENERATE 200 SYNTHETIC STUDENTS (EXACTLY 50 PER CLASS)
+  console.log('  -> Generating 200 synthetic student records (50 per class)...');
+  const students: any[] = [];
+  let globalStudentCounter = 1;
 
-    // Grade 9-B
-    { classIdx: 1, firstName: 'Liya', lastName: 'Kebede', gender: Gender.FEMALE, dob: '2011-04-18', guardian: 'Kebede Desta', phone: '+251-911-889900' },
-    { classIdx: 1, firstName: 'Samuel', lastName: 'Yohannes', gender: Gender.MALE, dob: '2011-06-08', guardian: 'Yohannes Bekele', phone: '+251-912-990011' },
-    { classIdx: 1, firstName: 'Betelhem', lastName: 'Tefera', gender: Gender.FEMALE, dob: '2011-10-15', guardian: 'Tefera Haile', phone: '+251-913-102030' },
-    { classIdx: 1, firstName: 'Daniel', lastName: 'Negash', gender: Gender.MALE, dob: '2011-03-29', guardian: 'Negash Wolde', phone: '+251-914-203040' },
-    { classIdx: 1, firstName: 'Hanna', lastName: 'Berhanu', gender: Gender.FEMALE, dob: '2011-12-05', guardian: 'Berhanu Tadesse', phone: '+251-915-304050' },
-    { classIdx: 1, firstName: 'Mikiyas', lastName: 'Dagne', gender: Gender.MALE, dob: '2011-07-17', guardian: 'Dagne Melaku', phone: '+251-916-405060' },
-    { classIdx: 1, firstName: 'Senait', lastName: 'Mekonnen', gender: Gender.FEMALE, dob: '2011-08-28', guardian: 'Mekonnen Girma', phone: '+251-917-506070' },
-    { classIdx: 1, firstName: 'Biniyam', lastName: 'Zewde', gender: Gender.MALE, dob: '2011-02-14', guardian: 'Zewde Bekele', phone: '+251-918-607080' },
+  for (let classIndex = 0; classIndex < classes.length; classIndex++) {
+    const cls = classes[classIndex]!;
+    // Age distribution: Gr 9 = 2011, Gr 10 = 2010, Gr 11 = 2009, Gr 12 = 2008
+    const birthYear = 2011 - classIndex;
 
-    // Grade 10-A (Includes demo student Almaz Hailu and Selamawit Mulugeta)
-    { classIdx: 2, firstName: 'Almaz', lastName: 'Hailu', gender: Gender.FEMALE, dob: '2010-04-12', guardian: 'Mulugeta Tesfaye', phone: '+251-911-234567' },
-    { classIdx: 2, firstName: 'Selamawit', lastName: 'Mulugeta', gender: Gender.FEMALE, dob: '2010-08-22', guardian: 'Mulugeta Tesfaye', phone: '+251-911-234567' },
-    { classIdx: 2, firstName: 'Yared', lastName: 'Tadesse', gender: Gender.MALE, dob: '2010-05-30', guardian: 'Tadesse Alemu', phone: '+251-912-345678' },
-    { classIdx: 2, firstName: 'Fasika', lastName: 'Desta', gender: Gender.FEMALE, dob: '2010-01-18', guardian: 'Desta Kebede', phone: '+251-913-456789' },
-    { classIdx: 2, firstName: 'Robel', lastName: 'Haile', gender: Gender.MALE, dob: '2010-09-09', guardian: 'Haile Berhe', phone: '+251-914-567890' },
-    { classIdx: 2, firstName: 'Meron', lastName: 'Worku', gender: Gender.FEMALE, dob: '2010-11-27', guardian: 'Worku Mengistu', phone: '+251-915-678901' },
-    { classIdx: 2, firstName: 'Eyob', lastName: 'Solomon', gender: Gender.MALE, dob: '2010-03-03', guardian: 'Solomon Dagne', phone: '+251-916-789012' },
-    { classIdx: 2, firstName: 'Helina', lastName: 'Mengistu', gender: Gender.FEMALE, dob: '2010-07-14', guardian: 'Mengistu Tekle', phone: '+251-917-890123' },
+    for (let sIdx = 0; sIdx < 50; sIdx++) {
+      const isMale = (globalStudentCounter % 2) === 1;
+      const firstName = isMale
+        ? MALE_FIRST_NAMES[sIdx % MALE_FIRST_NAMES.length]!
+        : FEMALE_FIRST_NAMES[sIdx % FEMALE_FIRST_NAMES.length]!;
 
-    // Grade 10-B
-    { classIdx: 3, firstName: 'Hermela', lastName: 'Fantahun', gender: Gender.FEMALE, dob: '2010-06-19', guardian: 'Fantahun Girma', phone: '+251-911-123456' },
-    { classIdx: 3, firstName: 'Nahom', lastName: 'Gashaw', gender: Gender.MALE, dob: '2010-02-24', guardian: 'Gashaw Tadesse', phone: '+251-912-234567' },
-    { classIdx: 3, firstName: 'Kalkidan', lastName: 'Eshetu', gender: Gender.FEMALE, dob: '2010-10-11', guardian: 'Eshetu Bekele', phone: '+251-913-345678' },
-    { classIdx: 3, firstName: 'Bereket', lastName: 'Wolde', gender: Gender.MALE, dob: '2010-04-05', guardian: 'Wolde Fikru', phone: '+251-914-456789' },
-    { classIdx: 3, firstName: 'Rahel', lastName: 'Tilahun', gender: Gender.FEMALE, dob: '2010-12-30', guardian: 'Tilahun Abebe', phone: '+251-915-567890' },
-    { classIdx: 3, firstName: 'Surafel', lastName: 'Mulatu', gender: Gender.MALE, dob: '2010-08-16', guardian: 'Mulatu Haile', phone: '+251-916-678901' },
-    { classIdx: 3, firstName: 'Eden', lastName: 'Getachew', gender: Gender.FEMALE, dob: '2010-03-21', guardian: 'Getachew Desta', phone: '+251-917-789012' },
-    { classIdx: 3, firstName: 'Yonatan', lastName: 'Abebe', gender: Gender.MALE, dob: '2010-07-09', guardian: 'Abebe Zewde', phone: '+251-918-890123' },
+      // Determine father/guardian name
+      const fatherName = FATHER_NAMES[(sIdx + classIndex * 7) % FATHER_NAMES.length]!;
+      const admissionNumber = `SMS-2026-${String(globalStudentCounter).padStart(3, '0')}`;
+      const birthMonth = String((sIdx % 12) + 1).padStart(2, '0');
+      const birthDay = String((sIdx % 28) + 1).padStart(2, '0');
+      const dateOfBirth = new Date(`${birthYear}-${birthMonth}-${birthDay}T00:00:00.000Z`);
 
-    // Grade 11-Science
-    { classIdx: 4, firstName: 'Feven', lastName: 'Legesse', gender: Gender.FEMALE, dob: '2009-05-14', guardian: 'Legesse Tsegaye', phone: '+251-911-987654' },
-    { classIdx: 4, firstName: 'Henok', lastName: 'Gebre', gender: Gender.MALE, dob: '2009-09-28', guardian: 'Gebre Sisay', phone: '+251-912-876543' },
-    { classIdx: 4, firstName: 'Saron', lastName: 'Wondimu', gender: Gender.FEMALE, dob: '2009-01-17', guardian: 'Wondimu Dagne', phone: '+251-913-765432' },
-    { classIdx: 4, firstName: 'Biruk', lastName: 'Kassa', gender: Gender.MALE, dob: '2009-11-03', guardian: 'Kassa Melaku', phone: '+251-914-654321' },
-    { classIdx: 4, firstName: 'Hiwot', lastName: 'Melaku', gender: Gender.FEMALE, dob: '2009-04-20', guardian: 'Melaku Berhanu', phone: '+251-915-543210' },
-    { classIdx: 4, firstName: 'Leul', lastName: 'Mengesha', gender: Gender.MALE, dob: '2009-08-11', guardian: 'Mengesha Wolde', phone: '+251-916-432109' },
-    { classIdx: 4, firstName: 'Ruth', lastName: 'Sisay', gender: Gender.FEMALE, dob: '2009-03-09', guardian: 'Sisay Fikru', phone: '+251-917-321098' },
-    { classIdx: 4, firstName: 'Fitsum', lastName: 'Demissie', gender: Gender.MALE, dob: '2009-12-25', guardian: 'Demissie Tadesse', phone: '+251-918-210987' },
+      // Deterministic synthetic avatar URL (no scraped or real human images)
+      const photoUrl = `https://api.dicebear.com/7.x/identicon/svg?seed=DEMO-${admissionNumber}`;
 
-    // Grade 12-STEM
-    { classIdx: 5, firstName: 'Natnael', lastName: 'Girma', gender: Gender.MALE, dob: '2008-04-10', guardian: 'Girma Assefa', phone: '+251-911-345678' },
-    { classIdx: 5, firstName: 'Tsion', lastName: 'Assefa', gender: Gender.FEMALE, dob: '2008-08-15', guardian: 'Assefa Desta', phone: '+251-912-456789' },
-    { classIdx: 5, firstName: 'Michael', lastName: 'Tadesse', gender: Gender.MALE, dob: '2008-02-28', guardian: 'Tadesse Haile', phone: '+251-913-567890' },
-    { classIdx: 5, firstName: 'Bezawit', lastName: 'Hailu', gender: Gender.FEMALE, dob: '2008-10-07', guardian: 'Hailu Bekele', phone: '+251-914-678901' },
-    { classIdx: 5, firstName: 'Amanuel', lastName: 'Desta', gender: Gender.MALE, dob: '2008-06-22', guardian: 'Desta Wolde', phone: '+251-915-789012' },
-    { classIdx: 5, firstName: 'Blen', lastName: 'Kebede', gender: Gender.FEMALE, dob: '2008-12-01', guardian: 'Kebede Tilahun', phone: '+251-916-890123' },
-    { classIdx: 5, firstName: 'Yohannes', lastName: 'Worku', gender: Gender.MALE, dob: '2008-03-18', guardian: 'Worku Melaku', phone: '+251-917-901234' },
-    { classIdx: 5, firstName: 'Maya', lastName: 'Solomon', gender: Gender.FEMALE, dob: '2008-07-29', guardian: 'Solomon Zewde', phone: '+251-918-012345' },
+      // Default guardian contact info
+      const guardianName = `${fatherName} Tesfaye`;
+      const guardianPhone = `+251-911-${String(100000 + globalStudentCounter).slice(1)}`;
+
+      const student = await prisma.student.create({
+        data: {
+          tenantId,
+          admissionNumber,
+          firstName,
+          lastName: fatherName,
+          gender: isMale ? Gender.MALE : Gender.FEMALE,
+          dateOfBirth,
+          classId: cls.id,
+          guardianName,
+          guardianPhone,
+          photoUrl,
+        },
+      });
+
+      students.push(student);
+      globalStudentCounter++;
+    }
+  }
+
+  console.log(`  ✓ Successfully created ${students.length} students across 4 classes.`);
+
+  // 7. EXPLICIT MULTI-CHILD SIBLING FAMILY RECORDS
+  console.log('  -> Establishing multi-child family records & guardian accounts...');
+  let parentRole = await prisma.role.findFirst({ where: { slug: 'PARENT' } });
+  const parentRoleId = roleMap?.['PARENT'] || parentRole?.id;
+
+  const parentDefs = [
+    {
+      email: 'parent@demo-school.local',
+      firstName: 'Mulugeta',
+      lastName: 'Tesfaye',
+      occupation: 'Senior Civil Engineer',
+      address: 'Bole Subcity, Woreda 03, Addis Ababa',
+      phone: '+251-911-304050',
+      // Children: Student 1 (Gr 9), Student 51 (Gr 10), Student 101 (Gr 11)
+      childIndices: [0, 50, 100],
+      relationship: 'FATHER',
+    },
+    {
+      email: 'aster.bekele@demo-school.local',
+      firstName: 'Aster',
+      lastName: 'Bekele',
+      occupation: 'Public Health Specialist',
+      address: 'Yeka Subcity, Megenagna, Addis Ababa',
+      phone: '+251-912-112233',
+      // Children: Student 2 (Gr 9), Student 52 (Gr 10)
+      childIndices: [1, 51],
+      relationship: 'MOTHER',
+    },
+    {
+      email: 'tadesse.alemu@demo-school.local',
+      firstName: 'Tadesse',
+      lastName: 'Alemu',
+      occupation: 'Commercial Banker',
+      address: 'Kirkos Subcity, Kazanchis, Addis Ababa',
+      phone: '+251-913-223344',
+      // Children: Student 3 (Gr 9), Student 53 (Gr 10), Student 102 (Gr 11)
+      childIndices: [2, 52, 101],
+      relationship: 'FATHER',
+    },
+    {
+      email: 'genet.wolde@demo-school.local',
+      firstName: 'Genet',
+      lastName: 'Wolde',
+      occupation: 'University Lecturer',
+      address: 'Gullele Subcity, Addis Ababa',
+      phone: '+251-914-334455',
+      // Children: Student 4 (Gr 9), Student 151 (Gr 12)
+      childIndices: [3, 150],
+      relationship: 'MOTHER',
+    },
   ];
 
-  const students: any[] = [];
-  for (let i = 0; i < studentPool.length; i++) {
-    const s = studentPool[i]!;
-    const assignedClass = classes[s.classIdx];
-    const admissionNumber = `SMS-2026-${String(i + 1).padStart(3, '0')}`;
+  const parentPasswordHash = await bcrypt.hash('Parent123!', 10);
 
-    const student = await prisma.student.create({
-      data: {
-        tenantId,
-        admissionNumber,
-        firstName: s.firstName,
-        lastName: s.lastName,
-        gender: s.gender,
-        dateOfBirth: new Date(s.dob),
-        classId: assignedClass?.id,
-        guardianName: s.guardian,
-        guardianPhone: s.phone,
-      },
-    });
-    students.push(student);
-  }
-
-  // 6. CONNECT DEMO PARENT (Mulugeta Tesfaye) TO HIS CHILDREN
-  console.log('  -> Connecting demo parent profile...');
-  const parentUser = await prisma.user.findUnique({ where: { email: 'parent@demo-school.local' } });
-  if (parentUser) {
-    let parentProf = await prisma.parentProfile.findUnique({ where: { userId: parentUser.id } });
-    if (!parentProf) {
-      parentProf = await prisma.parentProfile.create({
+  for (const p of parentDefs) {
+    let pUser = await prisma.user.findUnique({ where: { email: p.email } });
+    if (!pUser) {
+      pUser = await prisma.user.create({
         data: {
+          email: p.email,
+          passwordHash: parentPasswordHash,
+          status: UserStatus.ACTIVE,
+          emailVerified: new Date(),
+          profile: {
+            create: {
+              firstName: p.firstName,
+              lastName: p.lastName,
+              locale: 'en',
+              timezone: 'Africa/Addis_Ababa',
+            },
+          },
+        },
+      });
+
+      const ut = await prisma.userTenant.create({
+        data: {
+          userId: pUser.id,
           tenantId,
-          userId: parentUser.id,
-          occupation: 'Senior Structural Engineer',
-          address: 'Bole Medhanealem, Addis Ababa',
-        },
-      });
-    }
-
-    // Link Mulugeta to his children in the school:
-    // Natnael Mulugeta (Grade 9A), Almaz Hailu (Grade 10A), Selamawit Mulugeta (Grade 10A)
-    const childrenToLink = students.filter(
-      (st) => (st.firstName === 'Almaz' && st.lastName === 'Hailu') ||
-              (st.firstName === 'Natnael' && st.lastName === 'Mulugeta') ||
-              (st.firstName === 'Selamawit' && st.lastName === 'Mulugeta')
-    );
-
-    for (const child of childrenToLink) {
-      await prisma.parentStudent.create({
-        data: {
-          parentId: parentProf.id,
-          studentId: child.id,
-          relationship: 'FATHER',
-        },
-      });
-    }
-  }
-
-  // 7. CREATE INVOICES, PAYMENTS & 6 MONTHS OF FINANCIAL CHARTS
-  console.log('  -> Generating finance records, invoices, and payment trends...');
-  const monthsAgo = [5, 4, 3, 2, 1, 0];
-  const paymentMethods = ['BANK_TRANSFER', 'MOBILE_MONEY', 'CREDIT_CARD', 'CASH'];
-
-  let totalRevenueSeed = 0;
-  let pendingAmountSeed = 0;
-
-  for (let i = 0; i < students.length; i++) {
-    const student = students[i]!;
-
-    // Invoice 1: Term 1 Tuition Fee ($1,250)
-    const tuitionStatus: InvoiceStatus = i % 4 === 0 ? InvoiceStatus.UNPAID : (i % 5 === 0 ? InvoiceStatus.PARTIAL : InvoiceStatus.PAID);
-    const dueDate = new Date();
-    dueDate.setDate(dueDate.getDate() + (tuitionStatus === InvoiceStatus.PAID ? -20 : 15));
-
-    const invoice1 = await prisma.invoice.create({
-      data: {
-        tenantId,
-        studentId: student.id,
-        title: 'Term 1 Core Tuition & Academic Program',
-        amount: 1250.00,
-        status: tuitionStatus,
-        dueDate,
-      },
-    });
-
-    if (tuitionStatus === InvoiceStatus.PAID) {
-      const monthOffset = monthsAgo[i % monthsAgo.length]!;
-      const payDate = new Date();
-      payDate.setMonth(payDate.getMonth() - monthOffset);
-      payDate.setDate(Math.min(28, (i * 3) % 25 + 1));
-
-      await prisma.payment.create({
-        data: {
-          tenantId,
-          invoiceId: invoice1.id,
-          amount: 1250.00,
-          method: paymentMethods[i % paymentMethods.length]!,
-          reference: `TXN-${paymentMethods[i % paymentMethods.length]!.slice(0, 3)}-${10000 + i * 17}`,
-          createdAt: payDate,
-        },
-      });
-      totalRevenueSeed += 1250;
-    } else if (tuitionStatus === InvoiceStatus.PARTIAL) {
-      const payDate = new Date();
-      payDate.setDate(payDate.getDate() - 10);
-      await prisma.payment.create({
-        data: {
-          tenantId,
-          invoiceId: invoice1.id,
-          amount: 600.00,
-          method: 'MOBILE_MONEY',
-          reference: `TXN-TELEBIRR-${20000 + i * 29}`,
-          createdAt: payDate,
-        },
-      });
-      totalRevenueSeed += 600;
-      pendingAmountSeed += 650;
-    } else {
-      pendingAmountSeed += 1250;
-    }
-
-    // Invoice 2: STEM Laboratory & Digital Campus Fee ($350)
-    if (i % 2 === 0) {
-      const isPaid = i % 3 !== 0;
-      const invoice2 = await prisma.invoice.create({
-        data: {
-          tenantId,
-          studentId: student.id,
-          title: 'STEM Laboratory & Computer Science Lab Fee',
-          amount: 350.00,
-          status: isPaid ? InvoiceStatus.PAID : InvoiceStatus.UNPAID,
-          dueDate: new Date(Date.now() + 10 * 86400000),
+          status: UserTenantStatus.ACTIVE,
         },
       });
 
-      if (isPaid) {
-        const monthOffset = monthsAgo[(i + 1) % monthsAgo.length]!;
-        const payDate = new Date();
-        payDate.setMonth(payDate.getMonth() - monthOffset);
-        payDate.setDate(12);
-
-        await prisma.payment.create({
+      if (parentRoleId) {
+        await prisma.userTenantRole.create({
           data: {
-            tenantId,
-            invoiceId: invoice2.id,
-            amount: 350.00,
-            method: paymentMethods[(i + 1) % paymentMethods.length]!,
-            reference: `TXN-LAB-${30000 + i * 11}`,
-            createdAt: payDate,
+            userTenantId: ut.id,
+            roleId: parentRoleId,
           },
         });
-        totalRevenueSeed += 350;
-      } else {
-        pendingAmountSeed += 350;
+      }
+    }
+
+    let pProfile = await prisma.parentProfile.findUnique({ where: { userId: pUser.id } });
+    if (!pProfile) {
+      pProfile = await prisma.parentProfile.create({
+        data: {
+          tenantId,
+          userId: pUser.id,
+          occupation: p.occupation,
+          address: p.address,
+        },
+      });
+    }
+
+    // Link sibling children
+    for (const childIdx of p.childIndices) {
+      const child = students[childIdx];
+      if (child) {
+        await prisma.parentStudent.create({
+          data: {
+            parentId: pProfile.id,
+            studentId: child.id,
+            relationship: p.relationship,
+          },
+        });
+
+        // Ensure student guardian info matches the parent
+        await prisma.student.update({
+          where: { id: child.id },
+          data: {
+            guardianName: `${p.firstName} ${p.lastName}`,
+            guardianPhone: p.phone,
+          },
+        });
       }
     }
   }
 
-  // 8. REALISTIC EXPENSES FOR FINANCE METRICS
-  console.log('  -> Creating operational expense logs...');
+  // 8. GENERATE 5-DAY ATTENDANCE RECORDS ACROSS ALL 200 STUDENTS (1,000 Total Checkpoints)
+  console.log('  -> Populating 5-day attendance registers for all 200 students...');
+  for (let dayOffset = 1; dayOffset <= 5; dayOffset++) {
+    const attDate = new Date();
+    attDate.setDate(attDate.getDate() - dayOffset);
+    if (attDate.getDay() === 0 || attDate.getDay() === 6) continue; // Skip weekends
+
+    const attendanceBatch: any[] = [];
+    for (const student of students) {
+      // 94% Present, 4% Late, 2% Absent
+      const rand = (student.admissionNumber.charCodeAt(student.admissionNumber.length - 1) + dayOffset * 13) % 100;
+      const status: AttendanceStatus = rand > 6 ? AttendanceStatus.PRESENT : (rand > 2 ? AttendanceStatus.LATE : AttendanceStatus.ABSENT);
+
+      attendanceBatch.push({
+        tenantId,
+        studentId: student.id,
+        classId: student.classId,
+        date: attDate,
+        status,
+      });
+    }
+
+    await prisma.attendance.createMany({ data: attendanceBatch });
+  }
+
+  // 9. FINANCIAL RECORDS: TUITION INVOICES & PAYMENTS MATCHING BALANCES
+  console.log('  -> Generating tuition fee ledger, invoices, and matching payment reconciliations...');
+  const paymentMethods = ['BANK_TRANSFER', 'MOBILE_MONEY', 'CREDIT_CARD', 'CASH'];
+  let totalSeededRevenue = 0;
+  let totalPendingReceivables = 0;
+
+  for (let i = 0; i < students.length; i++) {
+    const student = students[i]!;
+    // Invoices distribution: 75% Paid, 15% Partial, 10% Unpaid
+    const statusMod = i % 10;
+    const isPaid = statusMod < 7;
+    const isPartial = statusMod === 7 || statusMod === 8;
+    const status: InvoiceStatus = isPaid ? InvoiceStatus.PAID : (isPartial ? InvoiceStatus.PARTIAL : InvoiceStatus.UNPAID);
+
+    const dueDate = new Date();
+    dueDate.setDate(dueDate.getDate() + (isPaid ? -15 : 20));
+
+    const invoice = await prisma.invoice.create({
+      data: {
+        tenantId,
+        studentId: student.id,
+        title: 'Semester 1 Academic Tuition & Operations',
+        amount: 1200.00,
+        status,
+        dueDate,
+      },
+    });
+
+    if (isPaid) {
+      await prisma.payment.create({
+        data: {
+          tenantId,
+          invoiceId: invoice.id,
+          amount: 1200.00,
+          method: paymentMethods[i % paymentMethods.length]!,
+          reference: `TXN-DEMO-${10000 + i}`,
+          createdAt: new Date(Date.now() - (i % 30) * 86400000),
+        },
+      });
+      totalSeededRevenue += 1200;
+    } else if (isPartial) {
+      await prisma.payment.create({
+        data: {
+          tenantId,
+          invoiceId: invoice.id,
+          amount: 500.00,
+          method: 'MOBILE_MONEY',
+          reference: `TXN-TELEBIRR-DEMO-${20000 + i}`,
+          createdAt: new Date(Date.now() - 5 * 86400000),
+        },
+      });
+      totalSeededRevenue += 500;
+      totalPendingReceivables += 700;
+    } else {
+      totalPendingReceivables += 1200;
+    }
+  }
+
+  // 10. REALISTIC OPERATIONAL EXPENSES
+  console.log('  -> Creating institutional expense records...');
   const expensesDefs = [
-    { title: 'High-Speed Campus Dedicated Optical Fiber', cat: 'Utilities & Internet', amount: 1850.00, vendor: 'Ethio Telecom Enterprise', daysAgo: 10 },
-    { title: 'Advanced Science Lab Chemical Reagents & Glassware', cat: 'Laboratory Supplies', amount: 3450.00, vendor: 'Alpha Scientific Equipment', daysAgo: 25 },
-    { title: 'Faculty Professional STEM Training Workshop', cat: 'Staff Development', amount: 2800.00, vendor: 'Global Educators Institute', daysAgo: 45 },
-    { title: 'Solar Power Inverter & Battery Bank Servicing', cat: 'Facility & Maintenance', amount: 4200.00, vendor: 'CleanEnergy Solutions', daysAgo: 60 },
-    { title: 'Fleet Transport Diesel & Bus Quarterly Service', cat: 'Transportation Fleet', amount: 3600.00, vendor: 'TotalEnergies Fleet', daysAgo: 75 },
-    { title: 'New Senior STEM & Cambridge Textbook Consignment', cat: 'Library & Curriculum', amount: 2950.00, vendor: 'Academic Book Publishers', daysAgo: 90 },
-    { title: 'Athletics & Sports Field Maintenance Equipment', cat: 'Campus Grounds', amount: 1750.00, vendor: 'SportMaster Ltd', daysAgo: 110 },
-    { title: 'Cafeteria Fresh Organic Produce & Nutritional Program', cat: 'Cafeteria Operations', amount: 4100.00, vendor: 'Valley Green Farm Suppliers', daysAgo: 130 },
+    { title: 'Campus High-Speed Dedicated Internet Bandwidth', cat: 'Utilities & Internet', amount: 2450.00, vendor: 'Ethio Telecom Enterprise', daysAgo: 5 },
+    { title: 'Science Laboratory Reagents & Protective Equipment', cat: 'Laboratory Supplies', amount: 4800.00, vendor: 'Alpha Scientific Ltd', daysAgo: 18 },
+    { title: 'Fleet Transport Diesel & Bus Maintenance', cat: 'Transportation Fleet', amount: 3750.00, vendor: 'TotalEnergies Fleet', daysAgo: 32 },
+    { title: 'Campus Facility Solar Power Grid Inspection', cat: 'Facility & Maintenance', amount: 2900.00, vendor: 'CleanEnergy Solutions', daysAgo: 45 },
+    { title: 'Curriculum Textbook Consignment (Grades 9-12)', cat: 'Library & Curriculum', amount: 5600.00, vendor: 'Academic Book Publishers', daysAgo: 60 },
   ];
 
   for (const ex of expensesDefs) {
     const expenseDate = new Date();
     expenseDate.setDate(expenseDate.getDate() - ex.daysAgo);
-
     await prisma.expense.create({
       data: {
         tenantId,
@@ -395,37 +504,10 @@ export async function seedOperationalData(prisma: PrismaClient, tenantId: string
     });
   }
 
-  // 9. RECENT ATTENDANCE RECORDS (Last 5 Weekdays)
-  console.log('  -> Generating daily attendance records across classes...');
-  for (let dayOffset = 1; dayOffset <= 5; dayOffset++) {
-    const attDate = new Date();
-    attDate.setDate(attDate.getDate() - dayOffset);
-    // Skip weekends
-    if (attDate.getDay() === 0 || attDate.getDay() === 6) continue;
-
-    for (const student of students) {
-      if (!student.classId) continue;
-      // 94% present, 4% late, 2% absent
-      const rand = Math.random();
-      const status: AttendanceStatus = rand > 0.06 ? AttendanceStatus.PRESENT : (rand > 0.02 ? AttendanceStatus.LATE : AttendanceStatus.ABSENT);
-      const remarks = status === AttendanceStatus.LATE ? 'School bus delayed in morning traffic' : (status === AttendanceStatus.ABSENT ? 'Excused medical rest' : undefined);
-
-      await prisma.attendance.create({
-        data: {
-          tenantId,
-          studentId: student.id,
-          classId: student.classId,
-          date: attDate,
-          status,
-        },
-      });
-    }
-  }
-
-  // 10. ASSESSMENTS AND GRADES
-  console.log('  -> Creating term assessments and student score sheets...');
+  // 11. ASSESSMENTS AND STUDENT GRADES
+  console.log('  -> Creating term assessments and grade registers...');
   for (const cls of classes) {
-    const assessment1 = await prisma.assessment.create({
+    const midterm = await prisma.assessment.create({
       data: {
         tenantId,
         classId: cls.id,
@@ -435,96 +517,221 @@ export async function seedOperationalData(prisma: PrismaClient, tenantId: string
       },
     });
 
-    const assessment2 = await prisma.assessment.create({
+    const coursework = await prisma.assessment.create({
       data: {
         tenantId,
         classId: cls.id,
-        title: 'Practical Laboratory & Quiz 1',
+        title: 'Continuous Practical Coursework & Quiz',
         maxScore: 50,
-        date: new Date(Date.now() - 5 * 86400000),
+        date: new Date(Date.now() - 7 * 86400000),
       },
     });
 
-    // Score students in this class
     const classStudents = students.filter((s) => s.classId === cls.id);
     for (const st of classStudents) {
-      const score1 = Math.floor(Math.random() * 25) + 75; // 75-100
-      const score2 = Math.floor(Math.random() * 12) + 38; // 38-50
+      const score1 = Math.floor(Math.random() * 25) + 75; // 75 - 100
+      const score2 = Math.floor(Math.random() * 12) + 38; // 38 - 50
 
-      await prisma.grade.create({
-        data: {
-          tenantId,
-          assessmentId: assessment1.id,
-          studentId: st.id,
-          score: score1,
-        },
-      });
-
-      await prisma.grade.create({
-        data: {
-          tenantId,
-          assessmentId: assessment2.id,
-          studentId: st.id,
-          score: score2,
-        },
+      await prisma.grade.createMany({
+        data: [
+          { tenantId, assessmentId: midterm.id, studentId: st.id, score: score1 },
+          { tenantId, assessmentId: coursework.id, studentId: st.id, score: score2 },
+        ],
       });
     }
   }
 
-  // 11. TIMETABLE SCHEDULE
-  console.log('  -> Creating weekly classroom timetables...');
-  const days = [1, 2, 3, 4, 5]; // Mon - Fri
+  // 12. 5-DAY, 5-PERIOD CONFLICT-FREE TIMETABLE
+  console.log('  -> Creating weekly 5-day / 5-period conflict-free timetable...');
+  const daysOfWeek = [1, 2, 3, 4, 5]; // Mon, Tue, Wed, Thu, Fri
   const periods = [
     { start: '08:30', end: '09:20' },
     { start: '09:30', end: '10:20' },
     { start: '10:40', end: '11:30' },
     { start: '11:40', end: '12:30' },
     { start: '13:30', end: '14:20' },
-    { start: '14:30', end: '15:20' },
   ];
 
+  const timetableEntries: any[] = [];
   for (let cIdx = 0; cIdx < classes.length; cIdx++) {
     const cls = classes[cIdx]!;
-    for (let d = 0; d < 3; d++) {
-      const day = days[d]!;
-      for (let p = 0; p < 3; p++) {
+    for (let d = 0; d < daysOfWeek.length; d++) {
+      const day = daysOfWeek[d]!;
+      for (let p = 0; p < periods.length; p++) {
         const period = periods[p]!;
-        const subject = subjects[(cIdx + p) % subjects.length]!;
-        const teacher = teacherProfiles[(cIdx + p) % teacherProfiles.length]!;
+        // Distinct mathematical offsets prevent any teacher from being double-booked
+        const subject = subjects[(cIdx * 2 + p + d) % subjects.length]!;
+        const teacher = teacherProfiles[(cIdx + p * 2 + d) % teacherProfiles.length]!;
 
-        await prisma.timetable.create({
-          data: {
-            tenantId,
-            classId: cls.id,
-            subjectId: subject.id,
-            teacherId: teacher.id,
-            dayOfWeek: day,
-            startTime: period.start,
-            endTime: period.end,
-          },
+        timetableEntries.push({
+          tenantId,
+          classId: cls.id,
+          subjectId: subject.id,
+          teacherId: teacher.id,
+          dayOfWeek: day,
+          startTime: period.start,
+          endTime: period.end,
         });
       }
     }
   }
 
-  // 12. OFFICIAL SCHOOL ANNOUNCEMENTS
-  console.log('  -> Publishing campus announcements...');
+  await prisma.timetable.createMany({ data: timetableEntries });
+
+  // 13. EXAM ROOMS, SCHEDULES & STUDENT SEAT ALLOCATIONS
+  console.log('  -> Creating exam rooms, national model exam schedules, and seat allocations...');
+  const roomDefs = [
+    { name: 'Main Examination Hall A', capacity: 60 },
+    { name: 'STEM Science Block Hall B', capacity: 60 },
+    { name: 'Humanities Lecture Auditorium C', capacity: 60 },
+    { name: 'Digital Campus Lab Hall D', capacity: 60 },
+  ];
+
+  const examRooms: any[] = [];
+  for (const r of roomDefs) {
+    const room = await prisma.examRoom.create({
+      data: { tenantId, name: r.name, capacity: r.capacity },
+    });
+    examRooms.push(room);
+  }
+
+  const examSchedule = await prisma.examSchedule.create({
+    data: {
+      tenantId,
+      title: 'Semester 1 Model Examination - Mathematics & Applied Sciences',
+      date: new Date(Date.now() + 14 * 86400000),
+      startTime: '09:00',
+      endTime: '12:00',
+      classIds: classes.map((c) => c.id),
+    },
+  });
+
+  const seatAssignments: any[] = [];
+  for (let i = 0; i < students.length; i++) {
+    const student = students[i]!;
+    const roomIdx = Math.floor(i / 50);
+    const seatNum = (i % 50) + 1;
+    const room = examRooms[roomIdx] || examRooms[0]!;
+
+    seatAssignments.push({
+      tenantId,
+      examId: examSchedule.id,
+      roomId: room.id,
+      studentId: student.id,
+      seatNumber: seatNum,
+    });
+  }
+
+  await prisma.examSeat.createMany({ data: seatAssignments });
+
+  // 14. LIBRARY BOOKS & BORROWINGS
+  console.log('  -> Seeding campus library catalog and book loans...');
+  const bookDefs = [
+    { title: 'College Physics: Principles & Applications', author: 'Dr. Raymond Serway', isbn: '978-0134876986', category: 'Physics' },
+    { title: 'Organic Chemistry Structure and Function', author: 'K. Peter C. Vollhardt', isbn: '978-1319079451', category: 'Chemistry' },
+    { title: 'Campbell Biology Global Edition', author: 'Lisa A. Urry', isbn: '978-1292341637', category: 'Biology' },
+    { title: 'A History of Modern Ethiopia 1855-1991', author: 'Bahru Zewde', isbn: '978-0852557860', category: 'History' },
+    { title: 'Python Programming: An Introduction to Computer Science', author: 'John Zelle', isbn: '978-1590282755', category: 'Computer Science' },
+    { title: 'Principles of Microeconomics', author: 'N. Gregory Mankiw', isbn: '978-0357133484', category: 'Economics' },
+  ];
+
+  for (let bIdx = 0; bIdx < bookDefs.length; bIdx++) {
+    const b = bookDefs[bIdx]!;
+    const book = await prisma.book.create({
+      data: {
+        tenantId,
+        title: b.title,
+        author: b.author,
+        isbn: b.isbn,
+        category: b.category,
+        totalCopies: 15,
+        availableCopies: 12,
+      },
+    });
+
+    // Seed sample loan for the first few students
+    if (bIdx < students.length) {
+      await prisma.bookLoan.create({
+        data: {
+          tenantId,
+          bookId: book.id,
+          studentId: students[bIdx]!.id,
+          borrowedAt: new Date(Date.now() - 7 * 86400000),
+          dueDate: new Date(Date.now() + 7 * 86400000),
+        },
+      });
+    }
+  }
+
+  // 15. EXTRACURRICULAR CLUBS & STUDENT MEMBERSHIPS
+  console.log('  -> Setting up student clubs and memberships...');
+  const clubDefs = [
+    { name: 'Robotics & Artificial Intelligence Club', cat: 'STEM & Robotics', advisor: 'Dawit Alemayehu' },
+    { name: 'Debating Society & Model African Union', cat: 'Leadership & Civics', advisor: 'Elias Haile' },
+    { name: 'Young Scientists & Bio-Innovation Club', cat: 'Scientific Research', advisor: 'Dr. Rahel Mulugeta' },
+    { name: 'Environmental Protection & Green Campus Initiative', cat: 'Ecology & Community', advisor: 'Tigist Bekele' },
+  ];
+
+  for (let cIdx = 0; cIdx < clubDefs.length; cIdx++) {
+    const c = clubDefs[cIdx]!;
+    const club = await prisma.club.create({
+      data: {
+        tenantId,
+        name: c.name,
+        category: c.cat,
+        advisorName: c.advisor,
+        description: `Official school extracurricular society dedicated to ${c.cat.toLowerCase()}.`,
+      },
+    });
+
+    // Link 10 students as members
+    for (let m = 0; m < 10; m++) {
+      const student = students[(cIdx * 10 + m) % students.length]!;
+      await prisma.clubMembership.create({
+        data: {
+          tenantId,
+          clubId: club.id,
+          studentId: student.id,
+          role: m === 0 ? 'PRESIDENT' : 'MEMBER',
+        },
+      });
+    }
+  }
+
+  // 16. GATE SCAN & ARRIVAL LOGS (Sample records)
+  console.log('  -> Initializing gate pass and arrival records...');
+  for (let g = 0; g < 10; g++) {
+    const student = students[g]!;
+    await prisma.gatePass.create({
+      data: {
+        tenantId,
+        studentId: student.id,
+        reason: 'Authorized Early Pickup - Family Dental Consultation',
+        releasedTo: student.guardianName,
+        approvedBy: 'Dawit Bekele (Admissions Registrar)',
+        exitTime: new Date(Date.now() - (g + 1) * 3600000),
+      },
+    });
+  }
+
+  // 17. OFFICIAL CAMPUS ANNOUNCEMENTS
+  console.log('  -> Publishing campus operational notices...');
   const announcementsDefs = [
     {
-      title: 'First Term Midterm Examination Schedule & Guidelines',
-      content: 'The official Midterm Examination timetable for all grades has been published. Parents and students are advised to review the subject periods and classroom seat assignments.',
+      title: 'First Semester Midterm Model Examination Schedule & Seating Plan Published',
+      content: 'The official Model Examination timetable and individual hall seat allocations for Grades 9, 10, 11, and 12 are now accessible via student and parent portals. Please review your assigned examination room and desk numbers.',
     },
     {
-      title: 'Annual Inter-School STEM & Robotics Fair 2026',
-      content: 'Demo Excellence Academy will host the regional inter-school STEM exhibition on November 28. Student project submissions in Robotics, Coding, and Bio-Chemistry are now open.',
+      title: 'Annual Regional Inter-School STEM & Robotics Fair 2026',
+      content: 'Demo Excellence Academy will host the regional inter-school STEM exhibition on November 28. Student project submissions in Robotics, Python Automation, and Chemistry are now open.',
     },
     {
-      title: 'Parent-Teacher Association (PTA) Conference Confirmed',
-      content: 'The Term 1 Parent-Teacher Conference is scheduled for this upcoming Saturday from 9:00 AM to 3:30 PM. One-on-one consultation slots can be booked through the parent portal.',
+      title: 'Parent-Teacher Association (PTA) Term 1 Conference Scheduled',
+      content: 'The Term 1 Parent-Teacher Conference is scheduled for this upcoming Saturday from 9:00 AM to 3:30 PM. One-on-one consultation slots can be reserved through the parent portal.',
     },
     {
-      title: 'High-Speed Campus Library Digital E-Book Catalog Launched',
-      content: 'We have updated our library resource center with 1,200+ new digital books, scientific publications, and curriculum reference manuals accessible via student accounts.',
+      title: 'Campus Digital Library Expansion: 1,500+ New Scientific Titles Added',
+      content: 'We have updated our library resource center with 1,500+ new digital reference manuals, STEM textbooks, and Cambridge curriculum companions accessible via student accounts.',
     },
   ];
 
@@ -538,7 +745,14 @@ export async function seedOperationalData(prisma: PrismaClient, tenantId: string
     });
   }
 
-  console.log('🎉 Operational data seeding complete!');
-  console.log(`   Classes: ${classes.length} | Subjects: ${subjects.length} | Teachers: ${teacherProfiles.length} | Students: ${students.length}`);
-  console.log(`   Revenue Seeded: $${totalRevenueSeed.toLocaleString()} | Pending Receivables: $${pendingAmountSeed.toLocaleString()}`);
+  console.log('========================================================================');
+  console.log('🎉 OPERATIONAL DEMO DATA SEEDING COMPLETE FOR DEMO ACADEMY!');
+  console.log(`   Classes: ${classes.length} (4 Grades x 50 students = 200 total)`);
+  console.log(`   Students Seeded: ${students.length}`);
+  console.log(`   Subjects Configured: ${subjects.length}`);
+  console.log(`   Faculty Profiles: ${teacherProfiles.length}`);
+  console.log(`   Weekly Timetable Slots: ${timetableEntries.length} (Conflict-Free 5-Day / 5-Period)`);
+  console.log(`   Exam Sessions & Seats: 1 Exam (${seatAssignments.length} seats in 4 rooms)`);
+  console.log(`   Total Tuition Seeded: $${totalSeededRevenue.toLocaleString()} | Outstanding: $${totalPendingReceivables.toLocaleString()}`);
+  console.log('========================================================================');
 }
