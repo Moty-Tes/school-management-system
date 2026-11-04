@@ -3,9 +3,9 @@
 import { useEffect, useState, useRef } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
-import { getMe, logout } from '@/lib/auth';
+import { getMe, logout, login } from '@/lib/auth';
 import { api } from '@/lib/api';
-import { Toaster } from 'sonner';
+import { toast, Toaster } from 'sonner';
 import {
   Users, CreditCard, BookOpen, Clock, Settings,
   BarChart3, DollarSign, Receipt, ArrowUpRight, CheckCircle2,
@@ -101,6 +101,15 @@ const ALL_MODULES: ModuleCategory[] = [
   }
 ];
 
+const DEMO_PERSONAS = [
+  { role: 'TENANT_ADMIN', label: 'Principal', name: 'Alemayehu Girma', email: 'admin@demo-school.local', password: 'DemoAdmin123!', iconName: 'Shield', badge: 'Leadership', desc: 'Full leadership oversight, timetable & pulse analytics' },
+  { role: 'REGISTRAR', label: 'Registrar', name: 'Dawit Bekele', email: 'registrar@demo-school.local', password: 'Registrar123!', iconName: 'FileText', badge: 'Admissions', desc: '210 students across 4 grades, enrollments & intake' },
+  { role: 'TEACHER', label: 'Teacher', name: 'Abebe Kebede', email: 'teacher@demo-school.local', password: 'Teacher123!', iconName: 'Users', badge: 'Faculty', desc: 'Assigned timetable classes, gradebook & attendance' },
+  { role: 'ACCOUNTANT', label: 'Accountant', name: 'Sara Tadesse', email: 'accountant@demo-school.local', password: 'Accountant123!', iconName: 'DollarSign', badge: 'Finance', desc: 'ETB fee ledgers, waivers, payroll & expenses' },
+  { role: 'STUDENT', label: 'Student', name: 'Almaz Kebede', email: 'student@demo-school.local', password: 'Student123!', iconName: 'BookOpen', badge: 'Grade 9-A', desc: 'My assignments, schedule, seat & grades' },
+  { role: 'PARENT', label: 'Parent', name: 'Kebede Worku', email: 'parent@demo-school.local', password: 'Parent123!', iconName: 'Heart', badge: 'Guardian', desc: 'Linked children, fee invoices & reports' },
+];
+
 function getAuthorizedModules(categories: ModuleCategory[], userRoles: string[]): ModuleCategory[] {
   if (userRoles.includes('SUPER_ADMIN')) {
     return categories;
@@ -170,6 +179,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const [mobileSearchQuery, setMobileSearchQuery] = useState('');
   const modulesMenuRef = useRef<HTMLDivElement>(null);
 
+  // Demo Persona Switcher state (Instant 1-Click Role Testing)
+  const [showPersonaMenu, setShowPersonaMenu] = useState(false);
+  const [isSwitchingPersona, setIsSwitchingPersona] = useState(false);
+  const personaMenuRef = useRef<HTMLDivElement>(null);
+
   // Universal Command Palette state
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
 
@@ -218,6 +232,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   useEffect(() => {
     setShowModulesMenu(false);
     setMobileNavOpen(false);
+    setShowPersonaMenu(false);
   }, [pathname]);
 
   // Click outside listener for modules menu
@@ -232,6 +247,44 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       return () => document.removeEventListener('mousedown', handleClickOutside);
     }
   }, [showModulesMenu]);
+
+  // Click outside listener for persona switcher menu
+  useEffect(() => {
+    function handleClickOutsidePersona(event: MouseEvent) {
+      if (personaMenuRef.current && !personaMenuRef.current.contains(event.target as Node)) {
+        setShowPersonaMenu(false);
+      }
+    }
+    if (showPersonaMenu) {
+      document.addEventListener('mousedown', handleClickOutsidePersona);
+      return () => document.removeEventListener('mousedown', handleClickOutsidePersona);
+    }
+  }, [showPersonaMenu]);
+
+  async function handleSwitchPersona(targetEmail: string, targetPass: string) {
+    if (userProfile.email === targetEmail) {
+      setShowPersonaMenu(false);
+      return;
+    }
+    try {
+      setIsSwitchingPersona(true);
+      toast.loading(`Switching persona to ${targetEmail}...`);
+      await login({
+        email: targetEmail,
+        password: targetPass,
+        tenantCode: tenantCode || 'demo-school',
+      });
+      toast.dismiss();
+      toast.success('Switched demo role successfully');
+      setShowPersonaMenu(false);
+      setMobileNavOpen(false);
+      window.location.href = '/dashboard';
+    } catch (err: any) {
+      setIsSwitchingPersona(false);
+      toast.dismiss();
+      toast.error(err?.message || 'Failed to switch demo persona');
+    }
+  }
 
   async function loadNotifications() {
     try {
@@ -313,7 +366,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const isStudent = roles.includes('STUDENT');
   const isRegistrar = roles.includes('REGISTRAR');
   const unreadCount = notifications.filter(n => !n.readAt).length;
-  const isDemoTenant = tenantCode.toLowerCase().includes('demo') || tenantName.toLowerCase().includes('demo');
+  const isDemoTenant =
+    tenantCode.toLowerCase().includes('demo') ||
+    tenantName.toLowerCase().includes('demo') ||
+    (userProfile.email ? userProfile.email.endsWith('@demo-school.local') : false);
 
   // Filter modules based on user roles
   const authorizedModules = getAuthorizedModules(ALL_MODULES, roles);
@@ -431,6 +487,84 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                   </div>
                 </div>
               </Link>
+
+              {/* 1-Click Demo Persona Switcher (Desktop & Tablet) */}
+              {isDemoTenant && (
+                <div className="relative ml-2" ref={personaMenuRef}>
+                  <button
+                    type="button"
+                    onClick={() => setShowPersonaMenu(!showPersonaMenu)}
+                    disabled={isSwitchingPersona}
+                    className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 dark:text-amber-300 border border-amber-500/30 transition-all cursor-pointer shadow-2xs"
+                    title="Switch demo persona for testing (Principal, Teacher, Student, Parent, Accountant, Registrar)"
+                    aria-label="Switch demo persona"
+                  >
+                    <Sparkles className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+                    <span className="hidden sm:inline">Switch Role</span>
+                    <ChevronDown className={`w-3 h-3 text-amber-600 transition-transform ${showPersonaMenu ? 'rotate-180' : ''}`} />
+                  </button>
+
+                  {showPersonaMenu && (
+                    <div className="absolute left-0 mt-2 w-80 sm:w-96 rounded-2xl bg-white dark:bg-neutral-900 border border-border dark:border-border-overlay shadow-2xl p-3.5 z-50 animate-in fade-in slide-in-from-top-2 duration-150">
+                      <div className="flex items-center justify-between pb-2.5 mb-2.5 border-b border-border dark:border-border-overlay">
+                        <div>
+                          <p className="text-xs font-bold text-neutral-900 dark:text-white uppercase tracking-wider flex items-center gap-1.5">
+                            <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+                            Demo Persona Switcher
+                          </p>
+                          <p className="text-[11px] text-neutral-500">Instant 1-click role testing across connected records</p>
+                        </div>
+                        <span className="text-[9px] font-extrabold uppercase px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 border border-amber-300 dark:border-amber-700">
+                          Demo Mode
+                        </span>
+                      </div>
+
+                      <div className="space-y-1.5 max-h-[380px] overflow-y-auto">
+                        {DEMO_PERSONAS.map((p) => {
+                          const isActive = userProfile.email === p.email;
+                          return (
+                            <button
+                              key={p.email}
+                              type="button"
+                              onClick={() => handleSwitchPersona(p.email, p.password)}
+                              disabled={isSwitchingPersona || isActive}
+                              className={`w-full text-left p-2.5 rounded-xl border transition-all flex items-start gap-2.5 ${
+                                isActive
+                                  ? 'bg-[#1B4F8C]/10 border-[#1B4F8C]/40 cursor-default'
+                                  : 'bg-neutral-50/70 hover:bg-neutral-100 dark:bg-neutral-800/50 dark:hover:bg-neutral-800 border-border dark:border-border-overlay hover:border-[#1B4F8C]/40 cursor-pointer'
+                              }`}
+                            >
+                              <div className={`p-1.5 rounded-lg mt-0.5 shrink-0 ${isActive ? 'bg-[#1B4F8C] text-white' : 'bg-neutral-200 dark:bg-neutral-700 text-neutral-700 dark:text-neutral-200'}`}>
+                                {renderModuleIcon(p.iconName, 'w-4 h-4')}
+                              </div>
+                              <div className="min-w-0 flex-1">
+                                <div className="flex items-center justify-between gap-1.5">
+                                  <p className="text-xs font-bold text-neutral-900 dark:text-white truncate">
+                                    {p.label}
+                                  </p>
+                                  {isActive ? (
+                                    <span className="inline-flex items-center gap-1 text-[10px] font-bold text-[#1B4F8C] bg-blue-100 dark:bg-blue-950/60 px-1.5 py-0.2 rounded-full">
+                                      <Check className="w-3 h-3" /> Active
+                                    </span>
+                                  ) : (
+                                    <span className="text-[10px] text-neutral-400 font-semibold">{p.badge}</span>
+                                  )}
+                                </div>
+                                <p className="text-[11px] text-neutral-600 dark:text-neutral-300 font-medium truncate mt-0.5">
+                                  {p.name} <span className="text-neutral-400 font-normal">({p.email})</span>
+                                </p>
+                                <p className="text-[10px] text-neutral-400 truncate mt-0.5">
+                                  {p.desc}
+                                </p>
+                              </div>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
 
               {/* Desktop Nav Links */}
               <nav className="hidden lg:flex items-center gap-2 ml-4">
@@ -719,6 +853,44 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 <p className="text-[10px] text-neutral-500 truncate">{userProfile.email || 'Active Account'}</p>
               </div>
             </div>
+
+            {/* Quick Demo Persona Switcher (For Android & Mobile Evaluators) */}
+            {isDemoTenant && (
+              <div className="px-3 pt-3">
+                <div className="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/25">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-[10px] font-extrabold uppercase tracking-wider text-amber-800 dark:text-amber-200 flex items-center gap-1">
+                      <Sparkles className="w-3 h-3 text-amber-600 dark:text-amber-400" />
+                      Switch Demo Persona
+                    </span>
+                    <span className="text-[9px] text-amber-700 dark:text-amber-300 font-semibold">1-Tap Switch</span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-1.5">
+                    {DEMO_PERSONAS.map((p) => {
+                      const isActive = userProfile.email === p.email;
+                      return (
+                        <button
+                          key={p.email}
+                          type="button"
+                          onClick={() => handleSwitchPersona(p.email, p.password)}
+                          disabled={isSwitchingPersona || isActive}
+                          className={`flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-[11px] font-semibold transition-all text-left ${
+                            isActive
+                              ? 'bg-[#1B4F8C] text-white shadow-2xs'
+                              : 'bg-white dark:bg-neutral-800 text-neutral-700 dark:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-neutral-700 border border-border dark:border-border-overlay'
+                          }`}
+                        >
+                          <div className={isActive ? 'text-white' : 'text-[#1B4F8C]'}>
+                            {renderModuleIcon(p.iconName, 'w-3.5 h-3.5 shrink-0')}
+                          </div>
+                          <span className="truncate">{p.label.split(' ')[0]}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* In-Drawer Instant Filter for Android & Mobile Screen Ease */}
             <div className="px-3 pt-3">

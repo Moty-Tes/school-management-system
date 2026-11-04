@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import * as assignmentService from '../services/assignment.service.js';
+import { AppError } from '../middleware/error.middleware.js';
 import { z } from 'zod';
 
 const createSchema = z.object({
@@ -12,41 +13,67 @@ const createSchema = z.object({
 
 export async function createHandler(req: Request, res: Response, next: NextFunction) {
   try {
-    if (!req.auth?.tenantId) throw new Error("No tenant");
+    if (!req.auth?.tenantId || !req.auth?.sub) throw new AppError('Authentication required', 401, 'UNAUTHENTICATED');
     const input = createSchema.parse(req.body);
-    const result = await assignmentService.createAssignment(req.auth.tenantId, req.auth.sub, input);
+    const result = await assignmentService.createAssignment(
+      req.auth.tenantId,
+      req.auth.sub,
+      input,
+      req.auth.roles || []
+    );
     res.status(201).json(result);
-  } catch (err) { next(err); }
+  } catch (err) {
+    next(err);
+  }
 }
 
 export async function listHandler(req: Request, res: Response, next: NextFunction) {
   try {
-    if (!req.auth?.tenantId) throw new Error("No tenant");
+    if (!req.auth?.tenantId) throw new AppError('Tenant context required', 400, 'BAD_REQUEST');
     const result = await assignmentService.listAssignments(req.auth.tenantId, req.query.classId as string);
     res.status(200).json(result);
-  } catch (err) { next(err); }
+  } catch (err) {
+    next(err);
+  }
 }
 
 export async function submitHandler(req: Request, res: Response, next: NextFunction) {
   try {
-    if (!req.auth?.tenantId) throw new Error("No tenant");
-    const result = await assignmentService.submitAssignment(req.auth.tenantId, req.auth.sub, req.params.id, req.body);
+    if (!req.auth?.tenantId || !req.auth?.sub) throw new AppError('Authentication required', 401, 'UNAUTHENTICATED');
+    const result = await assignmentService.submitAssignment(
+      req.auth.tenantId,
+      req.auth.sub,
+      req.params.id,
+      req.body
+    );
     res.status(200).json(result);
-  } catch (err) { next(err); }
+  } catch (err) {
+    next(err);
+  }
 }
 
 export async function getSubmissionsHandler(req: Request, res: Response, next: NextFunction) {
   try {
-    if (!req.auth?.tenantId) throw new Error("No tenant");
+    if (!req.auth?.tenantId) throw new AppError('Tenant context required', 400, 'BAD_REQUEST');
     const result = await assignmentService.getSubmissions(req.auth.tenantId, req.params.id);
     res.status(200).json(result);
-  } catch (err) { next(err); }
+  } catch (err) {
+    next(err);
+  }
 }
 
 export async function gradeHandler(req: Request, res: Response, next: NextFunction) {
   try {
-    if (!req.auth?.tenantId) throw new Error("No tenant");
-    const result = await assignmentService.gradeSubmission(req.auth.tenantId, req.params.id, req.body);
+    if (!req.auth?.tenantId || !req.auth?.sub) throw new AppError('Authentication required', 401, 'UNAUTHENTICATED');
+    const result = await assignmentService.gradeSubmission(
+      req.auth.tenantId,
+      req.params.id,
+      req.body,
+      req.auth.sub,
+      req.auth.roles || []
+    );
     res.status(200).json(result);
-  } catch (err) { next(err); }
+  } catch (err) {
+    next(err);
+  }
 }

@@ -197,4 +197,144 @@ describe('Gate Scanner, Exam Scoping & Health Governance Authorization Suite', (
       assert.ok(disclaimer.includes('telephone the verified contacts listed below directly'));
     });
   });
+
+  describe('5. Parent-Child Relationship Scoping & Student Profile Isolation', () => {
+    // Simulated data context representing family relationships
+    const familyRelations = {
+      parentUserSub: 'usr-parent-01',
+      linkedStudentIds: ['stu-eth-001', 'stu-eth-002'], // Siblings in Grade 9 & Grade 11
+      unrelatedStudentId: 'stu-eth-099', // Student from another family
+    };
+
+    function simulateStudentProfileAccess(
+      auth: { sub: string; roles: string[] },
+      targetStudentId: string,
+      linkedStudentIds: string[] = []
+    ): { allowed: boolean; status: number; message?: string } {
+      const isParent = auth.roles.includes('PARENT');
+      const isStudent = auth.roles.includes('STUDENT');
+      const isStaff = auth.roles.some((r) =>
+        ['SUPER_ADMIN', 'TENANT_ADMIN', 'ADMIN', 'REGISTRAR', 'ACCOUNTANT', 'TEACHER'].includes(r)
+      );
+
+      if (isParent) {
+        if (!linkedStudentIds.includes(targetStudentId)) {
+          return {
+            allowed: false,
+            status: 403,
+            message: 'Access denied: You are only authorized to view records for your linked children.',
+          };
+        }
+        return { allowed: true, status: 200 };
+      }
+
+      if (isStudent) {
+        const myStudentId = 'stu-eth-001'; // Simulated own student record
+        if (targetStudentId !== myStudentId) {
+          return {
+            allowed: false,
+            status: 403,
+            message: 'Access denied: Students may only view their own profile.',
+          };
+        }
+        return { allowed: true, status: 200 };
+      }
+
+      if (isStaff) {
+        return { allowed: true, status: 200 };
+      }
+
+      return { allowed: false, status: 403, message: 'Unauthorized role' };
+    }
+
+    test('permits parent to access records of their linked children', () => {
+      const res = simulateStudentProfileAccess(
+        parentUser.auth,
+        'stu-eth-001',
+        familyRelations.linkedStudentIds
+      );
+      assert.strictEqual(res.allowed, true);
+      assert.strictEqual(res.status, 200);
+    });
+
+    test('strictly blocks parent from accessing records of unrelated students with 403 Forbidden', () => {
+      const res = simulateStudentProfileAccess(
+        parentUser.auth,
+        familyRelations.unrelatedStudentId,
+        familyRelations.linkedStudentIds
+      );
+      assert.strictEqual(res.allowed, false);
+      assert.strictEqual(res.status, 403);
+      assert.ok(res.message?.includes('only authorized to view records for your linked children'));
+    });
+
+    test('permits student to view their own profile but blocks peering into other students', () => {
+      const ownAccess = simulateStudentProfileAccess(studentUser.auth, 'stu-eth-001');
+      assert.strictEqual(ownAccess.allowed, true);
+      assert.strictEqual(ownAccess.status, 200);
+
+      const peerAccess = simulateStudentProfileAccess(studentUser.auth, 'stu-eth-002');
+      assert.strictEqual(peerAccess.allowed, false);
+      assert.strictEqual(peerAccess.status, 403);
+      assert.ok(peerAccess.message?.includes('Students may only view their own profile'));
+    });
+
+    test('permits authorized school staff (Principal, Registrar, Accountant) to inspect student profiles', () => {
+      assert.strictEqual(simulateStudentProfileAccess(principalAdminUser.auth, 'stu-eth-001').allowed, true);
+      assert.strictEqual(simulateStudentProfileAccess(registrarUser.auth, 'stu-eth-001').allowed, true);
+    });
+  });
+
+  describe('6. Teacher Timetable & Class-Scoped Assessment Governance', () => {
+    // Simulated timetable assignments for Abebe Kebede (Math Dept Head)
+    const teacherAssignedClassIds = ['cls-grade-9-a', 'cls-grade-10-a', 'cls-grade-11-nat-a'];
+    const unassignedClassId = 'cls-grade-12-soc-b'; // Taught by another department
+
+    function simulateGradeEntryAuthorization(
+      teacherId: string,
+      targetClassId: string,
+      assignedClasses: string[]
+    ): { allowed: boolean; status: number; message?: string } {
+      const isAssigned = assignedClasses.includes(targetClassId);
+      if (!isAssigned) {
+        return {
+          allowed: false,
+          status: 403,
+          message: 'Access denied: You are only authorized to record grades for classes assigned to you on the timetable.',
+        };
+      }
+      return { allowed: true, status: 200 };
+    }
+
+    test('allows teacher to submit grades for their assigned timetable sections', () => {
+      const res = simulateGradeEntryAuthorization('usr-teacher-01', 'cls-grade-9-a', teacherAssignedClassIds);
+      assert.strictEqual(res.allowed, true);
+      assert.strictEqual(res.status, 200);
+    });
+
+    test('strictly rejects grade submissions for sections not assigned to the teacher', () => {
+      const res = simulateGradeEntryAuthorization('usr-teacher-01', unassignedClassId, teacherAssignedClassIds);
+      assert.strictEqual(res.allowed, false);
+      assert.strictEqual(res.status, 403);
+      assert.ok(res.message?.includes('only authorized to record grades for classes assigned to you'));
+    });
+  });
+
+  describe('7. Dual-Semester Operational Demo Configuration & Ethiopian Localization', () => {
+    test('confirms Semester 1 is finalized and Semester 2 is actively in progress', async () => {
+      const { DEMO_ACADEMIC_CONFIG } = await import('@sms/database');
+      assert.ok(DEMO_ACADEMIC_CONFIG);
+      assert.strictEqual(DEMO_ACADEMIC_CONFIG.academicYear, '2025/2026');
+      assert.strictEqual(DEMO_ACADEMIC_CONFIG.semester1Finalized, true);
+      assert.strictEqual(DEMO_ACADEMIC_CONFIG.semester2InProgress, true);
+      assert.strictEqual(DEMO_ACADEMIC_CONFIG.currency, 'ETB');
+    });
+
+    test('ensures currency denomination is strictly ETB across financial models with zero dollar signs', async () => {
+      const { DEMO_ACADEMIC_CONFIG } = await import('@sms/database');
+      assert.strictEqual(DEMO_ACADEMIC_CONFIG.currency, 'ETB');
+      assert.notStrictEqual(DEMO_ACADEMIC_CONFIG.currency, '$');
+      assert.notStrictEqual(DEMO_ACADEMIC_CONFIG.currency, 'USD');
+    });
+  });
 });

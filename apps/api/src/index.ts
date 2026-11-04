@@ -140,6 +140,7 @@ app.use('/api/v1/assessments', assessmentRoutes);
 app.use('/api/v1/finance', financeRoutes);
 app.use('/api/v1/announcements', announcementRoutes);
 app.use('/api/v1/parents', parentRoutes);
+app.use('/api/v1/children', parentRoutes);
 app.use('/api/v1/tenant', tenantRoutes);
 app.use('/api/v1/demo', demoRoutes);
 app.use('/api/v1/upload', uploadRoutes);

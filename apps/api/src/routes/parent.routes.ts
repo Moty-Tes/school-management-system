@@ -4,8 +4,9 @@ import { authenticate } from '../middleware/auth.middleware.js';
 
 const router = Router();
 
-// GET /api/v1/parents/my-children
 // Fetches all students linked to the currently logged-in parent
 router.get('/my-children', authenticate, parentController.getChildrenHandler);
+router.get('/children', authenticate, parentController.getChildrenHandler);
+router.get('/', authenticate, parentController.getChildrenHandler);
 
 export default router;

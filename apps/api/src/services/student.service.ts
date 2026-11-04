@@ -27,7 +27,7 @@ export async function createStudent(tenantId: string, input: CreateStudentInput)
       guardianName: input.guardianName,
       guardianPhone: input.guardianPhone,
     },
-    include: { class: true }, // Include class details in the response
+    include: { class: true },
   });
 
   return student;
@@ -36,7 +36,7 @@ export async function createStudent(tenantId: string, input: CreateStudentInput)
 export async function listStudents(tenantId: string) {
   return prisma.student.findMany({
     where: { tenantId, deletedAt: null },
-    include: { class: true }, // Join the class table
+    include: { class: true },
     orderBy: { createdAt: 'desc' },
   });
 }
@@ -73,11 +73,10 @@ export async function deleteStudent(tenantId: string, id: string) {
     data: { deletedAt: new Date() },
   });
 }
+
 export async function bulkCreateStudents(tenantId: string, students: CreateStudentInput[]) {
-  // Get the current count to generate sequential admission numbers
   const currentCount = await prisma.student.count({ where: { tenantId } });
 
-  // Prepare the data array for Prisma
   const dataToInsert = students.map((student, index) => ({
     tenantId,
     admissionNumber: `STU-${String(currentCount + index + 1).padStart(4, '0')}`,
@@ -90,13 +89,55 @@ export async function bulkCreateStudents(tenantId: string, students: CreateStude
     status: 'ACTIVE' as const,
   }));
 
-  // createMany is much faster than calling create() in a loop
   return prisma.student.createMany({
     data: dataToInsert,
-    skipDuplicates: true, // Skips if admissionNumber somehow conflicts
+    skipDuplicates: true,
   });
 }
-export async function getStudentProfile(tenantId: string, studentId: string) {
+
+export async function getStudentProfile(
+  tenantId: string,
+  studentId: string,
+  userId?: string,
+  roles?: string[]
+) {
+  // Authorization boundary: if requester is PARENT or STUDENT, verify ownership
+  if (roles && roles.length > 0) {
+    const isStaff = roles.some((r) =>
+      ['SUPER_ADMIN', 'TENANT_ADMIN', 'ADMIN', 'TEACHER', 'REGISTRAR', 'ACCOUNTANT', 'SAFEGUARDING_LEAD'].includes(r)
+    );
+
+    if (!isStaff) {
+      if (roles.includes('PARENT')) {
+        const parentProfile = await prisma.parentProfile.findFirst({
+          where: { tenantId, userId },
+          include: { students: { select: { studentId: true } } },
+        });
+        const isLinkedChild = parentProfile?.students.some((s) => s.studentId === studentId);
+        if (!isLinkedChild) {
+          throw new AppError('Forbidden: Parents may only view records for their registered children', 403, 'FORBIDDEN');
+        }
+      } else if (roles.includes('STUDENT')) {
+        const user = await prisma.user.findUnique({
+          where: { id: userId },
+          include: { profile: true },
+        });
+        const selfStudent = await prisma.student.findFirst({
+          where: {
+            id: studentId,
+            tenantId,
+            firstName: user?.profile?.firstName || '',
+            lastName: user?.profile?.lastName || '',
+            deletedAt: null,
+          },
+        });
+        if (!selfStudent) {
+          throw new AppError('Forbidden: Students may only inspect their own profile', 403, 'FORBIDDEN');
+        }
+      }
+    }
+  }
+
   // 1. Fetch the basic student info, class, and fees
   const student = await prisma.student.findFirst({
     where: { id: studentId, tenantId, deletedAt: null },
@@ -118,20 +159,20 @@ export async function getStudentProfile(tenantId: string, studentId: string) {
     _count: { status: true },
   });
 
-  // 3. Fetch the 5 most recent grades
+  // 3. Fetch recent grades
   const recentGrades = await prisma.grade.findMany({
     where: { studentId, tenantId },
     include: { assessment: true },
     orderBy: { createdAt: 'desc' },
-    take: 5,
+    take: 10,
   });
 
   // 4. Calculate Fee Balance
   let totalBilled = 0;
   let totalPaid = 0;
-  student.invoices.forEach(inv => {
+  student.invoices.forEach((inv) => {
     totalBilled += Number(inv.amount);
-    inv.payments.forEach(p => {
+    inv.payments.forEach((p) => {
       totalPaid += Number(p.amount);
     });
   });
@@ -144,46 +185,47 @@ export async function getStudentProfile(tenantId: string, studentId: string) {
       totalBilled,
       totalPaid,
       balance: totalBilled - totalPaid,
-    }
+    },
   };
 }
+
 export async function promoteClass(
-  tenantId: string, 
-  sourceClassId: string, 
-  targetClassId: string | null, 
+  tenantId: string,
+  sourceClassId: string,
+  targetClassId: string | null,
   isGraduation: boolean
 ) {
   return prisma.$transaction(async (tx) => {
-    // 1. Fetch all active students in the source class
     const students = await tx.student.findMany({
       where: { tenantId, classId: sourceClassId, status: 'ACTIVE', deletedAt: null },
-      select: { id: true }
+      select: { id: true },
     });
 
     if (students.length === 0) throw new AppError('No active students found in this class', 400, 'NO_STUDENTS');
 
-    const studentIds = students.map(s => s.id);
+    const studentIds = students.map((s) => s.id);
 
     if (isGraduation) {
-      // 2A. Mark as Graduated
       await tx.student.updateMany({
         where: { id: { in: studentIds } },
-        data: { status: 'GRADUATED', classId: null }, // Remove from class
+        data: { status: 'GRADUATED', classId: null },
       });
       return { count: studentIds.length, action: 'GRADUATED' };
     } else {
-      // 2B. Promote to new class
       if (!targetClassId) throw new AppError('Target class required for promotion', 400, 'NO_TARGET');
-      
-      // Check target class capacity
+
       const targetClass = await tx.class.findUnique({
         where: { id: targetClassId },
-        include: { _count: { select: { students: true } } }
+        include: { _count: { select: { students: true } } },
       });
-      
+
       if (!targetClass) throw new AppError('Target class not found', 404, 'NOT_FOUND');
       if (targetClass._count.students + studentIds.length > targetClass.capacity) {
-        throw new AppError(`Target class capacity (${targetClass.capacity}) exceeded. Current: ${targetClass._count.students}, Incoming: ${studentIds.length}`, 400, 'CAPACITY_EXCEEDED');
+        throw new AppError(
+          `Target class capacity (${targetClass.capacity}) exceeded. Current: ${targetClass._count.students}, Incoming: ${studentIds.length}`,
+          400,
+          'CAPACITY_EXCEEDED'
+        );
       }
 
       await tx.student.updateMany({

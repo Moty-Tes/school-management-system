@@ -62,7 +62,9 @@ export async function saveGradesHandler(req: Request, res: Response, next: NextF
     await assessmentService.saveGrades(
       req.auth.tenantId,
       assessmentId,
-      formattedGrades
+      formattedGrades,
+      req.auth.sub,
+      req.auth.roles || []
     );
 
     res.status(200).json({ success: true, message: 'Grades saved' });

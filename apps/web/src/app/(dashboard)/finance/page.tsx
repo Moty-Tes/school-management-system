@@ -3,14 +3,24 @@
 import { useEffect, useState } from 'react';
 import { api } from '@/lib/api';
 import { getMe } from '@/lib/auth';
-import Link from 'next/link';
 import { motion } from 'framer-motion';
 import {
-  DollarSign, CreditCard, Clipboard, TrendingUp, Folder, Shield,
-  Users, Calendar, ArrowUpRight, CheckCircle2, AlertCircle, PieChart as PieIcon, BarChart3
+  CreditCard,
+  Clipboard,
+  CheckCircle2,
+  PieChart as PieIcon,
+  BarChart3,
+  Coins,
 } from 'lucide-react';
 import {
-  Card, Skeleton, Table, TableHeadCell, TableRowCell, KpiEmptyStateComponent, KpiCard, TableSection, Button
+  Card,
+  Skeleton,
+  Table,
+  TableHeadCell,
+  TableRowCell,
+  KpiEmptyStateComponent,
+  KpiCard,
+  TableSection,
 } from '@/components/ui';
 import { use_reducedMotion } from '@/hooks/use-reduced-motion';
 import {
@@ -21,7 +31,6 @@ import {
   YAxis,
   CartesianGrid,
   Tooltip,
-  Legend,
   PieChart,
   Pie,
   Cell,
@@ -68,7 +77,6 @@ const PAYMENT_METHOD_COLORS: Record<string, string> = {
 };
 
 export default function FinancePage() {
-  const [role, setRole] = useState<'ADMIN' | 'ACCOUNTANT' | 'TEACHER' | 'PARENT'>('ADMIN');
   const [financialSummary, setFinancialSummary] = useState<FinancialSummary | null>(null);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [payments, setPayments] = useState<Payment[]>([]);
@@ -79,16 +87,6 @@ export default function FinancePage() {
 
   useEffect(() => {
     setMounted(true);
-
-    getMe().then((me: any) => {
-      const userRoles: string[] = me?.roles || [];
-      const isSuperAdmin = userRoles.includes('SUPER_ADMIN');
-      const isTenantAdmin = userRoles.includes('TENANT_ADMIN');
-      const isAccountant = userRoles.includes('ACCOUNTANT');
-      const isParent = userRoles.includes('PARENT');
-
-      setRole(isSuperAdmin || isTenantAdmin || isAccountant ? 'ACCOUNTANT' : isParent ? 'PARENT' : 'ADMIN');
-    });
 
     // Load financial data with graceful normalization
     async function loadFinancialData() {
@@ -128,18 +126,18 @@ export default function FinancePage() {
           totalInvoices: mappedInvoices.length,
           paidInvoices: mappedInvoices.filter(i => i.status === 'paid').length,
           monthlyTrend: [
-            { month: 'Nov 25', revenue: 14200, expenses: 9800 },
-            { month: 'Dec 25', revenue: 18500, expenses: 11200 },
-            { month: 'Jan 26', revenue: 22400, expenses: 13500 },
-            { month: 'Feb 26', revenue: 26800, expenses: 14100 },
-            { month: 'Mar 26', revenue: 31200, expenses: 15600 },
-            { month: 'Apr 26', revenue: 36500, expenses: 17200 },
+            { month: 'Nov 25', revenue: 142000, expenses: 98000 },
+            { month: 'Dec 25', revenue: 185000, expenses: 112000 },
+            { month: 'Jan 26', revenue: 224000, expenses: 135000 },
+            { month: 'Feb 26', revenue: 268000, expenses: 141000 },
+            { month: 'Mar 26', revenue: 312000, expenses: 156000 },
+            { month: 'Apr 26', revenue: 365000, expenses: 172000 },
           ],
         });
 
         setInvoices(mappedInvoices);
         setPayments(mappedPayments);
-      } catch (err) {
+      } catch {
         setFinancialSummary(null);
         setInvoices([]);
         setPayments([]);
@@ -176,21 +174,21 @@ export default function FinancePage() {
         color: PAYMENT_METHOD_COLORS[name] || '#1B4F8C',
       }))
     : [
-        { name: 'Bank Transfer', value: 18500, color: '#1B4F8C' },
-        { name: 'Mobile Money', value: 12400, color: '#E86524' },
-        { name: 'Credit Card', value: 5600, color: '#0ea5e9' },
-        { name: 'Cash', value: 2800, color: '#10b981' },
+        { name: 'Bank Transfer (CBE)', value: 185000, color: '#1B4F8C' },
+        { name: 'Telebirr Mobile Money', value: 124000, color: '#E86524' },
+        { name: 'Awash Bank Direct', value: 56000, color: '#0ea5e9' },
+        { name: 'Cash at Cashier Desk', value: 28000, color: '#10b981' },
       ];
 
   const monthlyTrendData = financialSummary?.monthlyTrend && financialSummary.monthlyTrend.length > 0
     ? financialSummary.monthlyTrend
     : [
-        { month: 'Nov 25', revenue: 14200, expenses: 9800 },
-        { month: 'Dec 25', revenue: 18500, expenses: 11200 },
-        { month: 'Jan 26', revenue: 22400, expenses: 13500 },
-        { month: 'Feb 26', revenue: 26800, expenses: 14100 },
-        { month: 'Mar 26', revenue: 31200, expenses: 15600 },
-        { month: 'Apr 26', revenue: 36500, expenses: 17200 },
+        { month: 'Nov 25', revenue: 142000, expenses: 98000 },
+        { month: 'Dec 25', revenue: 185000, expenses: 112000 },
+        { month: 'Jan 26', revenue: 224000, expenses: 135000 },
+        { month: 'Feb 26', revenue: 268000, expenses: 141000 },
+        { month: 'Mar 26', revenue: 312000, expenses: 156000 },
+        { month: 'Apr 26', revenue: 365000, expenses: 172000 },
       ];
 
   return (
@@ -206,17 +204,18 @@ export default function FinancePage() {
           {/* Page Title & Status */}
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>
-              <h1 className="text-2xl sm:text-3xl font-extrabold text-neutral-900 dark:text-white tracking-tight">
-                Finance & Fee Ledger
+              <h1 className="text-2xl sm:text-3xl font-extrabold text-neutral-900 dark:text-white tracking-tight flex items-center gap-2">
+                <Coins className="w-7 h-7 text-[#E86524]" />
+                Finance & Fee Ledger (ETB)
               </h1>
               <p className="text-sm text-neutral-500 mt-1">
-                Real-time multi-tenant tuition collections, operational expenses, and audit-ready fiscal reconciliation.
+                Multi-tenant Ethiopian Birr tuition collections, sibling fee waivers, and audit-ready fiscal reconciliation.
               </p>
             </div>
             <div className="flex items-center gap-2">
               <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800">
                 <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                Live Fiscal Sandbox
+                Currency: Ethiopian Birr (ETB)
               </span>
             </div>
           </div>
@@ -225,21 +224,21 @@ export default function FinancePage() {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <Card>
               <KpiCard
-                value={`$${totalRevenue.toLocaleString()}`}
+                value={`ETB ${totalRevenue.toLocaleString()}`}
                 label="Total Revenue Collected"
                 trend="up"
-                trendValue="+14.2% vs last term"
-                subtitle="All Verified Payments"
+                trendValue="+14.2% vs Semester 1"
+                subtitle="Reconciled Bank & Telebirr"
                 variant="primary"
               />
             </Card>
 
             <Card>
               <KpiCard
-                value={`$${pendingAmount.toLocaleString()}`}
-                label="Pending / Outstanding"
+                value={`ETB ${pendingAmount.toLocaleString()}`}
+                label="Pending Receivables"
                 trend="down"
-                trendValue="Action Required"
+                trendValue="Active Follow-up"
                 subtitle="Unpaid & Partial Invoices"
                 variant="warning"
               />
@@ -250,19 +249,19 @@ export default function FinancePage() {
                 value={`${collectionRate}%`}
                 label="Collection Efficiency"
                 trend="up"
-                trendValue="+5.8% target margin"
-                subtitle={`${paidInvoicesCount} of ${totalInvoices} Invoices Cleared`}
+                trendValue="+5.8% institutional target"
+                subtitle={`${paidInvoicesCount} of ${totalInvoices} Invoices Settled`}
                 variant="success"
               />
             </Card>
 
             <Card>
               <KpiCard
-                value={`$${(financialSummary?.totalExpenses ?? 24700).toLocaleString()}`}
+                value={`ETB ${(financialSummary?.totalExpenses ?? 344600).toLocaleString()}`}
                 label="Operating Expenses"
                 trend="neutral"
-                trendValue="Within Budget"
-                subtitle="Lab, Utilities & Payroll"
+                trendValue="Within Planned Budget"
+                subtitle="Laboratories, Utilities & Payroll"
                 variant="default"
               />
             </Card>
@@ -278,7 +277,7 @@ export default function FinancePage() {
                   <div className="flex items-center gap-2">
                     <BarChart3 className="w-5 h-5 text-[#E86524]" />
                     <h3 className="text-base font-bold text-neutral-900 dark:text-white">
-                      Fiscal Trajectory (Last 6 Months)
+                      Fiscal Trajectory (Last 6 Months in ETB)
                     </h3>
                   </div>
                   <div className="flex items-center gap-4 text-xs font-medium text-neutral-500">
@@ -303,10 +302,10 @@ export default function FinancePage() {
                           stroke="#888888"
                           fontSize={11}
                           tickLine={false}
-                          tickFormatter={(value) => `$${value >= 1000 ? `${Math.round(value / 1000)}k` : value}`}
+                          tickFormatter={(value) => `ETB ${value >= 1000 ? `${Math.round(value / 1000)}k` : value}`}
                         />
                         <Tooltip
-                          formatter={(value: any) => [`$${Number(value).toLocaleString()}`, '']}
+                          formatter={(value: any) => [`ETB ${Number(value).toLocaleString()}`, '']}
                           contentStyle={{
                             backgroundColor: '#071324',
                             borderRadius: '12px',
@@ -315,8 +314,8 @@ export default function FinancePage() {
                             fontSize: '12px',
                           }}
                         />
-                        <Bar dataKey="revenue" name="Revenue Collected" fill="#1B4F8C" radius={[4, 4, 0, 0]} />
-                        <Bar dataKey="expenses" name="Operating Expenses" fill="#E86524" radius={[4, 4, 0, 0]} />
+                        <Bar dataKey="revenue" name="Revenue Collected (ETB)" fill="#1B4F8C" radius={[4, 4, 0, 0]} />
+                        <Bar dataKey="expenses" name="Operating Expenses (ETB)" fill="#E86524" radius={[4, 4, 0, 0]} />
                       </BarChart>
                     </ResponsiveContainer>
                   </div>
@@ -334,7 +333,7 @@ export default function FinancePage() {
                 <div className="flex items-center gap-2 mb-4">
                   <PieIcon className="w-5 h-5 text-[#1B4F8C]" />
                   <h3 className="text-base font-bold text-neutral-900 dark:text-white">
-                    Payment Method Share
+                    Payment Channels (ETB)
                   </h3>
                 </div>
 
@@ -357,7 +356,7 @@ export default function FinancePage() {
                           ))}
                         </Pie>
                         <Tooltip
-                          formatter={(value: any) => [`$${Number(value).toLocaleString()}`, '']}
+                          formatter={(value: any) => [`ETB ${Number(value).toLocaleString()}`, '']}
                           contentStyle={{
                             backgroundColor: '#071324',
                             borderRadius: '12px',
@@ -394,7 +393,7 @@ export default function FinancePage() {
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-5">
               <div>
                 <h3 className="text-lg font-bold text-neutral-900 dark:text-white">
-                  Tuition & Fee Invoices
+                  Tuition & Fee Invoices (ETB)
                 </h3>
                 <p className="text-xs text-neutral-500">
                   Showing {filteredInvoices.length} invoices ({invoices.length} total)
@@ -442,7 +441,7 @@ export default function FinancePage() {
                       </div>
                       <span className="font-semibold text-neutral-900 dark:text-white">{inv.studentName}</span>
                       <span className="text-xs text-neutral-500 truncate max-w-[200px]">{inv.title}</span>
-                      <span className="font-mono font-bold text-neutral-900 dark:text-white">${inv.amount.toLocaleString()}</span>
+                      <span className="font-mono font-bold text-neutral-900 dark:text-white">ETB {inv.amount.toLocaleString()}</span>
                       <span
                         className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold uppercase tracking-wider ${
                           isPaid
@@ -468,7 +467,7 @@ export default function FinancePage() {
           <Card>
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-bold text-neutral-900 dark:text-white">
-                Recent Cleared Transactions
+                Audited Cleared Transactions (ETB)
               </h3>
               <span className="text-xs text-neutral-500 font-mono">
                 {payments.length} audited payments recorded
@@ -498,7 +497,7 @@ export default function FinancePage() {
                       <span className="text-neutral-500 text-xs font-mono">{new Date(pay.date).toLocaleDateString()}</span>
                       <span className="font-mono text-xs font-bold text-[#1B4F8C]">INV-{pay.invoiceId}</span>
                       <span className="font-medium text-neutral-800 dark:text-neutral-200">{pay.studentName || 'Student'}</span>
-                      <span className="font-mono font-bold text-emerald-600 dark:text-emerald-400">+${pay.amount.toLocaleString()}</span>
+                      <span className="font-mono font-bold text-emerald-600 dark:text-emerald-400">+ETB {pay.amount.toLocaleString()}</span>
                       <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-mono bg-neutral-100 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300">
                         {pay.method.replace('_', ' ')}
                       </span>
