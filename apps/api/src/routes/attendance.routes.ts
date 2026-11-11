@@ -8,9 +8,12 @@ const router = Router();
 router.post(
   '/',
   authenticate,
-  requireRoles('SUPER_ADMIN', 'TENANT_ADMIN', 'TEACHER', 'REGISTRAR'),
+  requireRoles('SUPER_ADMIN', 'TENANT_ADMIN', 'ADMIN', 'TEACHER', 'REGISTRAR'),
   attendanceController.saveAttendanceHandler
 );
+
+// Early-warning attendance summary & flagged student insights (strictly tenant & role scoped)
+router.get('/insights', authenticate, attendanceController.getAttendanceInsightsHandler);
 
 // Reviewing attendance records is permitted for authenticated academic members
 router.get('/', authenticate, attendanceController.getAttendanceHandler);

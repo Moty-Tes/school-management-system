@@ -47,11 +47,18 @@ export async function listInvoicesHandler(req: Request, res: Response, next: Nex
         where: { id: userId },
         include: { profile: true },
       });
+      const firstName = user?.profile?.firstName?.trim();
+      const lastName = user?.profile?.lastName?.trim();
+
+      if (!firstName || !lastName) {
+        return res.status(200).json({ success: true, data: [] });
+      }
+
       const student = await prisma.student.findFirst({
         where: {
           tenantId,
-          firstName: user?.profile?.firstName || '',
-          lastName: user?.profile?.lastName || '',
+          firstName,
+          lastName,
           deletedAt: null,
         },
         select: { id: true },
@@ -106,7 +113,7 @@ export async function listInvoicesHandler(req: Request, res: Response, next: Nex
 
 export async function createInvoiceHandler(req: Request, res: Response, next: NextFunction) {
   try {
-    if (!req.auth?.tenantId) throw new Error("No tenant context");
+    if (!req.auth?.tenantId) throw new AppError('Authentication required', 401, 'UNAUTHENTICATED');
     const input = createInvoiceSchema.parse(req.body);
 
     const invoice = await financeService.createInvoice(
@@ -127,25 +134,34 @@ export async function createInvoiceHandler(req: Request, res: Response, next: Ne
 
 export async function recordPaymentHandler(req: Request, res: Response, next: NextFunction) {
   try {
-    if (!req.auth?.tenantId) throw new Error("No tenant context");
-    const { invoiceId } = req.params;
+    if (!req.auth?.tenantId || !req.auth?.sub) {
+      throw new AppError('Authentication required', 401, 'UNAUTHENTICATED');
+    }
+
+    const invoiceId = req.params.invoiceId || req.params.id;
+    if (!invoiceId) {
+      throw new AppError('Invoice ID is required', 400, 'INVALID_INVOICE_ID');
+    }
+
     const input = recordPaymentSchema.parse(req.body);
 
-    await financeService.recordPayment(
+    const payment = await financeService.recordPayment(
       req.auth.tenantId,
       invoiceId,
       {
         amount: input.amount,
         method: input.method,
         reference: input.reference,
-      }
+      },
+      req.auth.sub
     );
 
-    res.status(200).json({ success: true, message: 'Payment recorded' });
+    res.status(200).json({ success: true, message: 'Payment recorded', data: payment });
   } catch (err) {
     next(err);
   }
 }
+
 const bulkInvoiceSchema = z.object({
   classId: z.string(),
   title: z.string().min(1),
@@ -155,27 +171,33 @@ const bulkInvoiceSchema = z.object({
 
 export async function bulkInvoiceHandler(req: Request, res: Response, next: NextFunction) {
   try {
-    if (!req.auth?.tenantId) throw new Error("No tenant context");
+    if (!req.auth?.tenantId) throw new AppError('Authentication required', 401, 'UNAUTHENTICATED');
     const input = bulkInvoiceSchema.parse(req.body);
     const result = await financeService.generateBulkInvoices(req.auth.tenantId, input as any);
     res.status(201).json({ success: true, data: result });
-  } catch (err) { next(err); }
+  } catch (err) {
+    next(err);
+  }
 }
 
 export async function getSummaryHandler(req: Request, res: Response, next: NextFunction) {
   try {
-    if (!req.auth?.tenantId) throw new Error("No tenant context");
+    if (!req.auth?.tenantId) throw new AppError('Authentication required', 401, 'UNAUTHENTICATED');
     const result = await financeService.getFinanceSummary(req.auth.tenantId);
     res.status(200).json({ success: true, data: result });
-  } catch (err) { next(err); }
+  } catch (err) {
+    next(err);
+  }
 }
 
 export async function listPaymentsHandler(req: Request, res: Response, next: NextFunction) {
   try {
-    if (!req.auth?.tenantId) throw new Error("No tenant context");
+    if (!req.auth?.tenantId) throw new AppError('Authentication required', 401, 'UNAUTHENTICATED');
     const result = await financeService.listPayments(req.auth.tenantId);
     res.status(200).json({ success: true, data: result });
-  } catch (err) { next(err); }
+  } catch (err) {
+    next(err);
+  }
 }
 
 const initializeGatewaySchema = z.object({
@@ -190,7 +212,7 @@ const initializeGatewaySchema = z.object({
 
 export async function initializeGatewayPaymentHandler(req: Request, res: Response, next: NextFunction) {
   try {
-    if (!req.auth?.tenantId) throw new Error("No tenant context");
+    if (!req.auth?.tenantId) throw new AppError('Authentication required', 401, 'UNAUTHENTICATED');
     const input = initializeGatewaySchema.parse(req.body);
 
     const { PaymentGatewayService } = await import('../services/payment-gateway.service.js');
@@ -206,7 +228,9 @@ export async function initializeGatewayPaymentHandler(req: Request, res: Respons
     });
 
     res.status(200).json({ success: true, data: result });
-  } catch (err) { next(err); }
+  } catch (err) {
+    next(err);
+  }
 }
 
 export async function chapaWebhookHandler(req: Request, res: Response, next: NextFunction) {
@@ -214,15 +238,13 @@ export async function chapaWebhookHandler(req: Request, res: Response, next: Nex
     const signature = req.headers['x-chapa-signature'] as string | undefined;
     const { PaymentGatewayService } = await import('../services/payment-gateway.service.js');
 
-    // In production, verify signature
-    const isValid = PaymentGatewayService.verifyChapaWebhookSignature(
+    PaymentGatewayService.verifyChapaWebhookSignature(
       JSON.stringify(req.body),
       signature
     );
 
     const { tx_ref, status } = req.body;
     if (status === 'success' || !process.env.CHAPA_SECRET_KEY) {
-      // tx_ref format: TXN-CHAPA-<invoiceSlice>-<timestamp>
       const invoiceId = req.body.meta?.invoiceId || req.body.invoiceId;
       const tenantId = req.body.meta?.tenantId || (req as any).tenantId;
 
@@ -239,7 +261,9 @@ export async function chapaWebhookHandler(req: Request, res: Response, next: Nex
     }
 
     res.status(200).json({ received: true });
-  } catch (err) { next(err); }
+  } catch (err) {
+    next(err);
+  }
 }
 
 export async function telebirrWebhookHandler(req: Request, res: Response, next: NextFunction) {
@@ -261,5 +285,7 @@ export async function telebirrWebhookHandler(req: Request, res: Response, next: 
     }
 
     res.status(200).json({ code: 0, message: 'success' });
-  } catch (err) { next(err); }
+  } catch (err) {
+    next(err);
+  }
 }

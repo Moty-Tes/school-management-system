@@ -91,13 +91,65 @@ interface PostDismissalReport {
   }>;
 }
 
+interface EarlyWarningInsights {
+  period: {
+    startDate: string;
+    endDate: string;
+  };
+  policy: {
+    thresholdPercent: number;
+    criticalPercent: number;
+    minSessions: number;
+    formula: string;
+  };
+  summary: {
+    totalRecords: number;
+    uniqueStudents: number;
+    flaggedCount: number;
+    criticalCount: number;
+    warningCount: number;
+    presentCount: number;
+    lateCount: number;
+    absentCount: number;
+    overallAttendanceRate: number;
+  };
+  flaggedStudents: Array<{
+    studentId: string;
+    admissionNumber: string;
+    studentName: string;
+    classId: string;
+    className: string;
+    totalSessions: number;
+    presentCount: number;
+    lateCount: number;
+    absentCount: number;
+    attendanceRate: number;
+    riskLevel: 'CRITICAL' | 'WARNING';
+    lastRecordedDate: string;
+  }>;
+}
+
+function getIsoDaysAgo(daysAgo: number): string {
+  const d = new Date();
+  d.setUTCDate(d.getUTCDate() - daysAgo);
+  return d.toISOString().slice(0, 10);
+}
+
 export default function AttendancePage() {
   const [role, setRole] = useState<'ADMIN' | 'TEACHER' | 'REGISTRAR' | 'PARENT'>('ADMIN');
-  const [activeTab, setActiveTab] = useState<'ROSTER' | 'GATE_SCANNER'>('ROSTER');
+  const [activeTab, setActiveTab] = useState<'ROSTER' | 'EARLY_WARNING' | 'GATE_SCANNER'>('ROSTER');
   const [attendanceRecords, setAttendanceRecords] = useState<AttendanceRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [filters, setFilters] = useState<FilterState>({ search: '', status: 'all', dateRange: 'this-week' });
   const reducedMotion = use_reducedMotion();
+
+  // Early-Warning Insights state
+  const [insightsStartDate, setInsightsStartDate] = useState<string>(() => getIsoDaysAgo(29));
+  const [insightsEndDate, setInsightsEndDate] = useState<string>(() => getIsoDaysAgo(0));
+  const [insightsThreshold, setInsightsThreshold] = useState<number>(85);
+  const [insightsLoading, setInsightsLoading] = useState<boolean>(false);
+  const [insightsError, setInsightsError] = useState<string | null>(null);
+  const [insightsData, setInsightsData] = useState<EarlyWarningInsights | null>(null);
 
   // Gate Scanner state
   const [scanAdmissionNumber, setScanAdmissionNumber] = useState('');
@@ -124,7 +176,35 @@ export default function AttendancePage() {
 
     loadAttendance();
     loadRecentGateScans();
+    loadEarlyWarningInsights(insightsStartDate, insightsEndDate, insightsThreshold);
   }, []);
+
+  async function loadEarlyWarningInsights(
+    start = insightsStartDate,
+    end = insightsEndDate,
+    threshold = insightsThreshold
+  ) {
+    if (start && end && start > end) {
+      setInsightsError('Start date must be on or before the end date.');
+      return;
+    }
+
+    try {
+      setInsightsLoading(true);
+      setInsightsError(null);
+      const params = new URLSearchParams({
+        startDate: start,
+        endDate: end,
+        thresholdPercent: String(threshold),
+      });
+      const res = await api.get<EarlyWarningInsights>(`/api/v1/attendance/insights?${params.toString()}`);
+      setInsightsData(res);
+    } catch (err: any) {
+      setInsightsError(err?.message || 'Unable to load attendance early-warning insights.');
+    } finally {
+      setInsightsLoading(false);
+    }
+  }
 
   async function loadAttendance() {
     try {
@@ -223,11 +303,11 @@ export default function AttendancePage() {
               </p>
             </div>
 
-            <div className="flex rounded-xl bg-neutral-200 dark:bg-neutral-800 p-1 self-start sm:self-center">
+            <div className="flex flex-wrap rounded-xl bg-neutral-200 dark:bg-neutral-800 p-1 self-start sm:self-center gap-1">
               <button
                 type="button"
                 onClick={() => setActiveTab('ROSTER')}
-                className={`px-4 py-2 text-xs font-semibold rounded-lg transition-all ${
+                className={`px-3 sm:px-4 py-2 text-xs font-semibold rounded-lg transition-all ${
                   activeTab === 'ROSTER'
                     ? 'bg-white dark:bg-neutral-900 text-neutral-900 dark:text-neutral-100 shadow-sm'
                     : 'text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-100'
@@ -237,8 +317,25 @@ export default function AttendancePage() {
               </button>
               <button
                 type="button"
+                onClick={() => setActiveTab('EARLY_WARNING')}
+                className={`px-3 sm:px-4 py-2 text-xs font-semibold rounded-lg flex items-center gap-1.5 transition-all ${
+                  activeTab === 'EARLY_WARNING'
+                    ? 'bg-white dark:bg-neutral-900 text-neutral-900 dark:text-neutral-100 shadow-sm'
+                    : 'text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-100'
+                }`}
+              >
+                <AlertTriangle className="w-3.5 h-3.5 text-amber-500" />
+                Early Warning
+                {insightsData && insightsData.summary.flaggedCount > 0 && (
+                  <span className="px-1.5 py-0.5 rounded-full bg-rose-100 text-rose-700 dark:bg-rose-900/50 dark:text-rose-300 text-[10px] font-bold">
+                    {insightsData.summary.flaggedCount}
+                  </span>
+                )}
+              </button>
+              <button
+                type="button"
                 onClick={() => setActiveTab('GATE_SCANNER')}
-                className={`px-4 py-2 text-xs font-semibold rounded-lg flex items-center gap-1.5 transition-all ${
+                className={`px-3 sm:px-4 py-2 text-xs font-semibold rounded-lg flex items-center gap-1.5 transition-all ${
                   activeTab === 'GATE_SCANNER'
                     ? 'bg-white dark:bg-neutral-900 text-neutral-900 dark:text-neutral-100 shadow-sm'
                     : 'text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-100'
@@ -355,6 +452,7 @@ export default function AttendancePage() {
                   title="No attendance records found"
                   description="No matching classroom records found for this period."
                   actionLabel="Refresh Records"
+                  actionOnClick={loadAttendance}
                 />
               ) : (
                 <Table>
@@ -391,7 +489,198 @@ export default function AttendancePage() {
             </div>
           )}
 
-          {/* TAB 2: GATE SCANNER TERMINAL */}
+          {/* TAB 2: EARLY WARNING INSIGHTS */}
+          {activeTab === 'EARLY_WARNING' && (
+            <div className="space-y-6">
+              <Card>
+                <div className="p-4 sm:p-5 space-y-4">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div>
+                      <h2 className="text-base font-bold text-neutral-900 dark:text-neutral-100 flex items-center gap-2">
+                        <AlertTriangle className="w-4 h-4 text-amber-500" />
+                        Attendance Early-Warning Policy &amp; Period Filter
+                      </h2>
+                      <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-0.5">
+                        Flags students with at least {insightsData?.policy.minSessions ?? 3} recorded sessions whose attendance rate falls below {insightsThreshold}% (Critical below {Math.max(0, insightsThreshold - 10)}%). Rate = (Present + Late) / Total Sessions.
+                      </p>
+                    </div>
+                    <Button
+                      variant="primary"
+                      size="sm"
+                      onClick={() => loadEarlyWarningInsights(insightsStartDate, insightsEndDate, insightsThreshold)}
+                      disabled={insightsLoading}
+                    >
+                      <RefreshCw className={`w-3.5 h-3.5 mr-1.5 ${insightsLoading ? 'animate-spin' : ''}`} />
+                      Analyze Period
+                    </Button>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div>
+                      <label className="block text-xs font-semibold text-neutral-500 uppercase tracking-wider mb-1">
+                        Start Date
+                      </label>
+                      <input
+                        type="date"
+                        value={insightsStartDate}
+                        onChange={(e) => setInsightsStartDate(e.target.value)}
+                        className="w-full rounded-lg border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-800 px-3 py-2 text-xs"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-neutral-500 uppercase tracking-wider mb-1">
+                        End Date
+                      </label>
+                      <input
+                        type="date"
+                        value={insightsEndDate}
+                        onChange={(e) => setInsightsEndDate(e.target.value)}
+                        className="w-full rounded-lg border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-800 px-3 py-2 text-xs"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-neutral-500 uppercase tracking-wider mb-1">
+                        Alert Threshold (%)
+                      </label>
+                      <select
+                        value={insightsThreshold}
+                        onChange={(e) => {
+                          const nextVal = Number(e.target.value);
+                          setInsightsThreshold(nextVal);
+                          loadEarlyWarningInsights(insightsStartDate, insightsEndDate, nextVal);
+                        }}
+                        className="w-full rounded-lg border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-800 px-3 py-2 text-xs"
+                      >
+                        <option value={80}>Below 80% (Strict)</option>
+                        <option value={85}>Below 85% (School Standard)</option>
+                        <option value={90}>Below 90% (Early Watch)</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  {insightsError && (
+                    <div className="rounded-lg border border-rose-300 bg-rose-50 dark:bg-rose-950/30 dark:border-rose-800 p-3 text-xs text-rose-700 dark:text-rose-300 flex items-center gap-2">
+                      <AlertCircle className="w-4 h-4 shrink-0" />
+                      <span>{insightsError}</span>
+                    </div>
+                  )}
+                </div>
+              </Card>
+
+              {insightsLoading ? (
+                <Skeleton className="h-64 rounded-xl" />
+              ) : insightsData ? (
+                <>
+                  <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                    <Card>
+                      <div className="p-4 text-center">
+                        <div className="text-2xl sm:text-3xl font-extrabold text-indigo-600 dark:text-indigo-400">
+                          {insightsData.summary.overallAttendanceRate}%
+                        </div>
+                        <div className="text-xs font-medium text-neutral-500 uppercase tracking-wider mt-1">
+                          Period Attendance Rate
+                        </div>
+                      </div>
+                    </Card>
+                    <Card>
+                      <div className="p-4 text-center">
+                        <div className="text-2xl sm:text-3xl font-extrabold text-neutral-900 dark:text-neutral-100">
+                          {insightsData.summary.uniqueStudents}
+                        </div>
+                        <div className="text-xs font-medium text-neutral-500 uppercase tracking-wider mt-1">
+                          Students Tracked
+                        </div>
+                      </div>
+                    </Card>
+                    <Card>
+                      <div className="p-4 text-center">
+                        <div className="text-2xl sm:text-3xl font-extrabold text-amber-600 dark:text-amber-400">
+                          {insightsData.summary.warningCount}
+                        </div>
+                        <div className="text-xs font-medium text-neutral-500 uppercase tracking-wider mt-1">
+                          Warning Tier
+                        </div>
+                      </div>
+                    </Card>
+                    <Card>
+                      <div className="p-4 text-center">
+                        <div className="text-2xl sm:text-3xl font-extrabold text-rose-600 dark:text-rose-400">
+                          {insightsData.summary.criticalCount}
+                        </div>
+                        <div className="text-xs font-medium text-neutral-500 uppercase tracking-wider mt-1">
+                          Critical Tier
+                        </div>
+                      </div>
+                    </Card>
+                  </div>
+
+                  {insightsData.flaggedStudents.length === 0 ? (
+                    <KpiEmptyStateComponent
+                      icon="CheckCircle2"
+                      title="No Early-Warning Alerts"
+                      description={`All students with at least ${insightsData.policy.minSessions} sessions met the ${insightsData.policy.thresholdPercent}% attendance threshold between ${insightsData.period.startDate} and ${insightsData.period.endDate}.`}
+                      actionLabel="Refresh Analysis"
+                      actionOnClick={() => loadEarlyWarningInsights(insightsStartDate, insightsEndDate, insightsThreshold)}
+                    />
+                  ) : (
+                    <Card>
+                      <div className="p-4 overflow-x-auto">
+                        <table className="w-full text-left text-xs">
+                          <thead>
+                            <tr className="border-b border-neutral-200 dark:border-neutral-800 text-neutral-500 uppercase tracking-wider">
+                              <th className="py-2.5 px-3">Student</th>
+                              <th className="py-2.5 px-3">Class</th>
+                              <th className="py-2.5 px-3">Sessions</th>
+                              <th className="py-2.5 px-3">Absent / Late</th>
+                              <th className="py-2.5 px-3">Rate</th>
+                              <th className="py-2.5 px-3">Risk</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-neutral-200 dark:divide-neutral-800">
+                            {insightsData.flaggedStudents.map((item) => (
+                              <tr key={item.studentId}>
+                                <td className="py-3 px-3">
+                                  <div className="font-semibold text-neutral-900 dark:text-neutral-100">
+                                    {item.studentName}
+                                  </div>
+                                  <div className="text-[11px] font-mono text-neutral-400">
+                                    {item.admissionNumber}
+                                  </div>
+                                </td>
+                                <td className="py-3 px-3 text-neutral-600 dark:text-neutral-300">
+                                  {item.className}
+                                </td>
+                                <td className="py-3 px-3 font-mono">{item.totalSessions}</td>
+                                <td className="py-3 px-3 text-neutral-600 dark:text-neutral-300">
+                                  {item.absentCount} absent / {item.lateCount} late
+                                </td>
+                                <td className="py-3 px-3 font-bold text-neutral-900 dark:text-neutral-100">
+                                  {item.attendanceRate}%
+                                </td>
+                                <td className="py-3 px-3">
+                                  <span
+                                    className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${
+                                      item.riskLevel === 'CRITICAL'
+                                        ? 'bg-rose-100 text-rose-800 dark:bg-rose-950/60 dark:text-rose-300'
+                                        : 'bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300'
+                                    }`}
+                                  >
+                                    {item.riskLevel}
+                                  </span>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </Card>
+                  )}
+                </>
+              ) : null}
+            </div>
+          )}
+
+          {/* TAB 3: GATE SCANNER TERMINAL */}
           {activeTab === 'GATE_SCANNER' && (
             <div className="space-y-6">
               {/* Hardware Disconnected Notice */}

@@ -90,13 +90,27 @@ export async function exportFinance(tenantId: string) {
   return convertToCsv(headers, rows, isDemo);
 }
 
-export async function exportAttendance(tenantId: string, dateStr: string) {
+export async function exportAttendance(
+  tenantId: string,
+  dateStr: string,
+  allowedClassIds?: string[]
+) {
   const date = new Date(dateStr);
   date.setUTCHours(0, 0, 0, 0);
 
+  if (allowedClassIds && allowedClassIds.length === 0) {
+    const isDemo = await isDemoTenant(tenantId);
+    const headers = ['Date', 'Student Name', 'Admission No', 'Class', 'Status'];
+    return convertToCsv(headers, [], isDemo);
+  }
+
   const [records, isDemo] = await Promise.all([
     prisma.attendance.findMany({
-      where: { tenantId, date },
+      where: {
+        tenantId,
+        date,
+        ...(allowedClassIds ? { classId: { in: allowedClassIds } } : {}),
+      },
       include: { student: { include: { class: true } } },
       orderBy: { student: { firstName: 'asc' } },
     }),
